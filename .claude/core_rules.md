@@ -1,0 +1,118 @@
+# Core Coding Rules
+
+These rules are enforced via ESLint, TypeScript, Prettier, and Git hooks. All code in this project must follow them.
+
+## 1. Component Rules
+
+- **Functional components only** — no class components
+- **One component per file** — the file name matches the component name in PascalCase (`UserCard.tsx` exports `UserCard`)
+- **Use `export default function`** for page/layout components, **named exports** for shared/reusable components
+- **Props via interfaces** — define a `Props` interface (or `ComponentNameProps`) above the component, never use `any`
+
+```tsx
+// Good
+interface UserCardProps {
+  name: string;
+  role: "admin" | "member";
+}
+
+export function UserCard({ name, role }: UserCardProps) {
+  return (
+    <div>
+      {name} — {role}
+    </div>
+  );
+}
+```
+
+## 2. Hooks Rules
+
+- Only call hooks at the **top level** of components or custom hooks — never inside loops, conditions, or nested functions
+- **Custom hooks** must start with `use` prefix and live in `src/hooks/` (e.g., `useAuth.ts`)
+- Prefer `useCallback` for functions passed as props to child components
+- Prefer `useMemo` only for genuinely expensive computations — don't over-memoize
+
+## 3. State Management
+
+- **Local state first** — use `useState`/`useReducer` before reaching for global state
+- **Lift state only as high as needed** — not higher
+- For shared state across distant components, use React Context with a dedicated provider in `src/providers/`
+- Never mutate state directly — always use setter functions or return new objects
+
+## 4. TypeScript Rules
+
+- **`strict: true`** is enabled — do not weaken it
+- **No `any`** — use `unknown` if the type is truly unknown, then narrow it
+- **No type assertions (`as`)** unless absolutely necessary and commented why
+- **Prefer interfaces** for object shapes, **type aliases** for unions/intersections
+- All function parameters and return types should be inferable or explicitly typed
+
+## 5. File & Folder Organization
+
+```
+src/
+├── app/              # Next.js App Router (pages, layouts, route handlers)
+│   ├── (routes)/     # Route groups for organizing pages
+│   ├── api/          # API route handlers
+│   ├── layout.tsx    # Root layout
+│   └── globals.css   # Global styles
+├── components/       # Reusable UI components
+│   ├── ui/           # Primitives (Button, Input, Card, etc.)
+│   └── features/     # Feature-specific composed components
+├── hooks/            # Custom React hooks
+├── lib/              # Utility functions, constants, config
+├── providers/        # React Context providers
+├── types/            # Shared TypeScript type definitions
+└── services/         # API client functions, external service wrappers
+```
+
+## 6. Naming Conventions
+
+| Thing            | Convention                                          | Example                  |
+| ---------------- | --------------------------------------------------- | ------------------------ |
+| Components       | PascalCase                                          | `UserCard.tsx`           |
+| Hooks            | camelCase with `use` prefix                         | `useAuth.ts`             |
+| Utilities/lib    | camelCase                                           | `formatDate.ts`          |
+| Types/Interfaces | PascalCase                                          | `UserProfile`            |
+| Constants        | UPPER_SNAKE_CASE                                    | `MAX_RETRY_COUNT`        |
+| CSS classes      | Tailwind utilities (no custom CSS unless necessary) | `className="flex gap-4"` |
+| Route folders    | kebab-case                                          | `app/user-settings/`     |
+
+## 7. Import Order
+
+Imports should follow this order (enforced by ESLint):
+
+1. React / Next.js built-ins (`react`, `next/...`)
+2. Third-party packages
+3. Internal aliases (`@/components/...`, `@/lib/...`)
+4. Relative imports (`./`, `../`)
+5. Type-only imports (`import type { ... }`)
+
+## 8. Error Handling
+
+- Use **error boundaries** (`error.tsx`) at route segment level for UI errors
+- API route handlers must return proper status codes and typed error responses
+- Never swallow errors silently — log them or surface them to the user
+- Use `loading.tsx` and `Suspense` boundaries for async data
+
+## 9. Performance
+
+- Use Next.js `<Image>` component instead of `<img>` — always
+- Use `next/link` for internal navigation — never `<a>` for internal routes
+- Mark client components with `"use client"` only when needed — keep Server Components as default
+- Lazy load heavy components with `dynamic()` from `next/dynamic`
+
+## 10. Styling
+
+- **Tailwind CSS is the primary styling method** — avoid custom CSS files
+- Use Tailwind's design tokens for consistency (spacing, colors, typography)
+- For complex conditional classes, use `clsx` or `cn` utility
+- Support dark mode via Tailwind's `dark:` variant
+- Responsive design: mobile-first with `sm:`, `md:`, `lg:` breakpoints
+
+## 11. Security
+
+- Validate all user inputs at the boundary (forms, API routes)
+- Use `next/headers` for reading headers/cookies — never trust client-side values on the server
+- Sanitize any user-generated content before rendering
+- Environment secrets go in `.env.local` only — never hardcode them
