@@ -59,4 +59,7 @@ Read that file before writing or reviewing any code.
 
 ## Reference Documents
 
-`external_docs/RWA_Connect_Requirements_v2.0.docx` contains the full product requirements. Consult this when implementing new features.
+`external_docs/RWA_Connect_MVP_v1.0.docx` — MVP spec (what to build first, 8-12 weeks).
+`external_docs/RWA_Connect_Full_Spec_v3.0.docx` — Full product vision (all phases, worldwide expansion).
+`execution_plan/MVP/` — Build-ready MVP plan with phases, tasks, DB schema, and UI wireframes.
+`execution_plan/full_spec/` — Complete product roadmap from v3.0 spec (8 phases, 12-18 months).
