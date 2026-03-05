@@ -34,7 +34,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(null);
         return;
       }
-      const data = await res.json();
+      const data = (await res.json()) as AuthUser & Record<string, unknown>;
       setUser({
         id: data.id,
         name: data.name,

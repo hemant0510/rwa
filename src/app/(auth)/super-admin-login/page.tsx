@@ -50,7 +50,7 @@ export default function SuperAdminLoginPage() {
         return;
       }
 
-      const me = await res.json();
+      const me = (await res.json()) as { role: string };
       if (me.role !== "SUPER_ADMIN") {
         toast.error("Not authorized as Super Admin.");
         await supabase.auth.signOut();

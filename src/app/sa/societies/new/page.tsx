@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ArrowRight, Check, Loader2 } from "lucide-react";
-import { useForm } from "react-hook-form";
+import { useForm, type FieldErrors } from "react-hook-form";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -131,7 +131,7 @@ export default function NewSocietyPage() {
       <form
         onSubmit={handleSubmit(
           (data) => mutation.mutate(data),
-          (fieldErrors) => {
+          (fieldErrors: FieldErrors<CreateSocietyInput>) => {
             // Find the first error's step and show a toast
             const step0Fields = ["name", "state", "city", "pincode", "type", "societyCode"];
             const step1Fields = ["joiningFee", "annualFee"];

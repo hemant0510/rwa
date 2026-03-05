@@ -51,7 +51,7 @@ export default function LoginPage() {
         return;
       }
 
-      const me = await res.json();
+      const me = (await res.json()) as { redirectTo: string };
       toast.success("Login successful!");
       router.push(me.redirectTo);
       router.refresh();

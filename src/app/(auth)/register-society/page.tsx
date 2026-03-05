@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, ArrowRight, Building2, Loader2 } from "lucide-react";
-import { useForm } from "react-hook-form";
+import { useForm, type FieldErrors } from "react-hook-form";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -98,7 +98,7 @@ export default function RegisterSocietyPage() {
       });
 
       if (!res.ok) {
-        const err = await res.json();
+        const err = (await res.json()) as { error?: { message?: string } };
         toast.error(err.error?.message ?? "Registration failed");
         return;
       }
@@ -161,7 +161,7 @@ export default function RegisterSocietyPage() {
       </div>
 
       <form
-        onSubmit={handleSubmit(onSubmit, (fieldErrors) => {
+        onSubmit={handleSubmit(onSubmit, (fieldErrors: FieldErrors<RegisterSocietyInput>) => {
           const step0Fields = ["name", "state", "city", "pincode", "type", "societyCode"];
           const errorKeys = Object.keys(fieldErrors);
           const firstError = Object.values(fieldErrors)[0];

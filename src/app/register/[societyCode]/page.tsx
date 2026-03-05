@@ -69,10 +69,10 @@ export default function RegisterPage({ params }: { params: Promise<{ societyCode
         }),
       });
       if (!res.ok) {
-        const err = await res.json();
+        const err = (await res.json()) as { error?: { message?: string } };
         throw new Error(err.error?.message || "Registration failed");
       }
-      return res.json();
+      return (await res.json()) as { id: string; message: string };
     },
     onSuccess: () => setSubmitted(true),
     onError: (err: Error) => toast.error(err.message),
