@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { Prisma } from "@prisma/client";
+
 import { parseBody, internalError } from "@/lib/api-helpers";
 import { TRIAL_PERIOD_DAYS, DEFAULT_JOINING_FEE, DEFAULT_ANNUAL_FEE } from "@/lib/constants";
 import { generateSocietyId } from "@/lib/fee-calculator";
@@ -62,7 +64,7 @@ export async function POST(request: NextRequest) {
     trialEndsAt.setDate(trialEndsAt.getDate() + TRIAL_PERIOD_DAYS);
 
     try {
-      const result = await prisma.$transaction(async (tx) => {
+      const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         const society = await tx.society.create({
           data: {
             societyId,

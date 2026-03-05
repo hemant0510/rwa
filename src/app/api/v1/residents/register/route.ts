@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { internalError } from "@/lib/api-helpers";
@@ -122,7 +123,7 @@ export async function POST(request: NextRequest) {
 
     // Create pending user + unit in a transaction
     try {
-      const user = await prisma.$transaction(async (tx) => {
+      const user = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         const newUser = await tx.user.create({
           data: {
             societyId: society.id,

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { Prisma } from "@prisma/client";
+
 import { parseBody, notFoundError, internalError } from "@/lib/api-helpers";
 import { prisma } from "@/lib/prisma";
 import { grantExemptionSchema } from "@/lib/validations/fee";
@@ -17,7 +19,7 @@ export async function POST(
     const fee = await prisma.membershipFee.findUnique({ where: { id: feeId } });
     if (!fee || fee.societyId !== societyId) return notFoundError("Fee record not found");
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       await tx.membershipFee.update({
         where: { id: feeId },
         data: {

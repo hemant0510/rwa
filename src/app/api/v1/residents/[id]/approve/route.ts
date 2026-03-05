@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { Prisma } from "@prisma/client";
+
 import { notFoundError, internalError } from "@/lib/api-helpers";
 import { generateRWAID, calculateProRata, getSessionYear } from "@/lib/fee-calculator";
 import { prisma } from "@/lib/prisma";
@@ -55,7 +57,7 @@ export async function PATCH(
     const sessionYear = getSessionYear(now, society.feeSessionStartMonth);
 
     // Transaction: approve + create unit + create fee record
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Update user
       const updatedUser = await tx.user.update({
         where: { id },

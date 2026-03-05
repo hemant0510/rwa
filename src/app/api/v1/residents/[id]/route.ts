@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { notFoundError, internalError, unauthorizedError, forbiddenError } from "@/lib/api-helpers";
@@ -152,7 +153,7 @@ export async function DELETE(
     const previousStatus = resident.status;
 
     // Soft-delete + audit log in transaction
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       await tx.user.update({
         where: { id },
         data: {

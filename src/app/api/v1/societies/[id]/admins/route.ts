@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { parseBody, notFoundError, internalError } from "@/lib/api-helpers";
@@ -49,7 +50,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       );
     }
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       let userId = data.existingUserId;
 
       if (!userId) {
