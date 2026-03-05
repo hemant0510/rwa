@@ -1,56 +1,51 @@
 # MVP Phase 2 — Resident Registration & RWAID
 
 **Duration**: ~2 weeks
-**Goal**: Residents self-register via Society Code. Admins approve. RWAID card auto-generated.
+**Goal**: Residents register via invite-link. Admins approve. RWAID string auto-generated (no PDF card).
 **Depends on**: Phase 1 (society + admin exist)
+
+> **v2 changes**:
+>
+> - Registration is **invite-link only** (no Society Code self-registration Path B).
+> - RWAID is a **string only** (no PDF card, no QR code, no WhatsApp image).
+> - Auth is **email/password** (no OTP/mobile).
+> - `email` is required, `mobile` is optional.
 
 ---
 
-## Task 2.1 — Public Registration Page
+## Task 2.1 — Invite-Link Registration Page
 
 ### Backend
 
-- API: `GET /api/v1/societies/by-code/[code]` — validates code, returns society name + type
-- API: `POST /api/v1/residents/register` — creates pending registration
+- API: `GET /api/v1/invite/[token]` — validates invite token, returns society name + type
+- API: `POST /api/v1/residents/register` — creates pending registration + Supabase Auth account
 - Upload: `POST /api/v1/upload/id-proof` — uploads to Supabase Storage (private bucket)
 
-### UI Screen: `/register/[societyCode]`
+> **v2 change**: No Society Code self-registration (Path B). Registration is via invite-link only. Admin generates invite links from the society detail page. Invite link contains a signed token with societyId and optional expiry.
 
-**Step 1 — Society Code Verification** (also accessible at `/register` with manual entry):
+### UI Screen: `/register/[inviteToken]`
+
+**Step 1 — Invite Link Validation** (no manual code entry):
 
 ```
 ┌─────────────────────────────────────────────────────┐
 │                                                      │
 │          [RWA Connect Logo]                          │
 │                                                      │
-│     Join Your Society                                │
+│     Join Eden Estate RWA                             │
+│     Gurgaon, Haryana                                 │
 │                                                      │
-│     Enter your Society Code                          │
-│     ┌──────────────────────────────────┐            │
-│     │ EDENESTATE                       │            │
-│     └──────────────────────────────────┘            │
-│     Ask your RWA Admin for this code                 │
+│     You've been invited to register as a             │
+│     resident of this society.                        │
 │                                                      │
-│     [Verify →]                                       │
-│                                                      │
-│     ─────────────────────────────────                │
-│     Don't have a code? Contact your                  │
-│     society's RWA committee.                         │
+│     [Continue to Registration →]                     │
 │                                                      │
 └─────────────────────────────────────────────────────┘
 ```
 
-On valid code → Shows society name confirmation:
+On invalid/expired token → Error: "This invite link is invalid or has expired. Please contact your RWA admin for a new link."
 
-```
-  ✓ Eden Estate Resident Welfare Association
-    Gurgaon, Haryana
-    [Continue to Registration →]
-```
-
-On invalid code → Error: "Society code not found. Please check with your RWA admin."
-
-**Security**: No society information is exposed until valid code entered (prevents enumeration).
+**Security**: Society information is only shown when a valid invite token is provided (prevents enumeration).
 
 ---
 
@@ -66,7 +61,18 @@ On invalid code → Error: "Society code not found. Please check with your RWA a
 │  │                                              │   │
 │  └──────────────────────────────────────────────┘   │
 │                                                      │
-│  Mobile Number (WhatsApp) *                          │
+│  Email *                                             │
+│  ┌──────────────────────────────────────────────┐   │
+│  │                                              │   │
+│  └──────────────────────────────────────────────┘   │
+│                                                      │
+│  Password *                                          │
+│  ┌──────────────────────────────────────────────┐   │
+│  │                                              │   │
+│  └──────────────────────────────────────────────┘   │
+│  Minimum 8 characters                                │
+│                                                      │
+│  Mobile Number (optional, for WhatsApp)              │
 │  ┌──────────────────────────────────────────────┐   │
 │  │ +91                                          │   │
 │  └──────────────────────────────────────────────┘   │
@@ -113,11 +119,6 @@ On invalid code → Error: "Society code not found. Please check with your RWA a
 │                                                      │
 │  ── Optional ──────────────────────────────────────  │
 │                                                      │
-│  Email                                               │
-│  ┌──────────────────────────────────────────────┐   │
-│  │                                              │   │
-│  └──────────────────────────────────────────────┘   │
-│                                                      │
 │  Photo ID (Aadhaar / Voter ID / Passport)            │
 │  ┌──────────────────────────────────────────────┐   │
 │  │  [Choose File]   No file chosen              │   │
@@ -130,7 +131,8 @@ On invalid code → Error: "Society code not found. Please check with your RWA a
 │  └──────────────────────────────────────────────┘   │
 │                                                      │
 │  [✓] I consent to receive WhatsApp notifications     │
-│      from RWA Connect for society communications *   │
+│      from RWA Connect for society communications     │
+│      (optional — only if mobile number provided)     │
 │                                                      │
 │  [Submit Registration →]                             │
 └─────────────────────────────────────────────────────┘
@@ -156,27 +158,27 @@ On invalid code → Error: "Society code not found. Please check with your RWA a
 
 **Components to build**:
 
-- `SocietyCodeVerifier` — Code input with verify button + society confirmation display
+- `InviteTokenValidator` — Validates invite token and shows society info
 - `DynamicUnitFields` — Renders different address fields based on `society.type`
 - `FileUploadInput` — Drag-and-drop or click, with preview, 5MB limit, type validation
-- `RegistrationForm` — Full form using React Hook Form + Zod
-- `RegistrationConfirmation` — Success state with WhatsApp info
+- `RegistrationForm` — Full form using React Hook Form + Zod (email/password + optional mobile)
+- `RegistrationConfirmation` — Success state with info about admin approval
 
-**Acceptance**: Full flow works for all 5 society types. Dynamic fields render correctly. File upload works. Confirmation shown.
+**Acceptance**: Full flow works for all 5 society types via invite-link. Dynamic fields render correctly. File upload works. Confirmation shown. Supabase Auth account created with email/password.
 
 ---
 
 ## Task 2.2 — Registration Edge Cases
 
-| Edge Case                           | Detection                       | UI Behavior                                                              |
-| ----------------------------------- | ------------------------------- | ------------------------------------------------------------------------ |
-| **Duplicate mobile (same society)** | Check `users` table             | Toast error: "This mobile number is already registered in this society." |
-| **Duplicate mobile (diff society)** | No check needed                 | Allowed — one person can be in multiple societies                        |
-| **Blacklisted mobile**              | Check `blacklisted_numbers`     | Generic error: "Unable to process registration. Contact admin."          |
-| **Invalid society code**            | Code lookup fails               | "Society code not found. Please check with your RWA admin."              |
-| **Society suspended**               | Society status check            | "This society is currently unavailable. Contact your RWA admin."         |
-| **File too large (>5MB)**           | Client-side check               | Inline error under upload: "File must be under 5MB"                      |
-| **Invalid file type**               | Client-side + server MIME check | Inline error: "Only PDF, JPG, and PNG files accepted"                    |
+| Edge Case                          | Detection                       | UI Behavior                                                           |
+| ---------------------------------- | ------------------------------- | --------------------------------------------------------------------- |
+| **Duplicate email (same society)** | Check `users` table             | Toast error: "This email is already registered in this society."      |
+| **Duplicate email (diff society)** | No check needed                 | Allowed — one person can be in multiple societies                     |
+| **Invalid/expired invite token**   | Token validation fails          | "This invite link is invalid or has expired. Contact your RWA admin." |
+| **Society suspended**              | Society status check            | "This society is currently unavailable. Contact your RWA admin."      |
+| **File too large (>5MB)**          | Client-side check               | Inline error under upload: "File must be under 5MB"                   |
+| **Invalid file type**              | Client-side + server MIME check | Inline error: "Only PDF, JPG, and PNG files accepted"                 |
+| **Weak password**                  | Client-side + server check      | Inline error: "Password must be at least 8 characters"                |
 
 **Acceptance**: All 7 edge cases handled gracefully with user-friendly messages.
 
@@ -295,51 +297,15 @@ async function generateRWAID(societyId: string): Promise<string> {
 
 ---
 
-## Task 2.5 — RWAID Digital Card (PDF)
+## Task 2.5 — ~~RWAID Digital Card (PDF)~~ (DEFERRED to Phase 2)
 
-### Backend
+> **v2 change**: RWAID PDF card generation (PDF, QR code, WhatsApp image) is deferred to Phase 2. In MVP, RWAID is a **string only** — displayed on the resident's profile and in the admin directory.
 
-- API: `GET /api/v1/residents/[id]/rwaid-card` — generates and returns PDF
-- Signed URL for public access: `GET /api/v1/rwaid/[signed-token]`
+### What is kept in MVP:
 
-### UI: Card preview on resident profile + download button
-
-**Card PDF layout** (A6 size, landscape):
-
-```
-┌──────────────────────────────────────────────┐
-│  Eden Estate Resident Welfare Association      │
-│  RWA-HR-GGN-122001-0001                        │
-│ ──────────────────────────────────────────── │
-│                                                │
-│  ┌────────┐   Raj Kumar                        │
-│  │ [Photo]│   House 245, St 7, Sector 22       │
-│  │   or   │   Owner                             │
-│  │silhouet│                                     │
-│  └────────┘   #0089                             │
-│               RWA-HR-GGN-122001-0001-2025-0089  │
-│                                                │
-│  Status: Active          ┌──────────┐          │
-│  Since: March 2026       │ [QR Code]│          │
-│                          │          │          │
-│                          └──────────┘          │
-│                          Scan to verify         │
-│ ──────────────────────────────────────────── │
-│  Powered by RWA Connect                        │
-└──────────────────────────────────────────────┘
-```
-
-**QR Code encodes**: `https://rwaconnect.in/rwaid/[signed-token]`
-
-- Signed token = JWT with `{ rwaid, societyId }`, expires in 365 days
-- Public verify page shows: Name, Unit, Society, Status (no login required)
-
-**Components to build**:
-
-- `RWAIDCardPDF` — `@react-pdf/renderer` document component
-- `RWAIDCardPreview` — In-browser card preview (HTML version)
-- `DownloadCardButton` — Triggers PDF generation + download
-- `ShareCardButton` — Copies shareable URL or triggers WhatsApp share
+- RWAID string displayed on resident profile page (`/resident/home`)
+- RWAID string shown in admin resident directory
+- RWAID string included in WhatsApp approval notification
 
 ### UI on Resident Home (`/resident/home`):
 
@@ -349,15 +315,12 @@ async function generateRWAID(societyId: string): Promise<string> {
 │ ─────────────────────────────────────────────── │
 │                                                  │
 │  ┌────────────────────────────────────────────┐ │
-│  │          [RWAID Card Preview]               │ │
-│  │          (Rendered HTML version)            │ │
-│  │                                             │ │
-│  │  Raj Kumar            #0089                 │ │
+│  │  Raj Kumar                                  │ │
+│  │  RWAID: #0089                               │ │
+│  │  (RWA-HR-GGN-122001-0001-2025-0089)        │ │
 │  │  House 245, St 7, Sector 22                │ │
 │  │  Owner   |   Active                        │ │
-│  │                                             │ │
 │  └────────────────────────────────────────────┘ │
-│  [Download PDF]  [Share via WhatsApp]            │
 │                                                  │
 │  ┌────────────────────────────────────────────┐ │
 │  │  Fee Status: Session 2025-2026              │ │
@@ -366,7 +329,7 @@ async function generateRWAID(societyId: string): Promise<string> {
 └─────────────────────────────────────────────────┘
 ```
 
-**Acceptance**: PDF generates with all fields including QR. QR scans to public verify page. WhatsApp share works. Card regenerates when profile changes.
+**Acceptance**: RWAID string displayed correctly on resident home and admin directory. No PDF card, no QR code, no WhatsApp image generation.
 
 ---
 
@@ -431,19 +394,20 @@ async function generateRWAID(societyId: string): Promise<string> {
 
 ## Phase 2 Definition of Done
 
-- [ ] Public registration page works for all 5 society types
+- [ ] Invite-link registration page works for all 5 society types
 - [ ] Dynamic address fields render correctly per society type
-- [ ] 4 mandatory fields + optional fields all validate
+- [ ] 4 mandatory fields (name, email, unit, ownership) + password + optional fields all validate
 - [ ] File upload (ID proof) works — size/type validated
 - [ ] All 7 edge cases handled with clear error messages
+- [ ] Supabase Auth account created with email/password on registration
 - [ ] Admin sees pending registrations with approve/reject actions
 - [ ] Rejection requires reason selection
-- [ ] RWAID generated correctly on approval (format verified)
+- [ ] RWAID **string** generated correctly on approval (format verified)
 - [ ] Unit display labels correct for all 5 society types
-- [ ] RWAID card PDF generates with QR code
-- [ ] QR scans to public verification page
-- [ ] Resident can download card + share via WhatsApp
+- [ ] ~~RWAID card PDF~~ (deferred to Phase 2+)
+- [ ] ~~QR code / public verification page~~ (deferred to Phase 2+)
+- [ ] RWAID string displayed on resident home and admin directory
 - [ ] Admin resident directory: search, filter, sort, paginate
 - [ ] Resident detail page shows profile + fee history + actions
 - [ ] All screens responsive (360px mobile → 1280px desktop)
-- [ ] WhatsApp sent on registration submit, approval, and rejection
+- [ ] Notifications sent on registration submit, approval, and rejection (WhatsApp if mobile provided, email always)

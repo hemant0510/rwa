@@ -1,7 +1,7 @@
 # MVP Phase 1 — Super Admin Portal & Society Onboarding
 
 **Duration**: ~1.5 weeks
-**Goal**: Super Admin can onboard societies, activate admins, and generate Society Code QR posters.
+**Goal**: Super Admin can onboard societies and activate admins. (QR poster generation deferred to Phase 2.)
 **Depends on**: Phase 0
 
 ---
@@ -54,7 +54,7 @@
   - SEQ = count existing societies with same pincode + 1, zero-padded to 4 digits
 - Society Code: Admin-chosen, 4-8 alphanumeric, uppercase
   - Real-time uniqueness check: `GET /api/v1/societies/check-code?code=DLFP4`
-- Auto-generate QR code poster PDF after creation
+- ~~Auto-generate QR code poster PDF after creation~~ (deferred to Phase 2)
 
 ### UI Screen: `/super-admin/societies/new`
 
@@ -142,7 +142,12 @@
 │  │ Hemant Kumar                                  │   │
 │  └──────────────────────────────────────────────┘   │
 │                                                      │
-│  Admin Mobile (WhatsApp) *                           │
+│  Admin Email *                                       │
+│  ┌──────────────────────────────────────────────┐   │
+│  │ hemant@edenestate.in                          │   │
+│  └──────────────────────────────────────────────┘   │
+│                                                      │
+│  Admin Mobile (optional, for WhatsApp)               │
 │  ┌──────────────────────────────────────────────┐   │
 │  │ 9876543210                                    │   │
 │  └──────────────────────────────────────────────┘   │
@@ -154,7 +159,7 @@
 │  │ Code: EDENESTATE                              │   │
 │  │ Type: Independent Sector                      │   │
 │  │ Fees: ₹1,000 joining + ₹1,200 annual         │   │
-│  │ Admin: Hemant Kumar (9876543210)              │   │
+│  │ Admin: Hemant Kumar (hemant@edenestate.in)    │   │
 │  └──────────────────────────────────────────────┘   │
 │                                                      │
 │                        [← Back]  [Create Society]    │
@@ -172,57 +177,20 @@
 **Post-creation actions**:
 
 1. Society record created in DB
-2. Admin user created with `role = RWA_ADMIN`, `permission = FULL_ACCESS`
-3. WhatsApp OTP sent to admin mobile with setup link
-4. Redirect to society detail page with success toast
+2. Admin user created in `users` table with `role = RWA_ADMIN`, `permission = FULL_ACCESS`
+3. Supabase Auth account created with admin email + temporary password
+4. Welcome email sent to admin with login credentials / password-set link
+5. Redirect to society detail page with success toast
 
-**Acceptance**: Society created in < 5 minutes. Society ID generated correctly. Code uniqueness validated. Admin receives WhatsApp.
+**Acceptance**: Society created in < 5 minutes. Society ID generated correctly. Code uniqueness validated. Admin receives welcome email.
 
 ---
 
-## Task 1.3 — Society Code QR Poster
+## Task 1.3 — ~~Society Code QR Poster~~ (DEFERRED to Phase 2)
 
-### Backend
+> **v2 change**: Society Code QR poster generation is deferred to Phase 2. In MVP, registration is via invite-link only (no Society Code self-registration Path B). The Society Code is still created and stored, but no QR poster is generated.
 
-- API: `GET /api/v1/societies/[id]/qr-poster` (returns PDF)
-- QR encodes: `https://rwaconnect.in/register/[SOCIETY_CODE]`
-
-### UI: Download button on society detail page + auto-generated on creation
-
-**QR Poster PDF layout**:
-
-```
-┌──────────────────────────────────┐
-│                                  │
-│    Eden Estate RWA               │
-│    Gurgaon, Haryana              │
-│                                  │
-│    ┌──────────────────┐          │
-│    │                  │          │
-│    │    [QR CODE]     │          │
-│    │                  │          │
-│    └──────────────────┘          │
-│                                  │
-│    Scan to Register              │
-│    Society Code: EDENESTATE      │
-│                                  │
-│    Or visit:                     │
-│    rwaconnect.in/register/       │
-│    EDENESTATE                    │
-│                                  │
-│    ─────────────────────         │
-│    Powered by RWA Connect        │
-└──────────────────────────────────┘
-```
-
-**Implementation**: `@react-pdf/renderer` + `qrcode` package. A4 portrait, print-ready.
-
-**Components to build**:
-
-- `QRPosterPDF` — React-PDF document component
-- `DownloadQRButton` — Button that triggers PDF generation and download
-
-**Acceptance**: QR poster downloads as PDF. QR scans to correct registration URL. Printable quality.
+No tasks for this section in MVP v1.
 
 ---
 
@@ -275,7 +243,7 @@
 │  Joining Fee: ₹1,000                                     │
 │  Annual Fee: ₹1,200      Supporting: (none)              │
 │                                                          │
-│  [Download QR Poster] [Activate Admin] [Edit Society]    │
+│  [Generate Invite Link] [Activate Admin] [Edit Society]  │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -319,7 +287,11 @@
 │  ┌─────────────────────────────┐        │
 │  │                             │        │
 │  └─────────────────────────────┘        │
-│  Mobile (WhatsApp) *                     │
+│  Email *                                 │
+│  ┌─────────────────────────────┐        │
+│  │                             │        │
+│  └─────────────────────────────┘        │
+│  Mobile (optional, for WhatsApp)         │
 │  ┌─────────────────────────────┐        │
 │  │                             │        │
 │  └─────────────────────────────┘        │
@@ -333,7 +305,7 @@
 - `ActivateAdminSheet` — Sheet/dialog with form
 - `ResidentSearchInput` — Autocomplete search across society residents
 
-**Acceptance**: Existing resident promoted to admin. New admin created. WhatsApp OTP sent. MVP limit of 1 Primary + 1 Supporting enforced.
+**Acceptance**: Existing resident promoted to admin. New admin created with email/password account. Welcome email sent. MVP limit of 1 Primary + 1 Supporting enforced.
 
 ---
 
@@ -343,11 +315,12 @@
 - [ ] Society onboarding wizard: 3-step form with validation
 - [ ] Society ID auto-generated correctly (format verified)
 - [ ] Society Code: admin-chosen with real-time uniqueness check
-- [ ] QR poster PDF downloads with working QR code
+- [ ] ~~QR poster PDF~~ (deferred to Phase 2)
+- [ ] Invite link generation works for society registration
 - [ ] Society list: search, filter by status, pagination
 - [ ] Society detail: all fields, stats, admin team displayed
 - [ ] Admin activation: search existing resident or create new
-- [ ] Admin receives WhatsApp OTP on activation
+- [ ] Admin receives welcome email with login credentials on activation
 - [ ] All UI responsive: works on desktop + tablet + mobile
 - [ ] Loading skeletons on all data-fetching pages
 - [ ] Empty states when no data (e.g., no societies yet)

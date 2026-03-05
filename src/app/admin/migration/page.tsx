@@ -1,0 +1,278 @@
+"use client";
+
+import { useState, useCallback } from "react";
+
+import Link from "next/link";
+
+import {
+  Upload,
+  Download,
+  FileSpreadsheet,
+  CheckCircle,
+  AlertTriangle,
+  Loader2,
+} from "lucide-react";
+import { toast } from "sonner";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { Progress } from "@/components/ui/progress";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
+interface MigrationResult {
+  total: number;
+  valid: number;
+  invalid: number;
+  errors: { row: number; field: string; message: string }[];
+}
+
+export default function MigrationPage() {
+  const [file, setFile] = useState<File | null>(null);
+  const [step, setStep] = useState<"upload" | "validating" | "preview" | "importing" | "done">(
+    "upload",
+  );
+  const [result, setResult] = useState<MigrationResult | null>(null);
+
+  const handleDownloadTemplate = () => {
+    // TODO: Generate and download Excel template
+    toast.info("Template download will be available once backend is connected");
+  };
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files?.[0];
+    if (!selected) return;
+    if (!selected.name.endsWith(".xlsx") && !selected.name.endsWith(".xls")) {
+      toast.error("Please select an Excel file (.xlsx or .xls)");
+      return;
+    }
+    setFile(selected);
+  }, []);
+
+  const handleValidate = async () => {
+    if (!file) return;
+    setStep("validating");
+
+    try {
+      // TODO: Upload file to validation API
+      await new Promise((r) => setTimeout(r, 2000));
+
+      // Mock validation result
+      setResult({
+        total: 25,
+        valid: 22,
+        invalid: 3,
+        errors: [
+          { row: 5, field: "mobile", message: "Invalid mobile number format" },
+          { row: 12, field: "houseNo", message: "House number is required" },
+          { row: 18, field: "name", message: "Name must be at least 2 characters" },
+        ],
+      });
+      setStep("preview");
+    } catch {
+      toast.error("Validation failed");
+      setStep("upload");
+    }
+  };
+
+  const handleImport = async () => {
+    setStep("importing");
+    try {
+      // TODO: Call import API
+      await new Promise((r) => setTimeout(r, 3000));
+      setStep("done");
+      toast.success(`Successfully imported ${result?.valid ?? 0} residents`);
+    } catch {
+      toast.error("Import failed");
+      setStep("preview");
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <PageHeader title="Bulk Migration" description="Import residents from Excel">
+        <Button variant="outline" onClick={handleDownloadTemplate}>
+          <Download className="mr-2 h-4 w-4" />
+          Download Template
+        </Button>
+      </PageHeader>
+
+      {step === "upload" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Upload className="h-4 w-4" />
+              Upload Excel File
+            </CardTitle>
+            <CardDescription>
+              Download the template first, fill in resident data, then upload here for validation.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-col items-center gap-4 rounded-lg border-2 border-dashed p-8">
+              <FileSpreadsheet className="text-muted-foreground h-12 w-12" />
+              <div className="text-center">
+                <p className="font-medium">{file ? file.name : "Select an Excel file"}</p>
+                <p className="text-muted-foreground text-sm">
+                  {file ? `${(file.size / 1024).toFixed(1)} KB` : "Supports .xlsx and .xls files"}
+                </p>
+              </div>
+              <label>
+                <input
+                  type="file"
+                  accept=".xlsx,.xls"
+                  className="hidden"
+                  onChange={handleFileSelect}
+                />
+                <Button variant="outline" asChild>
+                  <span>{file ? "Change File" : "Browse Files"}</span>
+                </Button>
+              </label>
+            </div>
+            {file && (
+              <Button className="w-full" onClick={handleValidate}>
+                Validate & Preview
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {step === "validating" && (
+        <Card>
+          <CardContent className="flex flex-col items-center gap-4 py-12">
+            <Loader2 className="text-primary h-8 w-8 animate-spin" />
+            <p className="font-medium">Validating your data...</p>
+            <Progress value={60} className="w-64" />
+          </CardContent>
+        </Card>
+      )}
+
+      {step === "preview" && result && (
+        <>
+          <div className="grid gap-4 md:grid-cols-3">
+            <Card>
+              <CardContent className="pt-6 text-center">
+                <p className="text-3xl font-bold">{result.total}</p>
+                <p className="text-muted-foreground text-sm">Total Rows</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6 text-center">
+                <p className="text-3xl font-bold text-green-600">{result.valid}</p>
+                <p className="text-muted-foreground text-sm">Valid Records</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6 text-center">
+                <p className="text-3xl font-bold text-red-600">{result.invalid}</p>
+                <p className="text-muted-foreground text-sm">Errors Found</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {result.errors.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <AlertTriangle className="h-4 w-4 text-red-500" />
+                  Validation Errors
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Row</TableHead>
+                        <TableHead>Field</TableHead>
+                        <TableHead>Error</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {result.errors.map((err, i) => (
+                        <TableRow key={i}>
+                          <TableCell>{err.row}</TableCell>
+                          <TableCell>
+                            <Badge variant="secondary" className="text-xs capitalize">
+                              {err.field}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-sm">
+                            {err.message}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setStep("upload");
+                setFile(null);
+                setResult(null);
+              }}
+            >
+              Upload Different File
+            </Button>
+            <Button onClick={handleImport} disabled={result.valid === 0}>
+              Import {result.valid} Valid Records
+            </Button>
+          </div>
+        </>
+      )}
+
+      {step === "importing" && (
+        <Card>
+          <CardContent className="flex flex-col items-center gap-4 py-12">
+            <Loader2 className="text-primary h-8 w-8 animate-spin" />
+            <p className="font-medium">Importing residents...</p>
+            <Progress value={40} className="w-64" />
+          </CardContent>
+        </Card>
+      )}
+
+      {step === "done" && (
+        <Card>
+          <CardContent className="flex flex-col items-center gap-4 py-12">
+            <CheckCircle className="h-12 w-12 text-green-500" />
+            <h2 className="text-xl font-bold">Import Complete!</h2>
+            <p className="text-muted-foreground text-sm">
+              {result?.valid ?? 0} residents have been imported as &quot;Migrated (Pending)&quot;
+              status.
+            </p>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setStep("upload");
+                  setFile(null);
+                  setResult(null);
+                }}
+              >
+                Import More
+              </Button>
+              <Link href="/admin/residents?status=MIGRATED_PENDING">
+                <Button>View Imported</Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}

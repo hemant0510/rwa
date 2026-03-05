@@ -1,15 +1,23 @@
 # MVP Database Design — Complete Schema
 
-**Source**: Adapted from `execution_plan/database-design.md` (full product schema) with MVP-specific adjustments.
+**Source**: Adapted from `execution_plan/database-design.md` (full product schema) with MVP v2-specific adjustments.
 **ORM**: Prisma with PostgreSQL (Supabase)
 **Strategy**: Build the FULL schema on day 1 — even Phase 2+ tables as stubs. Zero migration pain later.
+**Note**: The main Prisma schema is in `prisma/schema.prisma`. This document describes the design decisions and adjustments only.
 
 ---
 
-## MVP Adjustments from Full Spec
+## MVP v2 Adjustments from Full Spec
 
-| Area                | Full Spec                                                                | MVP Change                                                                         |
+| Area                | Full Spec                                                                | MVP v2 Change                                                                      |
 | ------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| **Auth**            | OTP/mobile for admin+resident                                            | **Email/password for ALL users**. No OTP/mobile login.                             |
+| **Super Admin**     | In `users` table with SUPER_ADMIN role                                   | **Separate `super_admins` table** (not in `users` table)                           |
+| **User.email**      | Optional                                                                 | **Required** (used for login)                                                      |
+| **User.mobile**     | Required (used for OTP login)                                            | **Optional** (kept for WhatsApp notifications only)                                |
+| **UserRole enum**   | SUPER_ADMIN, RWA_ADMIN, RESIDENT                                         | **RWA_ADMIN, RESIDENT only** (no SUPER_ADMIN — separate table)                     |
+| **Vehicle model**   | Not in MVP v1                                                            | **New model**: self-service add/remove, type, regNumber, make, model, colour       |
+| **Unit fields**     | Simple (house_no, block, floor)                                          | **Add**: unitType, areaInSqft, parkingSlotsAllotted, evChargingSlot, unitStatus    |
 | Society types       | 4 types (APARTMENT, INDEPENDENT_SECTOR, BUILDER_FLOORS, GATED_COMMUNITY) | **5 types** — add PLOTTED_COLONY, rename GATED_COMMUNITY to GATED_COMMUNITY_VILLAS |
 | Society fees        | No per-society fee columns                                               | **Add** `joining_fee` and `annual_fee` columns on `societies`                      |
 | Society Code        | Auto-generated from name                                                 | **Admin-chosen** (4-8 alphanumeric, unique)                                        |
@@ -17,7 +25,10 @@
 | Admin permissions   | 5 positions + 5 permission levels                                        | **2 only**: FULL_ACCESS (Primary) + READ_NOTIFY (Supporting)                       |
 | Admin positions     | 6 positions (President through Executive Member)                         | **2 only**: PRIMARY + SUPPORTING                                                   |
 | Subscription plan   | 4 tiers                                                                  | Kept but **only BASIC used** for MVP                                               |
-| Registration fields | 8+ mandatory                                                             | **4 mandatory** (name, mobile, unit, ownership)                                    |
+| Registration fields | 8+ mandatory                                                             | **4 mandatory** (name, email, unit, ownership). Mobile optional.                   |
+| **RWAID**           | String + PDF card + QR code                                              | **String only** (no PDF card, no QR, no WhatsApp image)                            |
+| **Registration**    | Society Code self-reg + invite-link                                      | **Invite-link only** (no Society Code Path B in Phase 1)                           |
+| **SMS**             | Full fallback for all notifications                                      | **OTP only** (no full SMS fallback stack)                                          |
 
 ---
 
@@ -41,7 +52,8 @@ CREATE TYPE society_type AS ENUM (
 
 CREATE TYPE subscription_plan AS ENUM ('BASIC', 'STANDARD', 'PREMIUM', 'ENTERPRISE');
 
-CREATE TYPE user_role AS ENUM ('SUPER_ADMIN', 'RWA_ADMIN', 'RESIDENT');
+-- MVP v2: SUPER_ADMIN removed (super admins live in separate `super_admins` table)
+CREATE TYPE user_role AS ENUM ('RWA_ADMIN', 'RESIDENT');
 
 CREATE TYPE ownership_type AS ENUM ('OWNER', 'TENANT');
 -- MVP: Only 2. Full spec adds: OWNER_NRO, JOINT_OWNER (Phase 2)
@@ -192,42 +204,55 @@ Result: RWA-HR-GGN-122001-0001
 
 ---
 
-### 2. users
+### 2. super_admins (NEW in v2)
 
-All platform users — Super Admin, RWA Admins, and Residents.
+Super Admins are in a **separate table** (not in `users`). They log in via email/password at `/super-admin-login`.
 
-**MVP**: Only 4 mandatory fields at registration (name, mobile, unit, ownership). Email, photo, ID proof are optional.
+```sql
+CREATE TABLE super_admins (
+  id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  auth_user_id          UUID UNIQUE NOT NULL,              -- Supabase Auth user ID
+  email                 VARCHAR(100) UNIQUE NOT NULL,
+  name                  VARCHAR(100) NOT NULL,
+  is_active             BOOLEAN NOT NULL DEFAULT true,
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at            TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+### 3. users
+
+RWA Admins and Residents only (no Super Admin in this table).
+
+**MVP v2**: Auth is email/password. `email` is **required** (used for login). `mobile` is **optional** (kept for WhatsApp notifications). Only 4 mandatory fields at registration: name, email, unit, ownership.
 
 ```sql
 CREATE TABLE users (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  society_id            UUID REFERENCES societies(id),    -- NULL for Super Admin
+  society_id            UUID REFERENCES societies(id),
   rwaid                 VARCHAR(40) UNIQUE,                -- RWA-HR-GGN-122001-0001-2025-0089
   auth_user_id          UUID UNIQUE,                       -- Supabase Auth user ID
 
-  -- Identity (only name + mobile mandatory for MVP registration)
+  -- Identity (name + email mandatory for MVP v2 registration; mobile optional)
   name                  VARCHAR(100) NOT NULL,
-  mobile                VARCHAR(15) NOT NULL,
-  email                 VARCHAR(100),
+  email                 VARCHAR(100) NOT NULL,             -- REQUIRED in v2 (used for login)
+  mobile                VARCHAR(15),                       -- OPTIONAL in v2 (kept for WhatsApp)
   photo_url             VARCHAR(500),
   id_proof_url          VARCHAR(500),
 
-  -- Role & ownership
-  role                  user_role NOT NULL,
-  ownership_type        ownership_type,                    -- NULL for Super Admin
+  -- Role & ownership (SUPER_ADMIN removed — see super_admins table)
+  role                  user_role NOT NULL,                 -- RWA_ADMIN or RESIDENT only
+  ownership_type        ownership_type,
   status                resident_status NOT NULL DEFAULT 'PENDING_APPROVAL',
 
   -- Admin permissions (NULL for non-admins)
   admin_permission      admin_permission,                  -- FULL_ACCESS or READ_NOTIFY
 
-  -- Consent (WhatsApp consent mandatory for registration)
+  -- Consent (WhatsApp consent — optional since mobile is optional)
   consent_whatsapp      BOOLEAN NOT NULL DEFAULT false,
   consent_whatsapp_at   TIMESTAMPTZ,
 
-  -- Security
-  pin_hash              VARCHAR(100),                      -- 4-digit PIN (bcrypt hashed)
-  pin_failed_attempts   INTEGER NOT NULL DEFAULT 0,
-  pin_locked_until      TIMESTAMPTZ,
+  -- Security (PIN removed in v2 — auth is email/password via Supabase Auth)
 
   -- Financial
   joining_fee_paid      BOOLEAN NOT NULL DEFAULT false,
@@ -245,14 +270,15 @@ CREATE TABLE users (
   created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
 
-  -- Mobile unique per society (not globally — same person can be in multiple societies)
-  UNIQUE(society_id, mobile)
+  -- Email unique per society (not globally — same person can be in multiple societies)
+  UNIQUE(society_id, email)
 );
 
 CREATE INDEX idx_users_society ON users(society_id);
 CREATE INDEX idx_users_role ON users(role);
 CREATE INDEX idx_users_status ON users(status);
 CREATE INDEX idx_users_rwaid ON users(rwaid);
+CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_mobile ON users(mobile);
 CREATE INDEX idx_users_auth ON users(auth_user_id);
 ```
@@ -269,11 +295,13 @@ Short Display: #0089
 
 ---
 
-### 3. units
+### 4. units
 
 Physical property units — houses, flats, villas, plots.
 
 **MVP change**: Dynamic address fields per society type. All fields nullable — only the relevant ones are filled based on society type.
+
+**New in v2**: Added `unit_type`, `area_in_sqft`, `parking_slots_allotted`, `ev_charging_slot`, `unit_status` fields.
 
 ```sql
 CREATE TABLE units (
@@ -306,6 +334,13 @@ CREATE TABLE units (
 
   -- Shared optional field
   phase                 VARCHAR(20),                       -- Phase 1, Phase 2
+
+  -- NEW in v2: Unit metadata
+  unit_type             VARCHAR(30),                       -- e.g. "2BHK", "3BHK", "Villa", "Plot"
+  area_in_sqft          DECIMAL(10,2),                     -- Built-up or plot area
+  parking_slots_allotted INTEGER NOT NULL DEFAULT 0,       -- Number of parking slots for this unit
+  ev_charging_slot      BOOLEAN NOT NULL DEFAULT false,    -- Has EV charging slot
+  unit_status           VARCHAR(20) NOT NULL DEFAULT 'OCCUPIED', -- OCCUPIED, VACANT, UNDER_CONSTRUCTION
 
   -- Occupancy
   primary_owner_id      UUID REFERENCES users(id),
@@ -343,7 +378,47 @@ PLOTTED_COLONY:           "Plot-{plot_no}-L{lane_no}"                    → "Pl
 
 ---
 
-### 4. user_units (Join table — residents linked to units)
+### 5. vehicles (NEW in v2)
+
+Self-service vehicle registration. Residents can add/remove their own vehicles.
+
+```sql
+CREATE TABLE vehicles (
+  id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  unit_id               UUID NOT NULL REFERENCES units(id),
+  society_id            UUID NOT NULL REFERENCES societies(id),
+
+  -- Vehicle details
+  vehicle_type          VARCHAR(20) NOT NULL,              -- CAR, BIKE, SCOOTER, EV, OTHER
+  registration_number   VARCHAR(20) NOT NULL,              -- e.g. HR26CA1234
+  make                  VARCHAR(50),                       -- e.g. Maruti, Honda
+  model                 VARCHAR(50),                       -- e.g. Swift, Activa
+  colour                VARCHAR(30),                       -- e.g. White, Silver
+
+  -- Parking (Phase 2 features — stub fields, not used in MVP)
+  parking_slot          VARCHAR(20),                       -- Deferred: parking slot approval
+  sticker_number        VARCHAR(20),                       -- Deferred: sticker management
+  ev_slot               BOOLEAN NOT NULL DEFAULT false,
+
+  -- Validity
+  valid_from            TIMESTAMPTZ NOT NULL DEFAULT now(),
+  valid_to              TIMESTAMPTZ,                       -- NULL = no expiry
+  is_active             BOOLEAN NOT NULL DEFAULT true,
+
+  -- Metadata
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at            TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_vehicles_unit ON vehicles(unit_id);
+CREATE INDEX idx_vehicles_society ON vehicles(society_id);
+CREATE INDEX idx_vehicles_registration ON vehicles(registration_number);
+CREATE INDEX idx_vehicles_active ON vehicles(society_id, is_active);
+```
+
+---
+
+### 6. user_units (Join table — residents linked to units)
 
 ```sql
 CREATE TABLE user_units (
@@ -364,7 +439,7 @@ CREATE INDEX idx_user_units_unit ON user_units(unit_id);
 
 ---
 
-### 5. membership_fees
+### 7. membership_fees
 
 Session-wise fee records per user. One record per user per financial session.
 
@@ -430,7 +505,7 @@ amount_due = society.joining_fee + prorata_amount  (if first payment)
 
 ---
 
-### 6. fee_payments
+### 8. fee_payments
 
 Individual payment entries against a fee record. Supports partial payments, corrections, and reversals.
 
@@ -478,7 +553,7 @@ CREATE INDEX idx_payments_receipt ON fee_payments(receipt_no);
 
 ---
 
-### 7. expenses
+### 9. expenses
 
 Society expense ledger. Chronological log with categories.
 
@@ -532,7 +607,7 @@ AS balance_in_hand;
 
 ---
 
-### 8. notifications
+### 10. notifications
 
 WhatsApp/SMS delivery tracking.
 
@@ -573,7 +648,7 @@ CREATE INDEX idx_notifications_type ON notifications(type);
 
 ---
 
-### 9. broadcasts
+### 11. broadcasts
 
 Manual broadcast records (separate from individual notifications).
 
@@ -602,7 +677,7 @@ CREATE INDEX idx_broadcasts_society ON broadcasts(society_id);
 
 ---
 
-### 10. audit_logs
+### 12. audit_logs
 
 Immutable operation log. **INSERT only — no UPDATE or DELETE ever.**
 
@@ -632,7 +707,7 @@ CREATE INDEX idx_audit_action ON audit_logs(action_type);
 
 ---
 
-### 11. migration_batches
+### 13. migration_batches
 
 Tracks bulk Excel import operations.
 
@@ -658,7 +733,7 @@ CREATE INDEX idx_migration_society ON migration_batches(society_id);
 
 ---
 
-### 12. migration_rows
+### 14. migration_rows
 
 Per-row tracking for bulk import operations. Each row from the uploaded Excel maps to one record here.
 
@@ -681,7 +756,7 @@ CREATE INDEX idx_migration_rows_status ON migration_rows(status);
 
 ---
 
-### 13. notification_preferences
+### 15. notification_preferences
 
 Resident opt-in/opt-out for optional notifications.
 
@@ -705,7 +780,7 @@ CREATE TABLE notification_preferences (
 
 ---
 
-### 14. fee_sessions
+### 16. fee_sessions
 
 Tracks financial session configuration per society per year.
 
@@ -736,7 +811,7 @@ CREATE INDEX idx_fee_sessions_society ON fee_sessions(society_id);
 
 These tables exist in the schema from day 1 so adding Phase 2 features requires no migration.
 
-### 15. admin_terms (Phase 2 — Election lifecycle)
+### 17. admin_terms (MVP v2 — Election lifecycle, term tracking)
 
 ```sql
 CREATE TABLE admin_terms (
@@ -761,7 +836,7 @@ CREATE INDEX idx_admin_terms_user ON admin_terms(user_id);
 CREATE INDEX idx_admin_terms_status ON admin_terms(status);
 ```
 
-### 16. festivals (Phase 2 — Festival fund management)
+### 18. festivals (MVP v2 — Basic festival fund management)
 
 ```sql
 CREATE TABLE festivals (
@@ -788,7 +863,7 @@ CREATE TABLE festivals (
 CREATE INDEX idx_festivals_society ON festivals(society_id);
 ```
 
-### 17. festival_contributions (Phase 2)
+### 19. festival_contributions (MVP v2 — Basic contributions)
 
 ```sql
 CREATE TABLE festival_contributions (
@@ -810,7 +885,7 @@ CREATE INDEX idx_contributions_festival ON festival_contributions(festival_id);
 CREATE INDEX idx_contributions_society ON festival_contributions(society_id);
 ```
 
-### 18. expense_queries (Phase 2 — Resident dispute module)
+### 20. expense_queries (Phase 2 — Resident dispute module, deferred)
 
 ```sql
 CREATE TABLE expense_queries (
@@ -833,7 +908,7 @@ CREATE INDEX idx_queries_society ON expense_queries(society_id);
 CREATE INDEX idx_queries_status ON expense_queries(status);
 ```
 
-### 19. property_transfers (Phase 2)
+### 21. property_transfers (Phase 2 — deferred)
 
 ```sql
 CREATE TABLE property_transfers (
@@ -855,7 +930,7 @@ CREATE TABLE property_transfers (
 CREATE INDEX idx_transfers_society ON property_transfers(society_id);
 ```
 
-### 20. visitor_logs (Phase 3 — Visitor management)
+### 22. visitor_logs (Phase 3 — Visitor management, deferred)
 
 ```sql
 CREATE TABLE visitor_logs (
@@ -876,7 +951,7 @@ CREATE TABLE visitor_logs (
 CREATE INDEX idx_visitors_society ON visitor_logs(society_id);
 ```
 
-### 21. dependents (Phase 2)
+### 23. dependents (Phase 2 — deferred)
 
 ```sql
 CREATE TABLE dependents (
@@ -892,7 +967,7 @@ CREATE TABLE dependents (
 CREATE INDEX idx_dependents_user ON dependents(user_id);
 ```
 
-### 22. blacklisted_numbers
+### 24. blacklisted_numbers
 
 ```sql
 CREATE TABLE blacklisted_numbers (

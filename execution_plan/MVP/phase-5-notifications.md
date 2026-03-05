@@ -1,8 +1,10 @@
 # MVP Phase 5 — WhatsApp Notifications & Broadcast
 
 **Duration**: ~1.5 weeks
-**Goal**: 5 mandatory + 2 optional automated WhatsApp notifications, manual bulk broadcast with recipient filtering, SMS fallback.
+**Goal**: 5 mandatory + 2 optional automated WhatsApp notifications, manual bulk broadcast with recipient filtering. SMS for OTP only (no full SMS fallback).
 **Depends on**: Phase 3 (payment triggers), Phase 2 (registration triggers)
+
+> **v2 change**: Full SMS fallback stack is removed. SMS is kept for OTP delivery only (if needed for 2FA in future). WhatsApp notifications are best-effort — if delivery fails after retries, the notification is marked as failed in the log. No SMS fallback chain.
 
 ---
 
@@ -22,10 +24,10 @@
 
 - `src/services/notifications.ts` — Core notification service
 - `src/lib/whatsapp/client.ts` — WATI/Interakt API client
-- `src/lib/sms/client.ts` — MSG91/Twilio SMS client
+- ~~`src/lib/sms/client.ts`~~ — **Removed in v2** (SMS for OTP only, handled by Supabase Auth)
 - Notification queue: BullMQ with Upstash Redis (serverless-compatible)
 - Retry logic: 3 attempts, 5-minute intervals
-- Fallback chain: WhatsApp → (wait 60s) → SMS
+- No SMS fallback — failed WhatsApp notifications are logged as FAILED
 
 ### Environment Variables
 
@@ -33,13 +35,11 @@
 WATI_API_URL=
 WATI_API_TOKEN=
 WATI_SENDER_NUMBER=
-MSG91_AUTH_KEY=
-MSG91_SENDER_ID=
 UPSTASH_REDIS_URL=
 UPSTASH_REDIS_TOKEN=
 ```
 
-**Acceptance**: WATI API connected. Test message sent to internal number. SMS fallback tested.
+**Acceptance**: WATI API connected. Test message sent to internal number. Failed delivery logged correctly (no SMS fallback).
 
 ---
 
@@ -230,19 +230,18 @@ Registration API → Queue Job → WhatsApp API → Success
                                     ↓ (fail)
                               Retry (3x, 5min)
                                     ↓ (all fail)
-                              SMS Fallback → Success
-                                    ↓ (fail)
                               Mark as FAILED in DB
 ```
+
+> **v2 change**: No SMS fallback chain. WhatsApp delivery is best-effort with 3 retries. Failed notifications are logged for admin review.
 
 **Components**:
 
 - `NotificationService` — Orchestrates template selection, variable substitution, queue dispatch
 - `WhatsAppClient` — WATI/Interakt API wrapper (send template, check delivery status)
-- `SMSClient` — MSG91/Twilio wrapper (send OTP, send text)
 - `NotificationQueue` — BullMQ job processor with retry logic
 
-**Acceptance**: All 5 mandatory triggers fire correctly. WhatsApp delivered. SMS fallback works. Failed notifications logged with reason.
+**Acceptance**: All 5 mandatory triggers fire correctly. WhatsApp delivered. Failed notifications logged with reason. No SMS fallback (only used for OTP via Supabase Auth).
 
 ---
 
@@ -290,11 +289,11 @@ Registration API → Queue Job → WhatsApp API → Success
 **Components to build**:
 
 - `DeliveryLogTable` — DataTable with notification delivery history
-- `DeliveryStatusBadge` — ✅ Delivered / ⏳ Sent / ❌ Failed / 📱 SMS Fallback
+- `DeliveryStatusBadge` — ✅ Delivered / ⏳ Sent / ❌ Failed
 - `DeliverySummaryCards` — Sent, Delivered, Failed counts
 - Use shadcn `Table`, `Badge`, `Tabs`, `DatePicker`
 
-**Acceptance**: All sent notifications visible in log. Status updates via webhook. Failed notifications show SMS fallback status.
+**Acceptance**: All sent notifications visible in log. Status updates via webhook. Failed notifications logged with reason (no SMS fallback).
 
 ---
 
@@ -383,7 +382,7 @@ Registration API → Queue Job → WhatsApp API → Success
 │  ⚠ You are about to send a WhatsApp message to: │
 │                                                  │
 │  Recipients: 42 active residents                 │
-│  Channel: WhatsApp (SMS fallback if needed)      │
+│  Channel: WhatsApp                               │
 │                                                  │
 │  This action cannot be undone.                   │
 │                                                  │
@@ -512,15 +511,15 @@ Registration API → Queue Job → WhatsApp API → Success
 - [ ] WhatsApp Business API connected (WATI or Interakt)
 - [ ] All 7 message templates submitted to Meta
 - [ ] At least 5 mandatory templates approved and functional
-- [ ] Registration submitted → WhatsApp to resident
-- [ ] Registration approved → WhatsApp with RWAID + card link
+- [ ] Registration submitted → WhatsApp to resident (if mobile provided)
+- [ ] Registration approved → WhatsApp with RWAID string (no card link — deferred)
 - [ ] Registration rejected → WhatsApp with reason
 - [ ] Payment recorded → WhatsApp with receipt + download link
 - [ ] New registration → WhatsApp alert to admin(s)
 - [ ] Fee reminder (March 1) → WhatsApp to all active residents
 - [ ] Fee overdue (post April 15) → WhatsApp to overdue residents
-- [ ] SMS fallback: triggers after 60s WhatsApp failure
-- [ ] 3 retries with 5-minute intervals before fallback
+- [ ] ~~SMS fallback~~ — **Removed in v2** (SMS for OTP only via Supabase Auth)
+- [ ] 3 retries with 5-minute intervals, then mark as FAILED
 - [ ] Failed notifications logged with reason
 - [ ] Delivery log: shows all notifications with status
 - [ ] Broadcast composer: recipient filter + variables + preview

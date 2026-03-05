@@ -27,8 +27,8 @@ npm install @tanstack/react-query @tanstack/react-table
 # Forms & Validation
 npm install react-hook-form @hookform/resolvers zod
 
-# PDF & QR
-npm install @react-pdf/renderer qrcode
+# PDF (QR poster removed in v2 — keep @react-pdf/renderer for receipts/reports)
+npm install @react-pdf/renderer
 
 # Utilities
 npm install date-fns clsx tailwind-merge lucide-react
@@ -54,8 +54,8 @@ Create the MVP directory structure per `.claude/core_rules.md`.
 src/
 ├── app/
 │   ├── (auth)/                      # Auth pages
-│   │   ├── login/page.tsx           # OTP login (Admin + Resident)
-│   │   ├── super-admin-login/page.tsx # Email+password+2FA
+│   │   ├── login/page.tsx           # Email+password login (Admin + Resident)
+│   │   ├── super-admin-login/page.tsx # Email+password (hidden, Super Admin only)
 │   │   └── layout.tsx
 │   ├── (super-admin)/               # Super Admin portal
 │   │   ├── dashboard/page.tsx
@@ -79,10 +79,8 @@ src/
 │   │   ├── expenses/page.tsx
 │   │   ├── profile/page.tsx
 │   │   └── layout.tsx
-│   ├── register/                    # Public registration
-│   │   └── [societyCode]/page.tsx
-│   ├── rwaid/                       # Public RWAID card viewer
-│   │   └── [token]/page.tsx
+│   ├── register/                    # Invite-link registration
+│   │   └── [inviteToken]/page.tsx   # Invite-link based (no Society Code Path B)
 │   ├── api/v1/                      # REST API routes
 │   │   ├── auth/
 │   │   ├── societies/
@@ -223,9 +221,9 @@ CREATE TYPE admin_permission AS ENUM ('FULL_ACCESS', 'READ_NOTIFY');
 3. Write full `schema.prisma` (all 22 tables including Phase 2 stubs)
 4. `npx prisma migrate dev --name init`
 5. Create `prisma/seed.ts`:
-   - 1 Super Admin (email: admin@rwaconnect.in)
+   - 1 Super Admin in `super_admins` table (email: admin@rwaconnect.in)
    - 1 society (Eden Estate, type: INDEPENDENT_SECTOR, joining_fee: 1000, annual_fee: 1200)
-   - 5 demo residents (3 owners, 2 tenants, mixed fee statuses)
+   - 5 demo residents in `users` table (3 owners, 2 tenants, mixed fee statuses, all with email)
 6. `npx prisma db seed`
 
 **Acceptance**: All tables visible in Prisma Studio. Seed data populated. Phase 2 stub tables exist (empty).
@@ -234,45 +232,46 @@ CREATE TYPE admin_permission AS ENUM ('FULL_ACCESS', 'READ_NOTIFY');
 
 ## Task 0.4 — Authentication Setup
 
-**3 auth flows** (from MVP spec Section 2):
+**MVP v2 change**: Auth is now **email/password for ALL users**. No OTP, no mobile login, no PIN.
 
-| Role        | Auth Method                                    | Session                |
-| ----------- | ---------------------------------------------- | ---------------------- |
-| Super Admin | Email + Password + TOTP 2FA                    | 8h inactivity timeout  |
-| RWA Admin   | Mobile OTP (6-digit, 5-min expiry)             | 8h inactivity timeout  |
-| Resident    | Mobile OTP → Set 4-digit PIN for return visits | 30 days trusted device |
+- Super Admin is in a **separate `super_admins` table** (not in `users`).
+- Single `/login` page for Admin + Resident (email/password).
+- Hidden `/super-admin-login` for Super Admin (email/password).
+- Mobile number is **optional** on User (kept for WhatsApp notifications only).
+
+**2 auth flows** (simplified from v1):
+
+| Role        | Auth Method      | Login Page           | Session                |
+| ----------- | ---------------- | -------------------- | ---------------------- |
+| Super Admin | Email + Password | `/super-admin-login` | 8h inactivity timeout  |
+| RWA Admin   | Email + Password | `/login`             | 8h inactivity timeout  |
+| Resident    | Email + Password | `/login`             | 30 days trusted device |
 
 **Implementation with Supabase Auth**:
 
 1. **Super Admin login** (`/super-admin-login`):
-   - Email + password form
-   - On success: check if TOTP 2FA is enrolled → if yes, prompt for TOTP code
-   - Supabase `signInWithPassword()` + `mfa.verify()`
+   - Email + password form (hidden page, not linked from main UI)
+   - Supabase `signInWithPassword()`
+   - On success: check `super_admins` table for matching `auth_user_id`
+   - Redirect to `/super-admin/dashboard`
 
 2. **Admin + Resident login** (`/login`):
-   - Mobile number input → "Send OTP"
-   - Supabase `signInWithOtp({ phone })`
-   - OTP entry (6 digits, 5-min expiry)
-   - On verify: check user role → redirect to correct portal
-   - Rate limit: 3 OTP requests per phone per hour
-
-3. **Resident PIN** (after first OTP login):
-   - Prompt to set 4-digit PIN
-   - PIN hash stored in `users.pin_hash`
-   - Subsequent logins on same device: PIN only (no OTP)
-   - 5 failed PINs → require OTP re-verification
+   - Email + password form
+   - Supabase `signInWithPassword()`
+   - On verify: check `users` table for role → redirect to correct portal
+   - RWA_ADMIN → `/admin/dashboard`
+   - RESIDENT → `/resident/home`
 
 **Auth API Endpoints**:
 
-| Method | Endpoint                               | Purpose                                     |
-| ------ | -------------------------------------- | ------------------------------------------- |
-| `POST` | `/api/v1/auth/super-admin/login`       | Email + password login → returns session    |
-| `POST` | `/api/v1/auth/super-admin/verify-totp` | TOTP 2FA verification                       |
-| `POST` | `/api/v1/auth/send-otp`                | Send OTP to mobile (Admin + Resident)       |
-| `POST` | `/api/v1/auth/verify-otp`              | Verify 6-digit OTP → returns session + role |
-| `POST` | `/api/v1/auth/set-pin`                 | Set 4-digit PIN (Resident, after first OTP) |
-| `POST` | `/api/v1/auth/verify-pin`              | Verify PIN for trusted-device login         |
-| `POST` | `/api/v1/auth/logout`                  | Destroy session                             |
+| Method | Endpoint                         | Purpose                                        |
+| ------ | -------------------------------- | ---------------------------------------------- |
+| `POST` | `/api/v1/auth/super-admin/login` | Email + password login → returns session       |
+| `POST` | `/api/v1/auth/login`             | Email + password login (Admin + Resident)      |
+| `POST` | `/api/v1/auth/register`          | Create account (invite-link registration flow) |
+| `POST` | `/api/v1/auth/forgot-password`   | Send password reset email                      |
+| `POST` | `/api/v1/auth/reset-password`    | Reset password with token                      |
+| `POST` | `/api/v1/auth/logout`            | Destroy session                                |
 
 **Session Timeout Mechanism**:
 
@@ -280,7 +279,7 @@ CREATE TYPE admin_permission AS ENUM ('FULL_ACCESS', 'READ_NOTIFY');
 | ----------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Super Admin | 8h inactivity          | Server-side: Supabase session with custom `idle_timeout`. Client-side: activity tracker resets on mouse/keyboard/touch events. After 7h 45m idle, show "Session expiring" toast. At 8h, call `/api/v1/auth/logout` and redirect to `/super-admin-login`. |
 | RWA Admin   | 8h inactivity          | Same mechanism as Super Admin. Redirect to `/login`.                                                                                                                                                                                                     |
-| Resident    | 30 days trusted device | Supabase refresh token with 30-day expiry. PIN stored per-device via `localStorage` device fingerprint. If PIN not set or device not trusted, require OTP.                                                                                               |
+| Resident    | 30 days trusted device | Supabase refresh token with 30-day expiry.                                                                                                                                                                                                               |
 
 **Implementation**: Track last activity timestamp in `sessionStorage`. A `useIdleTimeout` hook checks every 60 seconds and triggers logout when exceeded. The hook resets on `mousedown`, `keydown`, `touchstart`, and `scroll` events.
 
@@ -294,10 +293,11 @@ CREATE TYPE admin_permission AS ENUM ('FULL_ACCESS', 'READ_NOTIFY');
 export function getSession(): Promise<Session | null>;
 export function getCurrentUser(): Promise<UserWithRole | null>;
 export function requireAuth(role: UserRole): Promise<UserWithRole>;
+export function requireSuperAdmin(): Promise<SuperAdmin>;
 export function requireSociety(societyId: string): Promise<void>;
 ```
 
-**Acceptance**: All 3 login flows work. Sessions persist correctly. OTP rate limiting enforced. Idle timeout triggers logout after 8h for admins.
+**Acceptance**: Both login flows work (super admin + admin/resident). Sessions persist correctly. Idle timeout triggers logout after 8h for admins. Password reset flow works.
 
 ---
 
@@ -305,16 +305,15 @@ export function requireSociety(societyId: string): Promise<void>;
 
 **File**: `src/middleware.ts`
 
-| Route Pattern                  | Access               | Redirect                   |
-| ------------------------------ | -------------------- | -------------------------- |
-| `/`                            | Public               | —                          |
-| `/login`, `/super-admin-login` | Unauthenticated only | → portal home if logged in |
-| `/register/*`                  | Public               | —                          |
-| `/rwaid/*`                     | Public (signed URL)  | —                          |
-| `/super-admin/*`               | SUPER_ADMIN only     | → `/login`                 |
-| `/admin/*`                     | RWA_ADMIN only       | → `/login`                 |
-| `/resident/*`                  | RESIDENT only        | → `/login`                 |
-| `/api/v1/*`                    | JWT required         | 401                        |
+| Route Pattern                  | Access                          | Redirect                   |
+| ------------------------------ | ------------------------------- | -------------------------- |
+| `/`                            | Public                          | —                          |
+| `/login`, `/super-admin-login` | Unauthenticated only            | → portal home if logged in |
+| `/register/*`                  | Public (invite-link)            | —                          |
+| `/super-admin/*`               | Super Admin only (super_admins) | → `/super-admin-login`     |
+| `/admin/*`                     | RWA_ADMIN only                  | → `/login`                 |
+| `/resident/*`                  | RESIDENT only                   | → `/login`                 |
+| `/api/v1/*`                    | JWT required                    | 401                        |
 
 **Permission Matrix (FULL_ACCESS vs READ_NOTIFY)**:
 
@@ -421,7 +420,11 @@ export const createSocietySchema = z.object({
   joiningFee: z.number().min(0).max(100000),
   annualFee: z.number().min(0).max(100000),
   adminName: z.string().min(2).max(100),
-  adminMobile: z.string().regex(/^[6-9]\d{9}$/),
+  adminEmail: z.string().email(),
+  adminMobile: z
+    .string()
+    .regex(/^[6-9]\d{9}$/)
+    .optional(), // Optional in v2
 });
 ```
 
@@ -430,11 +433,15 @@ export const createSocietySchema = z.object({
 ```typescript
 export const registerResidentSchema = z.object({
   fullName: z.string().min(2).max(100),
-  mobile: z.string().regex(/^[6-9]\d{9}$/, "Invalid Indian mobile number"),
+  email: z.string().email(), // REQUIRED in v2 (used for login)
+  password: z.string().min(8).max(100), // REQUIRED in v2 (email/password auth)
+  mobile: z
+    .string()
+    .regex(/^[6-9]\d{9}$/)
+    .optional(), // OPTIONAL in v2 (for WhatsApp only)
   // Unit fields are dynamic based on society type — validated server-side
   ownershipType: z.enum(["OWNER", "TENANT"]),
-  email: z.string().email().optional().or(z.literal("")),
-  consentWhatsApp: z.literal(true, { errorMap: () => ({ message: "WhatsApp consent required" }) }),
+  consentWhatsApp: z.boolean().optional(), // Optional since mobile is optional
 });
 ```
 
@@ -488,8 +495,8 @@ export const queryKeys = {
 **.env.local** (git-ignored):
 
 ```
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_URL=
+SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 DATABASE_URL=
 DIRECT_URL=
@@ -517,11 +524,12 @@ jobs:
 ## Phase 0 Definition of Done
 
 - [ ] All packages installed, `npm run build` passes
-- [ ] All 22 DB tables created, seed data populated
-- [ ] Super Admin logs in with email + password + TOTP
-- [ ] Admin logs in with mobile OTP
-- [ ] Resident logs in with mobile OTP, can set PIN
-- [ ] Route guards enforce role-based access
+- [ ] All DB tables created (including new `super_admins`, `vehicles`), seed data populated
+- [ ] Super Admin logs in with email + password at `/super-admin-login`
+- [ ] Admin logs in with email + password at `/login`
+- [ ] Resident logs in with email + password at `/login`
+- [ ] Super Admin is in separate `super_admins` table (not in `users`)
+- [ ] Route guards enforce role-based access (super admin checked against `super_admins` table)
 - [ ] 3 layout shells render correctly (sidebar + bottom nav)
 - [ ] Design system: StatusBadge, DataTable, EmptyState, Skeleton all working
 - [ ] Zod schemas defined for all entities

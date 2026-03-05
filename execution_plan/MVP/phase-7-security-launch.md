@@ -48,15 +48,14 @@ Every table with society-scoped data gets an RLS policy at the PostgreSQL layer.
 
 ### Rate Limiting
 
-| Endpoint                       | Limit        | Window               |
-| ------------------------------ | ------------ | -------------------- |
-| `POST /api/v1/auth/otp/send`   | 3 requests   | per phone per hour   |
-| `POST /api/v1/auth/otp/verify` | 5 attempts   | per phone per 15 min |
-| `POST /api/v1/auth/pin/verify` | 5 attempts   | then require OTP     |
-| `POST /api/v1/register/*`      | 5 requests   | per IP per hour      |
-| `GET /api/v1/*`                | 100 requests | per user per minute  |
-| `POST /api/v1/*`               | 50 requests  | per user per minute  |
-| `POST /api/v1/broadcasts`      | 5 requests   | per admin per hour   |
+| Endpoint                            | Limit        | Window               |
+| ----------------------------------- | ------------ | -------------------- |
+| `POST /api/v1/auth/login`           | 5 attempts   | per email per 15 min |
+| `POST /api/v1/auth/forgot-password` | 3 requests   | per email per hour   |
+| `POST /api/v1/register/*`           | 5 requests   | per IP per hour      |
+| `GET /api/v1/*`                     | 100 requests | per user per minute  |
+| `POST /api/v1/*`                    | 50 requests  | per user per minute  |
+| `POST /api/v1/broadcasts`           | 5 requests   | per admin per hour   |
 
 ### Implementation
 
@@ -76,12 +75,12 @@ Every table with society-scoped data gets an RLS policy at the PostgreSQL layer.
 ### Authentication Hardening
 
 - JWT token expiry: 1 hour (access), 7 days (refresh)
-- Session inactivity timeout: 8 hours (Admin), 30 days (Resident with PIN)
-- TOTP 2FA for Super Admin: enforced, not optional
-- PIN lockout: 5 failed attempts → require full OTP re-verification
-- Mobile number verification: OTP must be verified before any data access
+- Session inactivity timeout: 8 hours (Admin/Super Admin), 30 days (Resident)
+- Email/password for all users (no OTP, no PIN in v2)
+- Login lockout: 5 failed attempts per email per 15 min
+- Password reset: email-based reset flow via Supabase Auth
 
-**Acceptance**: Rate limits enforced on all endpoints. File upload validated. Auth timeouts work. PIN lockout tested.
+**Acceptance**: Rate limits enforced on all endpoints. File upload validated. Auth timeouts work. Login lockout tested.
 
 ---
 
@@ -98,11 +97,10 @@ Every table with society-scoped data gets an RLS policy at the PostgreSQL layer.
 
 ### Sensitive Data Handling
 
-- `pin_hash`: bcrypt with 12 salt rounds — never stored in plain text
-- Mobile numbers: Displayed masked in UI (98765xxxxx) except to the user themselves
+- Passwords: Supabase Auth handles bcrypt hashing (no PIN in v2)
+- Mobile numbers (when provided): Displayed masked in UI (98765xxxxx) except to the user themselves
 - Aadhaar/ID proof: Stored encrypted in Supabase Storage, access via signed URLs (1-hour expiry)
-- Admin passwords: Supabase Auth handles bcrypt hashing
-- No PII in logs: Middleware strips mobile numbers and names from server logs
+- No PII in logs: Middleware strips mobile numbers, emails, and names from server logs
 
 ### DPDP Compliance (India)
 
@@ -146,41 +144,23 @@ audit_logs (
 | CREATE | broadcast        | Message, recipient count, admin            |
 | UPDATE | admin_role       | Admin activated/deactivated                |
 
-### UI: Audit Log (Super Admin only)
+### ~~UI: Audit Log (Super Admin only)~~ (DEFERRED to Phase 2)
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  [Sidebar]  │  Audit Log — Eden Estate RWA                  │
-│             │────────────────────────────────────────────────│
-│  Dashboard  │                                                │
-│  Societies  │  Filter: [All Actions ▾]  Entity: [All ▾]    │
-│  Settings   │  From: [____]  To: [____]                     │
-│  Audit Log←│                                                │
-│             │  ┌───────────────────────────────────────────┐│
-│             │  │ Time      │ User    │ Action    │ Detail   ││
-│             │  │───────────│─────────│───────────│──────────││
-│             │  │ 14:32 today│ Hemant │ PAYMENT   │ ₹1,200  ││
-│             │  │           │         │ CREATED   │ for #0089││
-│             │  │ 14:30     │ Hemant  │ RESIDENT  │ Priya S. ││
-│             │  │           │         │ APPROVED  │ #0003    ││
-│             │  │ 12:15     │ System  │ FEE_STATUS│ 5 → Over ││
-│             │  │           │         │ UPDATED   │ due      ││
-│             │  │ 10:05     │ Hemant  │ EXPENSE   │ ₹4,800  ││
-│             │  │           │         │ CREATED   │ Security ││
-│             │  │ 09:00     │ Hemant  │ EXPENSE   │ ₹500→Rev││
-│             │  │           │         │ REVERSED  │ Duplicate││
-│             │  └───────────────────────────────────────────┘│
-│             │  Showing 1-20 of 156       [< 1 2 3 ... 8 >] │
-└─────────────┴───────────────────────────────────────────────┘
-```
+> **v2 change**: Audit log admin UI is deferred to Phase 2. Audit trail data is still **written to the database** for all key operations (this is essential for compliance). However, the admin-facing UI to browse/search audit logs is not in MVP scope. Super Admins can access audit data directly via database queries if needed.
 
-**Components to build**:
+**What is kept in MVP**:
 
-- `AuditLogTable` — DataTable with time, user, action, detail columns
-- `AuditDetailSheet` — Side sheet showing full before/after JSON diff
-- Use shadcn `Table`, `Select`, `DatePicker`, `Sheet`
+- All key operations are still logged to the `audit_logs` table
+- Before/after values captured for updates
+- Logged operations: see table above
 
-**Acceptance**: All key operations logged. Audit log searchable by action type, entity, date. Before/after values captured for updates.
+**What is deferred**:
+
+- `AuditLogTable` UI component
+- `AuditDetailSheet` UI component
+- Search/filter/pagination UI for audit logs
+
+**Acceptance**: All key operations logged to DB. No admin UI for browsing logs (deferred).
 
 ---
 
@@ -270,10 +250,10 @@ audit_logs (
 
 | #   | Scenario                | Steps                                                   | Expected                                  |
 | --- | ----------------------- | ------------------------------------------------------- | ----------------------------------------- |
-| 1   | Society creation        | Super Admin → Onboard Society → Set fees → Create admin | Society created, admin receives WhatsApp  |
-| 2   | Admin login             | Admin → Enter mobile → Receive OTP → Verify → Dashboard | Admin lands on dashboard                  |
-| 3   | Resident registration   | Scan QR → Enter code → Fill form → Submit               | Registration submitted, admin alerted     |
-| 4   | Registration approval   | Admin → Pending → Approve → RWAID generated             | Resident receives RWAID card link         |
+| 1   | Society creation        | Super Admin → Onboard Society → Set fees → Create admin | Society created, admin receives email     |
+| 2   | Admin login             | Admin → Enter email + password → Dashboard              | Admin lands on dashboard                  |
+| 3   | Resident registration   | Click invite link → Fill form (email/password) → Submit | Registration submitted, admin alerted     |
+| 4   | Registration approval   | Admin → Pending → Approve → RWAID string generated      | Resident receives RWAID in notification   |
 | 5   | Registration rejection  | Admin → Pending → Reject with reason                    | Resident receives rejection message       |
 | 6   | Payment recording       | Admin → Fees → Record Payment → Cash ₹1,200             | Receipt generated, WhatsApp sent          |
 | 7   | Partial payment         | Admin → Record ₹800 of ₹1,200 → Status: Partial         | Balance shows ₹400 outstanding            |
@@ -283,7 +263,7 @@ audit_logs (
 | 11  | Bulk import             | Admin → Upload 100-row Excel → Validate → Import        | 100 accounts + RWAIDs created             |
 | 12  | Report download         | Admin → Reports → Paid List → PDF                       | PDF downloads with correct data           |
 | 13  | Broadcast               | Admin → Compose → Send to all → Confirm                 | 42 WhatsApp messages queued               |
-| 14  | Resident login          | Resident → Mobile OTP → Dashboard                       | Sees own RWAID, payment history           |
+| 14  | Resident login          | Resident → Email + password → Dashboard                 | Sees own RWAID string, payment history    |
 | 15  | Cross-society isolation | Admin A tries to access Society B data                  | 403 Forbidden                             |
 
 ### Manual QA Checklist
@@ -334,16 +314,16 @@ audit_logs (
 - [ ] All 7 message templates submitted to Meta
 - [ ] At least 5 mandatory templates approved
 - [ ] Test broadcast sent to 5 internal numbers — delivery confirmed
-- [ ] SMS fallback tested — confirmed working when WhatsApp fails
+- [ ] ~~SMS fallback~~ — Removed in v2 (SMS for OTP only via Supabase Auth)
 
 ### Security
 
 - [ ] SSL/TLS — all traffic HTTPS (Vercel handles this)
 - [ ] Database encrypted at rest (Supabase default)
 - [ ] Storage encrypted at rest (Supabase default)
-- [ ] Super Admin account created with 2FA enforced
-- [ ] OTP rate limiting tested — lockout after 3 attempts
-- [ ] PIN lockout tested — require OTP after 5 failed PINs
+- [ ] Super Admin account created in `super_admins` table
+- [ ] Login rate limiting tested — lockout after 5 failed attempts per email
+- [ ] Password reset flow tested
 - [ ] RLS policies active on all society-scoped tables
 - [ ] No PII in server logs verified
 
@@ -366,13 +346,16 @@ audit_logs (
 
 ### Functional Verification
 
-- [ ] End-to-end flow: Society → Admin → Resident → Payment → Receipt → Expense → Report
+- [ ] End-to-end flow: Society → Admin (email/password) → Resident (invite-link) → Payment → Receipt → Expense → Report
 - [ ] Pro-rata calculation tested for all 12 months
 - [ ] Bulk import tested with 100+ rows
-- [ ] RWAID card PDF generated with scannable QR
-- [ ] Society Code QR poster generated and scannable
+- [ ] RWAID **string** generated correctly on approval
+- [ ] ~~RWAID card PDF~~ — Deferred to Phase 2
+- [ ] ~~Society Code QR poster~~ — Deferred to Phase 2
 - [ ] All 5 reports download as PDF and Excel
 - [ ] Fee status transitions: Pending → Paid → Partial → Overdue
+- [ ] Vehicle registration: self-service add/remove works
+- [ ] Festival fund: create festival, record contributions, view balance
 
 ### Post-Launch
 

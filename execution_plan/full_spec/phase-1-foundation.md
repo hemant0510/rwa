@@ -2109,8 +2109,8 @@ Use `sonner` (shadcn-compatible) for transient feedback:
 
 ```
 # Supabase
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_URL=
+SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 
 # Database (Prisma)
@@ -2136,8 +2136,8 @@ NEXT_PUBLIC_DEFAULT_LOCALE=en
 # Copy this to .env.local and fill in real values
 
 # Supabase
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
 # Database (Prisma)
@@ -2201,8 +2201,8 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
+          SUPABASE_URL: https://placeholder.supabase.co
+          SUPABASE_ANON_KEY: placeholder
           NEXT_PUBLIC_APP_URL: http://localhost:3000
           NEXT_PUBLIC_DEFAULT_LOCALE: en
 ```

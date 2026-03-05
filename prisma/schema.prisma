@@ -1,0 +1,788 @@
+// prisma/schema.prisma
+// Eden Estate RWA Connect — Complete Database Schema
+// 22 tables: 14 core MVP + 8 Phase 2+ stubs
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ═══════════════════════════════════════════════════
+// ENUMS
+// ═══════════════════════════════════════════════════
+
+enum SocietyStatus {
+  ACTIVE
+  TRIAL
+  SUSPENDED
+  OFFBOARDED
+}
+
+enum SocietyType {
+  APARTMENT_COMPLEX
+  BUILDER_FLOORS
+  GATED_COMMUNITY_VILLAS
+  INDEPENDENT_SECTOR
+  PLOTTED_COLONY
+}
+
+enum SubscriptionPlan {
+  BASIC
+  STANDARD
+  PREMIUM
+  ENTERPRISE
+}
+
+enum UserRole {
+  RWA_ADMIN
+  RESIDENT
+}
+
+enum OwnershipType {
+  OWNER
+  TENANT
+}
+
+enum AdminPermission {
+  FULL_ACCESS
+  READ_NOTIFY
+}
+
+enum AdminPosition {
+  PRIMARY
+  SUPPORTING
+}
+
+enum ResidentStatus {
+  PENDING_APPROVAL
+  ACTIVE_PAID
+  ACTIVE_PENDING
+  ACTIVE_OVERDUE
+  ACTIVE_PARTIAL
+  ACTIVE_EXEMPTED
+  REJECTED
+  MIGRATED_PENDING
+  DORMANT
+  DEACTIVATED
+  TRANSFERRED_DEACTIVATED
+  TENANT_DEPARTED
+}
+
+enum FeeStatus {
+  NOT_YET_DUE
+  PENDING
+  OVERDUE
+  PARTIAL
+  PAID
+  EXEMPTED
+}
+
+enum PaymentMode {
+  CASH
+  UPI
+  BANK_TRANSFER
+  OTHER
+}
+
+enum ExpenseStatus {
+  ACTIVE
+  REVERSED
+}
+
+enum ExpenseCategory {
+  MAINTENANCE
+  SECURITY
+  CLEANING
+  STAFF_SALARY
+  INFRASTRUCTURE
+  UTILITIES
+  EMERGENCY
+  ADMINISTRATIVE
+  OTHER
+}
+
+enum NotificationChannel {
+  WHATSAPP
+  SMS
+}
+
+enum NotificationStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+enum AdminTermStatus {
+  ACTIVE
+  EXPIRED
+  EXTENDED
+  RESIGNED
+  REMOVED
+}
+
+enum FestivalStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum DisposalType {
+  REFUNDED
+  TRANSFERRED_TO_FUND
+  CARRIED_FORWARD
+}
+
+enum QueryStatus {
+  OPEN
+  RESPONDED
+  ESCALATED
+  UNDER_REVIEW
+  RESOLVED
+}
+
+enum TransferType {
+  OWNERSHIP_SALE
+  TENANT_DEPARTURE
+  BUILDER_FLOOR_PARTIAL
+  INHERITANCE
+}
+
+// ═══════════════════════════════════════════════════
+// CORE MVP MODELS (1–14)
+// ═══════════════════════════════════════════════════
+
+/// 1. Society — root tenant entity. All data is scoped to this.
+model Society {
+  id                    String             @id @default(uuid()) @db.Uuid
+  societyId             String             @unique @map("society_id") @db.VarChar(30)
+  societyCode           String             @unique @map("society_code") @db.VarChar(8)
+  name                  String             @db.VarChar(200)
+  registrationNo        String?            @map("registration_no") @db.VarChar(50)
+  state                 String             @db.VarChar(2)
+  city                  String             @db.VarChar(50)
+  cityCode              String             @map("city_code") @db.VarChar(3)
+  pincode               String             @db.VarChar(6)
+  type                  SocietyType
+  totalUnits            Int                @default(0) @map("total_units")
+  joiningFee            Decimal            @default(1000) @map("joining_fee") @db.Decimal(10, 2)
+  annualFee             Decimal            @default(1200) @map("annual_fee") @db.Decimal(10, 2)
+  feeSessionStartMonth  Int                @default(4) @map("fee_session_start_month")
+  gracePeriodDays       Int                @default(15) @map("grace_period_days")
+  plan                  SubscriptionPlan   @default(BASIC)
+  status                SocietyStatus      @default(ACTIVE)
+  subscriptionExpiresAt DateTime?          @map("subscription_expires_at")
+  trialEndsAt           DateTime?          @map("trial_ends_at")
+  onboardingDate        DateTime           @default(now()) @map("onboarding_date")
+  createdAt             DateTime           @default(now()) @map("created_at")
+  updatedAt             DateTime           @updatedAt @map("updated_at")
+
+  // Relations to all child models
+  users                    User[]
+  units                    Unit[]
+  membershipFees           MembershipFee[]
+  feePayments              FeePayment[]
+  expenses                 Expense[]
+  notifications            Notification[]
+  broadcasts               Broadcast[]
+  auditLogs                AuditLog[]
+  migrationBatches         MigrationBatch[]
+  feeSessions              FeeSession[]
+  notificationPreferences  NotificationPreference[]
+  adminTerms               AdminTerm[]
+  festivals                Festival[]
+  festivalContributions    FestivalContribution[]
+  expenseQueries           ExpenseQuery[]
+  propertyTransfers        PropertyTransfer[]
+  visitorLogs              VisitorLog[]
+  dependents               Dependent[]
+  blacklistedNumbers       BlacklistedNumber[]
+  vehicles                 Vehicle[]
+
+  @@map("societies")
+}
+
+/// 2. User — all platform users: Super Admin, RWA Admins, and Residents.
+model User {
+  id                  String           @id @default(uuid()) @db.Uuid
+  societyId           String?          @map("society_id") @db.Uuid
+  rwaid               String?          @unique @db.VarChar(40)
+  authUserId          String?          @unique @map("auth_user_id") @db.Uuid
+  name                String           @db.VarChar(100)
+  mobile              String?          @db.VarChar(15)
+  email               String           @db.VarChar(100)
+  photoUrl            String?          @map("photo_url") @db.VarChar(500)
+  idProofUrl          String?          @map("id_proof_url") @db.VarChar(500)
+  role                UserRole
+  ownershipType       OwnershipType?   @map("ownership_type")
+  status              ResidentStatus   @default(PENDING_APPROVAL)
+  adminPermission     AdminPermission? @map("admin_permission")
+  consentWhatsapp     Boolean          @default(false) @map("consent_whatsapp")
+  consentWhatsappAt   DateTime?        @map("consent_whatsapp_at")
+  pinHash             String?          @map("pin_hash") @db.VarChar(100)
+  pinFailedAttempts   Int              @default(0) @map("pin_failed_attempts")
+  pinLockedUntil      DateTime?        @map("pin_locked_until")
+  joiningFeePaid      Boolean          @default(false) @map("joining_fee_paid")
+  registeredAt        DateTime         @default(now()) @map("registered_at")
+  approvedAt          DateTime?        @map("approved_at")
+  approvedById        String?          @map("approved_by") @db.Uuid
+  rejectedAt          DateTime?        @map("rejected_at")
+  rejectedById        String?          @map("rejected_by") @db.Uuid
+  rejectionReason     String?          @map("rejection_reason")
+  activatedAt         DateTime?        @map("activated_at")
+  deactivatedAt       DateTime?        @map("deactivated_at")
+  deactivationReason  String?          @map("deactivation_reason")
+  createdAt           DateTime         @default(now()) @map("created_at")
+  updatedAt           DateTime         @updatedAt @map("updated_at")
+
+  // Self-relations
+  society             Society?         @relation(fields: [societyId], references: [id])
+  approvedBy          User?            @relation("UserApprovedBy", fields: [approvedById], references: [id])
+  rejectedBy          User?            @relation("UserRejectedBy", fields: [rejectedById], references: [id])
+  approvedUsers       User[]           @relation("UserApprovedBy")
+  rejectedUsers       User[]           @relation("UserRejectedBy")
+
+  // Relations to child models
+  userUnits              UserUnit[]
+  membershipFees         MembershipFee[]
+  feePaymentsAsUser      FeePayment[]          @relation("FeePaymentUser")
+  feePaymentsRecorded    FeePayment[]          @relation("FeePaymentRecordedBy")
+  feesExemptedByUser     MembershipFee[]       @relation("FeeExemptedBy")
+  expensesLogged         Expense[]             @relation("ExpenseLoggedBy")
+  expensesReversed       Expense[]             @relation("ExpenseReversedBy")
+  notifications          Notification[]
+  broadcastsSent         Broadcast[]
+  auditLogs              AuditLog[]
+  migrationBatchesUploaded MigrationBatch[]
+  notificationPreferences  NotificationPreference[]
+  ownedUnits             Unit[]                @relation("UnitPrimaryOwner")
+  tenantUnits            Unit[]                @relation("UnitCurrentTenant")
+  adminTerms             AdminTerm[]
+  adminTermsActivated    AdminTerm[]           @relation("AdminTermActivatedBy")
+  adminTermsDeactivated  AdminTerm[]           @relation("AdminTermDeactivatedBy")
+  festivalsCreated       Festival[]
+  festivalContributions  FestivalContribution[] @relation("FestivalContributionUser")
+  festivalContributionsRecorded FestivalContribution[] @relation("FestivalContributionRecordedBy")
+  expenseQueriesRaised   ExpenseQuery[]        @relation("ExpenseQueryRaisedBy")
+  expenseQueriesResponded ExpenseQuery[]       @relation("ExpenseQueryRespondedBy")
+  propertyTransfersOutgoing PropertyTransfer[] @relation("PropertyTransferOutgoing")
+  propertyTransfersIncoming PropertyTransfer[] @relation("PropertyTransferIncoming")
+  propertyTransfersInitiated PropertyTransfer[] @relation("PropertyTransferInitiatedBy")
+  visitorLogs            VisitorLog[]
+  dependents             Dependent[]
+  blacklistedNumbers     BlacklistedNumber[]
+
+  @@unique([societyId, email])
+  @@map("users")
+}
+
+/// 2b. SuperAdmin — platform super administrators (separate from society users).
+model SuperAdmin {
+  id         String   @id @default(uuid()) @db.Uuid
+  authUserId String   @unique @map("auth_user_id") @db.Uuid
+  email      String   @unique @db.VarChar(100)
+  name       String   @db.VarChar(100)
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("super_admins")
+}
+
+/// 3. Unit — physical property units (houses, flats, villas, plots).
+model Unit {
+  id              String    @id @default(uuid()) @db.Uuid
+  societyId       String    @map("society_id") @db.Uuid
+  displayLabel    String    @map("display_label") @db.VarChar(50)
+  towerBlock      String?   @map("tower_block") @db.VarChar(20)
+  floorNo         String?   @map("floor_no") @db.VarChar(10)
+  flatNo          String?   @map("flat_no") @db.VarChar(20)
+  houseNo         String?   @map("house_no") @db.VarChar(20)
+  floorLevel      String?   @map("floor_level") @db.VarChar(10)
+  villaNo         String?   @map("villa_no") @db.VarChar(20)
+  streetPhase     String?   @map("street_phase") @db.VarChar(30)
+  sectorBlock     String?   @map("sector_block") @db.VarChar(20)
+  streetGali      String?   @map("street_gali") @db.VarChar(20)
+  plotNo          String?   @map("plot_no") @db.VarChar(20)
+  laneNo          String?   @map("lane_no") @db.VarChar(20)
+  phase           String?   @db.VarChar(20)
+  unitType        String?   @map("unit_type") @db.VarChar(20) // Flat/Floor/Villa/Shop
+  areaInSqft      Decimal?  @map("area_in_sqft") @db.Decimal(10, 2) // Phase 2: tiered fee calc
+  parkingSlotsAllotted Int? @map("parking_slots_allotted") // Phase 2: slot approval
+  evChargingSlot  Boolean?  @map("ev_charging_slot") // Phase 2: EV management
+  unitStatus      String    @default("VACANT") @map("unit_status") @db.VarChar(20) // VACANT / OCCUPIED
+  primaryOwnerId  String?   @map("primary_owner_id") @db.Uuid
+  currentTenantId String?   @map("current_tenant_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  society         Society   @relation(fields: [societyId], references: [id])
+  primaryOwner    User?     @relation("UnitPrimaryOwner", fields: [primaryOwnerId], references: [id])
+  currentTenant   User?     @relation("UnitCurrentTenant", fields: [currentTenantId], references: [id])
+  userUnits       UserUnit[]
+  membershipFees  MembershipFee[]
+  propertyTransfers PropertyTransfer[]
+  vehicles        Vehicle[]
+
+  @@map("units")
+}
+
+/// 4. UserUnit — join table linking residents to units.
+model UserUnit {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  unitId       String    @map("unit_id") @db.Uuid
+  isPrimary    Boolean   @default(true) @map("is_primary")
+  relationship String    @default("OWNER") @db.VarChar(20)
+  linkedAt     DateTime  @default(now()) @map("linked_at")
+  unlinkedAt   DateTime? @map("unlinked_at")
+
+  user         User      @relation(fields: [userId], references: [id])
+  unit         Unit      @relation(fields: [unitId], references: [id])
+
+  @@unique([userId, unitId])
+  @@map("user_units")
+}
+
+/// 5. MembershipFee — session-wise fee records per user.
+model MembershipFee {
+  id                String     @id @default(uuid()) @db.Uuid
+  userId            String     @map("user_id") @db.Uuid
+  unitId            String?    @map("unit_id") @db.Uuid
+  societyId         String     @map("society_id") @db.Uuid
+  sessionYear       String     @map("session_year") @db.VarChar(7)
+  sessionStart      DateTime   @map("session_start") @db.Date
+  sessionEnd        DateTime   @map("session_end") @db.Date
+  amountDue         Decimal    @map("amount_due") @db.Decimal(10, 2)
+  amountPaid        Decimal    @default(0) @map("amount_paid") @db.Decimal(10, 2)
+  status            FeeStatus  @default(NOT_YET_DUE)
+  gracePeriodEnd    DateTime?  @map("grace_period_end") @db.Date
+  isProrata         Boolean    @default(false) @map("is_prorata")
+  prorataMonths     Int?       @map("prorata_months")
+  joiningFeeIncluded Boolean   @default(false) @map("joining_fee_included")
+  exemptionReason   String?    @map("exemption_reason")
+  exemptedBy        String?    @map("exempted_by") @db.Uuid
+  exemptedAt        DateTime?  @map("exempted_at")
+  isPreMigration    Boolean    @default(false) @map("is_pre_migration")
+  createdAt         DateTime   @default(now()) @map("created_at")
+  updatedAt         DateTime   @updatedAt @map("updated_at")
+
+  user              User       @relation(fields: [userId], references: [id])
+  unit              Unit?      @relation(fields: [unitId], references: [id])
+  society           Society    @relation(fields: [societyId], references: [id])
+  exemptedByUser    User?      @relation("FeeExemptedBy", fields: [exemptedBy], references: [id])
+  feePayments       FeePayment[]
+
+  @@unique([userId, sessionYear])
+  @@map("membership_fees")
+}
+
+/// 6. FeePayment — individual payment entries against a fee record.
+model FeePayment {
+  id                   String       @id @default(uuid()) @db.Uuid
+  feeId                String       @map("fee_id") @db.Uuid
+  userId               String       @map("user_id") @db.Uuid
+  societyId            String       @map("society_id") @db.Uuid
+  amount               Decimal      @db.Decimal(10, 2)
+  paymentMode          PaymentMode  @map("payment_mode")
+  referenceNo          String?      @map("reference_no") @db.VarChar(50)
+  receiptNo            String       @unique @map("receipt_no") @db.VarChar(50)
+  receiptUrl           String?      @map("receipt_url") @db.VarChar(500)
+  paymentDate          DateTime     @map("payment_date") @db.Date
+  notes                String?
+  recordedBy           String       @map("recorded_by") @db.Uuid
+  isReversal           Boolean      @default(false) @map("is_reversal")
+  reversalOf           String?      @map("reversal_of") @db.Uuid
+  reversalReason       String?      @map("reversal_reason")
+  isReversed           Boolean      @default(false) @map("is_reversed")
+  correctionWindowEnds DateTime?    @map("correction_window_ends")
+  createdAt            DateTime     @default(now()) @map("created_at")
+
+  fee                  MembershipFee @relation(fields: [feeId], references: [id])
+  user                 User          @relation("FeePaymentUser", fields: [userId], references: [id])
+  society              Society       @relation(fields: [societyId], references: [id])
+  recorder             User          @relation("FeePaymentRecordedBy", fields: [recordedBy], references: [id])
+  originalPayment      FeePayment?   @relation("PaymentReversal", fields: [reversalOf], references: [id])
+  reversals            FeePayment[]  @relation("PaymentReversal")
+
+  @@map("fee_payments")
+}
+
+/// 7. Expense — society expense ledger.
+model Expense {
+  id                   String          @id @default(uuid()) @db.Uuid
+  societyId            String          @map("society_id") @db.Uuid
+  date                 DateTime        @db.Date
+  amount               Decimal         @db.Decimal(10, 2)
+  category             ExpenseCategory
+  description          String
+  receiptUrl           String?         @map("receipt_url") @db.VarChar(500)
+  loggedBy             String          @map("logged_by") @db.Uuid
+  status               ExpenseStatus   @default(ACTIVE)
+  reversalNote         String?         @map("reversal_note")
+  reversedBy           String?         @map("reversed_by") @db.Uuid
+  reversedAt           DateTime?       @map("reversed_at")
+  correctionWindowEnds DateTime?       @map("correction_window_ends")
+  createdAt            DateTime        @default(now()) @map("created_at")
+  updatedAt            DateTime        @updatedAt @map("updated_at")
+
+  society              Society         @relation(fields: [societyId], references: [id])
+  logger               User            @relation("ExpenseLoggedBy", fields: [loggedBy], references: [id])
+  reverser             User?           @relation("ExpenseReversedBy", fields: [reversedBy], references: [id])
+  expenseQueries       ExpenseQuery[]
+
+  @@map("expenses")
+}
+
+/// 8. Notification — WhatsApp/SMS delivery tracking.
+model Notification {
+  id              String             @id @default(uuid()) @db.Uuid
+  userId          String             @map("user_id") @db.Uuid
+  societyId       String?            @map("society_id") @db.Uuid
+  type            String             @db.VarChar(50)
+  channel         NotificationChannel
+  templateName    String?            @map("template_name") @db.VarChar(100)
+  contentVars     Json?              @map("content_vars")
+  contentPreview  String?            @map("content_preview")
+  status          NotificationStatus @default(QUEUED)
+  sentAt          DateTime?          @map("sent_at")
+  deliveredAt     DateTime?          @map("delivered_at")
+  readAt          DateTime?          @map("read_at")
+  failedReason    String?            @map("failed_reason")
+  retryCount      Int                @default(0) @map("retry_count")
+  broadcastId     String?            @map("broadcast_id") @db.Uuid
+  createdAt       DateTime           @default(now()) @map("created_at")
+
+  user            User               @relation(fields: [userId], references: [id])
+  society         Society?           @relation(fields: [societyId], references: [id])
+
+  @@map("notifications")
+}
+
+/// 9. Broadcast — manual broadcast records.
+model Broadcast {
+  id              String   @id @default(uuid()) @db.Uuid
+  societyId       String   @map("society_id") @db.Uuid
+  sentBy          String   @map("sent_by") @db.Uuid
+  message         String
+  recipientFilter String   @map("recipient_filter") @db.VarChar(30)
+  recipientCount  Int      @map("recipient_count")
+  deliveredCount  Int      @default(0) @map("delivered_count")
+  failedCount     Int      @default(0) @map("failed_count")
+  sentAt          DateTime @default(now()) @map("sent_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  society         Society  @relation(fields: [societyId], references: [id])
+  sender          User     @relation(fields: [sentBy], references: [id])
+
+  @@map("broadcasts")
+}
+
+/// 10. AuditLog — immutable operation log (INSERT only).
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  societyId  String?  @map("society_id") @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  actionType String   @map("action_type") @db.VarChar(20)
+  entityType String   @map("entity_type") @db.VarChar(30)
+  entityId   String   @map("entity_id") @db.Uuid
+  oldValue   Json?    @map("old_value")
+  newValue   Json?    @map("new_value")
+  ipAddress  String?  @map("ip_address")
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  society    Society? @relation(fields: [societyId], references: [id])
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
+
+/// 11. MigrationBatch — tracks bulk Excel import operations.
+model MigrationBatch {
+  id               String    @id @default(uuid()) @db.Uuid
+  societyId        String    @map("society_id") @db.Uuid
+  uploadedBy       String    @map("uploaded_by") @db.Uuid
+  fileUrl          String    @map("file_url") @db.VarChar(500)
+  totalRows        Int       @map("total_rows")
+  validRows        Int       @default(0) @map("valid_rows")
+  errorRows        Int       @default(0) @map("error_rows")
+  importedRows     Int       @default(0) @map("imported_rows")
+  validationReport Json?     @map("validation_report")
+  status           String    @default("UPLOADED") @db.VarChar(20)
+  completedAt      DateTime? @map("completed_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  society          Society          @relation(fields: [societyId], references: [id])
+  uploader         User             @relation(fields: [uploadedBy], references: [id])
+  rows             MigrationRow[]
+
+  @@map("migration_batches")
+}
+
+/// 12. MigrationRow — per-row tracking for bulk import operations.
+model MigrationRow {
+  id           String   @id @default(uuid()) @db.Uuid
+  batchId      String   @map("batch_id") @db.Uuid
+  rowNumber    Int      @map("row_number")
+  rawData      Json     @map("raw_data")
+  status       String   @default("VALID") @db.VarChar(20)
+  errorDetails Json?    @map("error_details")
+  userId       String?  @map("user_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  batch        MigrationBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@map("migration_rows")
+}
+
+/// 13. FeeSession — financial session configuration per society per year.
+model FeeSession {
+  id              String   @id @default(uuid()) @db.Uuid
+  societyId       String   @map("society_id") @db.Uuid
+  sessionYear     String   @map("session_year") @db.VarChar(7)
+  annualFee       Decimal  @map("annual_fee") @db.Decimal(10, 2)
+  joiningFee      Decimal  @map("joining_fee") @db.Decimal(10, 2)
+  sessionStart    DateTime @map("session_start") @db.Date
+  sessionEnd      DateTime @map("session_end") @db.Date
+  gracePeriodEnd  DateTime @map("grace_period_end") @db.Date
+  status          String   @default("UPCOMING") @db.VarChar(20)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  society         Society  @relation(fields: [societyId], references: [id])
+
+  @@unique([societyId, sessionYear])
+  @@map("fee_sessions")
+}
+
+/// 14. NotificationPreference — resident opt-in/opt-out for optional notifications.
+model NotificationPreference {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @map("user_id") @db.Uuid
+  societyId         String   @map("society_id") @db.Uuid
+  feeReminder       Boolean  @default(true) @map("fee_reminder")
+  feeOverdueAlert   Boolean  @default(true) @map("fee_overdue_alert")
+  societyBroadcasts Boolean  @default(true) @map("society_broadcasts")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  user              User     @relation(fields: [userId], references: [id])
+  society           Society  @relation(fields: [societyId], references: [id])
+
+  @@unique([userId, societyId])
+  @@map("notification_preferences")
+}
+
+// ═══════════════════════════════════════════════════
+// PHASE 2+ STUB MODELS (15–22)
+// Created now as empty stubs — zero migration pain later.
+// ═══════════════════════════════════════════════════
+
+/// 15. AdminTerm — admin election lifecycle (Phase 2).
+model AdminTerm {
+  id                  String          @id @default(uuid()) @db.Uuid
+  userId              String          @map("user_id") @db.Uuid
+  societyId           String          @map("society_id") @db.Uuid
+  position            AdminPosition
+  permission          AdminPermission
+  termStart           DateTime        @map("term_start")
+  termEnd             DateTime        @map("term_end")
+  status              AdminTermStatus @default(ACTIVE)
+  extensionCount      Int             @default(0) @map("extension_count")
+  activatedBy         String?         @map("activated_by") @db.Uuid
+  deactivatedBy       String?         @map("deactivated_by") @db.Uuid
+  deactivationReason  String?         @map("deactivation_reason")
+  createdAt           DateTime        @default(now()) @map("created_at")
+  updatedAt           DateTime        @updatedAt @map("updated_at")
+
+  user                User            @relation(fields: [userId], references: [id])
+  society             Society         @relation(fields: [societyId], references: [id])
+  activator           User?           @relation("AdminTermActivatedBy", fields: [activatedBy], references: [id])
+  deactivator         User?           @relation("AdminTermDeactivatedBy", fields: [deactivatedBy], references: [id])
+
+  @@map("admin_terms")
+}
+
+/// 16. Festival — festival fund management (Phase 2).
+model Festival {
+  id                 String          @id @default(uuid()) @db.Uuid
+  societyId          String          @map("society_id") @db.Uuid
+  festivalId         String          @unique @map("festival_id") @db.VarChar(50)
+  name               String          @db.VarChar(200)
+  description        String?
+  eventDate          DateTime        @map("event_date") @db.Date
+  targetAmount       Decimal         @map("target_amount") @db.Decimal(10, 2)
+  collectedAmount    Decimal         @default(0) @map("collected_amount") @db.Decimal(10, 2)
+  spentAmount        Decimal         @default(0) @map("spent_amount") @db.Decimal(10, 2)
+  collectionStart    DateTime        @map("collection_start") @db.Date
+  collectionEnd      DateTime        @map("collection_end") @db.Date
+  status             FestivalStatus  @default(DRAFT)
+  cancellationReason String?         @map("cancellation_reason")
+  surplusDisposal    DisposalType?   @map("surplus_disposal")
+  surplusAmount      Decimal?        @map("surplus_amount") @db.Decimal(10, 2)
+  createdBy          String          @map("created_by") @db.Uuid
+  createdAt          DateTime        @default(now()) @map("created_at")
+  updatedAt          DateTime        @updatedAt @map("updated_at")
+
+  society            Society         @relation(fields: [societyId], references: [id])
+  creator            User            @relation(fields: [createdBy], references: [id])
+  contributions      FestivalContribution[]
+
+  @@map("festivals")
+}
+
+/// 17. FestivalContribution — festival fund contributions (Phase 2).
+model FestivalContribution {
+  id              String      @id @default(uuid()) @db.Uuid
+  festivalId      String      @map("festival_id") @db.Uuid
+  userId          String      @map("user_id") @db.Uuid
+  societyId       String      @map("society_id") @db.Uuid
+  amount          Decimal     @db.Decimal(10, 2)
+  paymentMode     PaymentMode @map("payment_mode")
+  referenceNo     String?     @map("reference_no") @db.VarChar(50)
+  receiptNo       String      @unique @map("receipt_no") @db.VarChar(50)
+  contributedDate DateTime    @map("contributed_date") @db.Date
+  recordedBy      String      @map("recorded_by") @db.Uuid
+  isRefund        Boolean     @default(false) @map("is_refund")
+  createdAt       DateTime    @default(now()) @map("created_at")
+
+  festival        Festival    @relation(fields: [festivalId], references: [id])
+  user            User        @relation("FestivalContributionUser", fields: [userId], references: [id])
+  society         Society     @relation(fields: [societyId], references: [id])
+  recorder        User        @relation("FestivalContributionRecordedBy", fields: [recordedBy], references: [id])
+
+  @@map("festival_contributions")
+}
+
+/// 18. ExpenseQuery — resident dispute module (Phase 2).
+model ExpenseQuery {
+  id             String      @id @default(uuid()) @db.Uuid
+  expenseId      String      @map("expense_id") @db.Uuid
+  societyId      String      @map("society_id") @db.Uuid
+  raisedBy       String      @map("raised_by") @db.Uuid
+  queryText      String      @map("query_text")
+  adminResponse  String?     @map("admin_response")
+  respondedBy    String?     @map("responded_by") @db.Uuid
+  respondedAt    DateTime?   @map("responded_at")
+  status         QueryStatus @default(OPEN)
+  escalatedAt    DateTime?   @map("escalated_at")
+  resolvedAt     DateTime?   @map("resolved_at")
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  expense        Expense     @relation(fields: [expenseId], references: [id])
+  society        Society     @relation(fields: [societyId], references: [id])
+  raiser         User        @relation("ExpenseQueryRaisedBy", fields: [raisedBy], references: [id])
+  responder      User?       @relation("ExpenseQueryRespondedBy", fields: [respondedBy], references: [id])
+
+  @@map("expense_queries")
+}
+
+/// 19. PropertyTransfer — ownership/tenancy transfers (Phase 2).
+model PropertyTransfer {
+  id               String       @id @default(uuid()) @db.Uuid
+  unitId           String       @map("unit_id") @db.Uuid
+  societyId        String       @map("society_id") @db.Uuid
+  transferType     TransferType @map("transfer_type")
+  outgoingUserId   String       @map("outgoing_user_id") @db.Uuid
+  incomingUserId   String?      @map("incoming_user_id") @db.Uuid
+  transferDate     DateTime     @map("transfer_date") @db.Date
+  notes            String?
+  outstandingFees  Decimal?     @map("outstanding_fees") @db.Decimal(10, 2)
+  feesWrittenOff   Boolean      @default(false) @map("fees_written_off")
+  writeOffReason   String?      @map("write_off_reason")
+  initiatedBy      String       @map("initiated_by") @db.Uuid
+  createdAt        DateTime     @default(now()) @map("created_at")
+
+  unit             Unit         @relation(fields: [unitId], references: [id])
+  society          Society      @relation(fields: [societyId], references: [id])
+  outgoingUser     User         @relation("PropertyTransferOutgoing", fields: [outgoingUserId], references: [id])
+  incomingUser     User?        @relation("PropertyTransferIncoming", fields: [incomingUserId], references: [id])
+  initiator        User         @relation("PropertyTransferInitiatedBy", fields: [initiatedBy], references: [id])
+
+  @@map("property_transfers")
+}
+
+/// 20. VisitorLog — visitor management (Phase 3).
+model VisitorLog {
+  id            String    @id @default(uuid()) @db.Uuid
+  societyId     String    @map("society_id") @db.Uuid
+  residentId    String    @map("resident_id") @db.Uuid
+  visitorName   String    @map("visitor_name") @db.VarChar(100)
+  visitorMobile String?   @map("visitor_mobile") @db.VarChar(15)
+  purpose       String?   @db.VarChar(100)
+  expectedDate  DateTime  @map("expected_date") @db.Date
+  visitorCode   String?   @unique @map("visitor_code") @db.VarChar(20)
+  status        String    @default("EXPECTED") @db.VarChar(20)
+  arrivedAt     DateTime? @map("arrived_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  society       Society   @relation(fields: [societyId], references: [id])
+  resident      User      @relation(fields: [residentId], references: [id])
+
+  @@map("visitor_logs")
+}
+
+/// 21. Dependent — resident family members (Phase 2).
+model Dependent {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  societyId    String    @map("society_id") @db.Uuid
+  name         String    @db.VarChar(100)
+  relationship String    @db.VarChar(30)
+  dateOfBirth  DateTime? @map("date_of_birth") @db.Date
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  user         User      @relation(fields: [userId], references: [id])
+  society      Society   @relation(fields: [societyId], references: [id])
+
+  @@map("dependents")
+}
+
+/// 22. BlacklistedNumber — blocked mobile numbers per society.
+model BlacklistedNumber {
+  id            String   @id @default(uuid()) @db.Uuid
+  societyId     String   @map("society_id") @db.Uuid
+  mobile        String   @db.VarChar(15)
+  reason        String
+  blacklistedBy String   @map("blacklisted_by") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  society       Society  @relation(fields: [societyId], references: [id])
+  blacklister   User     @relation(fields: [blacklistedBy], references: [id])
+
+  @@unique([societyId, mobile])
+  @@map("blacklisted_numbers")
+}
+
+/// 23. Vehicle — resident vehicle registration (self-service).
+model Vehicle {
+  id                 String    @id @default(uuid()) @db.Uuid
+  unitId             String    @map("unit_id") @db.Uuid
+  societyId          String    @map("society_id") @db.Uuid
+  vehicleType        String    @map("vehicle_type") @db.VarChar(20) // 2-Wheeler/4-Wheeler/EV/Bicycle
+  registrationNumber String    @map("registration_number") @db.VarChar(20)
+  make               String?   @db.VarChar(50)
+  model              String?   @db.VarChar(50)
+  colour             String?   @db.VarChar(30)
+  parkingSlot        String?   @map("parking_slot") @db.VarChar(20) // Phase 2
+  stickerNumber      String?   @map("sticker_number") @db.VarChar(20) // Phase 2
+  evSlot             String?   @map("ev_slot") @db.VarChar(20) // Phase 2
+  validFrom          DateTime? @map("valid_from") @db.Date
+  validTo            DateTime? @map("valid_to") @db.Date
+  isActive           Boolean   @default(true) @map("is_active")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  unit               Unit      @relation(fields: [unitId], references: [id])
+  society            Society   @relation(fields: [societyId], references: [id])
+
+  @@index([societyId, registrationNumber])
+  @@map("vehicles")
+}
