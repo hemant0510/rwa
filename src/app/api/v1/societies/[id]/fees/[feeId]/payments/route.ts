@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { Prisma } from "@prisma/client";
-
 import { parseBody, notFoundError, internalError } from "@/lib/api-helpers";
 import { generateReceiptNo } from "@/lib/fee-calculator";
-import { prisma } from "@/lib/prisma";
+import { prisma, type TransactionClient } from "@/lib/prisma";
 import { recordPaymentSchema } from "@/lib/validations/fee";
 
 export async function POST(
@@ -40,7 +38,7 @@ export async function POST(
     const newAmountPaid = Number(fee.amountPaid) + data.amount;
     const newStatus = newAmountPaid >= Number(fee.amountDue) ? "PAID" : "PARTIAL";
 
-    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const result = await prisma.$transaction(async (tx: TransactionClient) => {
       // Create payment record
       const payment = await tx.feePayment.create({
         data: {

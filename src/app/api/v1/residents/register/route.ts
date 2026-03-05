@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { internalError } from "@/lib/api-helpers";
 import { MAX_TRIAL_RESIDENTS } from "@/lib/constants";
-import { prisma } from "@/lib/prisma";
+import { prisma, type TransactionClient } from "@/lib/prisma";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const registerSchema = z.object({
@@ -123,7 +122,7 @@ export async function POST(request: NextRequest) {
 
     // Create pending user + unit in a transaction
     try {
-      const user = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const user = await prisma.$transaction(async (tx: TransactionClient) => {
         const newUser = await tx.user.create({
           data: {
             societyId: society.id,

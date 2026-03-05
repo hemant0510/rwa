@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { parseBody, notFoundError, internalError } from "@/lib/api-helpers";
-import { prisma } from "@/lib/prisma";
+import { prisma, type TransactionClient } from "@/lib/prisma";
 
 const activateAdminSchema = z.object({
   name: z.string().min(2).max(100),
@@ -50,7 +49,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       );
     }
 
-    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const result = await prisma.$transaction(async (tx: TransactionClient) => {
       let userId = data.existingUserId;
 
       if (!userId) {

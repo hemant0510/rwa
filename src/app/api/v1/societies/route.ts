@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { Prisma } from "@prisma/client";
-
 import { parseBody, successResponse, internalError } from "@/lib/api-helpers";
 import { generateSocietyId } from "@/lib/fee-calculator";
-import { prisma } from "@/lib/prisma";
+import { prisma, type TransactionClient } from "@/lib/prisma";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createSocietySchema } from "@/lib/validations/society";
 
@@ -107,7 +105,7 @@ export async function POST(request: NextRequest) {
 
     try {
       // Create society + admin in transaction
-      const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const result = await prisma.$transaction(async (tx: TransactionClient) => {
         const society = await tx.society.create({
           data: {
             societyId,
