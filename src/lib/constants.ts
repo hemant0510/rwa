@@ -26,6 +26,10 @@ export const SOCIETY_CODE_MIN_LENGTH = 4;
 export const SOCIETY_CODE_MAX_LENGTH = 8;
 export const SOCIETY_CODE_PATTERN = /^[A-Z0-9]+$/;
 
+// Email verification
+export const VERIFICATION_TOKEN_EXPIRY_HOURS = 24;
+export const VERIFICATION_RESEND_COOLDOWN_SECONDS = 120;
+
 // Indian mobile validation
 export const INDIAN_MOBILE_PATTERN = /^[6-9]\d{9}$/;
 export const PINCODE_PATTERN = /^\d{6}$/;

@@ -6,6 +6,7 @@ import { generateSocietyId } from "@/lib/fee-calculator";
 import { prisma, type TransactionClient } from "@/lib/prisma";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { registerSocietySchema } from "@/lib/validations/register-society";
+import { isVerificationRequired, sendVerificationEmail, autoVerifyUser } from "@/lib/verification";
 
 export async function POST(request: NextRequest) {
   try {
@@ -109,10 +110,21 @@ export async function POST(request: NextRequest) {
         return { society, admin };
       });
 
+      // Handle email verification
+      const requiresVerification = await isVerificationRequired(result.society.id);
+      if (requiresVerification) {
+        await sendVerificationEmail(result.admin.id, data.adminEmail, data.adminName);
+      } else {
+        await autoVerifyUser(result.admin.id);
+      }
+
       return NextResponse.json(
         {
           society: result.society,
-          message: "Society registered successfully. You can now sign in.",
+          requiresVerification,
+          message: requiresVerification
+            ? "Society registered! Please verify your email to continue."
+            : "Society registered successfully. You can now sign in.",
         },
         { status: 201 },
       );

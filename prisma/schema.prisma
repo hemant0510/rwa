@@ -182,6 +182,8 @@ model Society {
   createdAt             DateTime           @default(now()) @map("created_at")
   updatedAt             DateTime           @updatedAt @map("updated_at")
 
+  emailVerificationRequired Boolean      @default(true) @map("email_verification_required")
+
   // Relations to all child models
   users                    User[]
   units                    Unit[]
@@ -222,6 +224,7 @@ model User {
   ownershipType       OwnershipType?   @map("ownership_type")
   status              ResidentStatus   @default(PENDING_APPROVAL)
   adminPermission     AdminPermission? @map("admin_permission")
+  isEmailVerified     Boolean          @default(false) @map("is_email_verified")
   consentWhatsapp     Boolean          @default(false) @map("consent_whatsapp")
   consentWhatsappAt   DateTime?        @map("consent_whatsapp_at")
   pinHash             String?          @map("pin_hash") @db.VarChar(100)
@@ -276,9 +279,23 @@ model User {
   visitorLogs            VisitorLog[]
   dependents             Dependent[]
   blacklistedNumbers     BlacklistedNumber[]
+  emailVerificationTokens EmailVerificationToken[]
 
   @@unique([societyId, email])
   @@map("users")
+}
+
+/// Email verification tokens for user email confirmation.
+model EmailVerificationToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("email_verification_tokens")
 }
 
 /// 2b. SuperAdmin — platform super administrators (separate from society users).

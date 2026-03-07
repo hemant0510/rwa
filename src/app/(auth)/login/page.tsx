@@ -51,9 +51,22 @@ export default function LoginPage() {
         return;
       }
 
-      const me = (await res.json()) as { redirectTo: string };
+      const me = (await res.json()) as {
+        redirectTo: string | null;
+        emailVerified?: boolean;
+        email?: string;
+      };
+
+      // Handle unverified email
+      if (me.emailVerified === false) {
+        toast.error("Please verify your email before signing in.");
+        await supabase.auth.signOut();
+        router.push(`/check-email?email=${encodeURIComponent(me.email ?? data.email)}`);
+        return;
+      }
+
       toast.success("Login successful!");
-      router.push(me.redirectTo);
+      router.push(me.redirectTo ?? "/login");
       router.refresh();
     } catch (err) {
       console.error("Login error:", err);

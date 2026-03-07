@@ -2,7 +2,15 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { updateSession } from "@/lib/supabase/middleware";
 
-const PUBLIC_ROUTES = ["/", "/login", "/super-admin-login", "/register", "/register-society"];
+const PUBLIC_ROUTES = [
+  "/",
+  "/login",
+  "/super-admin-login",
+  "/register",
+  "/register-society",
+  "/verify-email",
+  "/check-email",
+];
 const PUBLIC_API_PREFIX = [
   "/api/v1/auth/",
   "/api/v1/residents/register",

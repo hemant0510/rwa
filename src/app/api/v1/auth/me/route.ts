@@ -30,18 +30,34 @@ export async function GET() {
     });
   }
 
-  // Check users table (include society for trial info)
+  // Check users table (include society for trial info + verification setting)
   const user = await prisma.user.findUnique({
     where: { authUserId: authUser.id },
     include: {
       society: {
-        select: { name: true, societyCode: true, status: true, trialEndsAt: true },
+        select: {
+          name: true,
+          societyCode: true,
+          status: true,
+          trialEndsAt: true,
+          emailVerificationRequired: true,
+        },
       },
     },
   });
 
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  // Check if email verification is required and not done
+  const emailVerificationRequired = user.society?.emailVerificationRequired ?? false;
+  if (emailVerificationRequired && !user.isEmailVerified) {
+    return NextResponse.json({
+      emailVerified: false,
+      email: user.email,
+      redirectTo: null,
+    });
   }
 
   const redirectTo = user.role === "RWA_ADMIN" ? "/admin/dashboard" : "/r/home";
@@ -59,6 +75,7 @@ export async function GET() {
     societyId: user.societyId,
     permission: user.adminPermission,
     redirectTo,
+    emailVerified: true,
     societyName: user.society?.name ?? null,
     societyCode: user.society?.societyCode ?? null,
     societyStatus: user.society?.status ?? null,

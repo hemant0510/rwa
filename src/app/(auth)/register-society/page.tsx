@@ -97,15 +97,26 @@ export default function RegisterSocietyPage() {
         body: JSON.stringify(data),
       });
 
+      const body = (await res.json()) as {
+        error?: { message?: string };
+        requiresVerification?: boolean;
+      };
+
       if (!res.ok) {
-        const err = (await res.json()) as { error?: { message?: string } };
-        toast.error(err.error?.message ?? "Registration failed");
+        toast.error(body.error?.message ?? "Registration failed");
+        return;
+      }
+
+      // If email verification is required, redirect to check-email page
+      if (body.requiresVerification) {
+        toast.success("Society registered! Please verify your email.");
+        router.push(`/check-email?email=${encodeURIComponent(data.adminEmail)}`);
         return;
       }
 
       toast.success("Society registered! Signing you in...");
 
-      // Auto sign-in
+      // Auto sign-in (verification not required)
       const supabase = createClient();
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: data.adminEmail,

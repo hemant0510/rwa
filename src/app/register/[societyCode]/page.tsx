@@ -5,7 +5,7 @@ import { use, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Building2, CheckCircle, Loader2 } from "lucide-react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,7 @@ import { SOCIETY_TYPE_ADDRESS_FIELDS, type SocietyType } from "@/types/society";
 export default function RegisterPage({ params }: { params: Promise<{ societyCode: string }> }) {
   const { societyCode } = use(params);
   const [submitted, setSubmitted] = useState(false);
+  const [requiresVerification, setRequiresVerification] = useState(false);
 
   const {
     data: society,
@@ -55,6 +56,9 @@ export default function RegisterPage({ params }: { params: Promise<{ societyCode
     },
   });
 
+  const ownershipType = useWatch({ control: form.control, name: "ownershipType" });
+  const consentWhatsApp = useWatch({ control: form.control, name: "consentWhatsApp" });
+
   const [unitFields, setUnitFields] = useState<Record<string, string>>({});
 
   const mutation = useMutation({
@@ -72,9 +76,12 @@ export default function RegisterPage({ params }: { params: Promise<{ societyCode
         const err = (await res.json()) as { error?: { message?: string } };
         throw new Error(err.error?.message || "Registration failed");
       }
-      return (await res.json()) as { id: string; message: string };
+      return (await res.json()) as { id: string; message: string; requiresVerification?: boolean };
     },
-    onSuccess: () => setSubmitted(true),
+    onSuccess: (data) => {
+      setRequiresVerification(data.requiresVerification ?? false);
+      setSubmitted(true);
+    },
     onError: (err: Error) => toast.error(err.message),
   });
 
@@ -109,7 +116,10 @@ export default function RegisterPage({ params }: { params: Promise<{ societyCode
             <CheckCircle className="mx-auto h-12 w-12 text-green-500" />
             <h2 className="text-xl font-bold">Registration Submitted!</h2>
             <p className="text-muted-foreground text-sm">
-              Your request has been sent to the society admin for approval. You can{" "}
+              {requiresVerification
+                ? "Please check your email to verify your account. After verification, wait for the society admin to approve your registration."
+                : "Your request has been sent to the society admin for approval."}{" "}
+              You can{" "}
               <a href="/login" className="text-primary underline">
                 sign in
               </a>{" "}
@@ -247,7 +257,7 @@ export default function RegisterPage({ params }: { params: Promise<{ societyCode
                 Ownership Type <span className="text-destructive">*</span>
               </Label>
               <Select
-                value={form.watch("ownershipType")}
+                value={ownershipType}
                 onValueChange={(v) => form.setValue("ownershipType", v as "OWNER" | "TENANT")}
               >
                 <SelectTrigger>
@@ -315,7 +325,7 @@ export default function RegisterPage({ params }: { params: Promise<{ societyCode
             <div className="flex items-center gap-2">
               <Checkbox
                 id="consent"
-                checked={Boolean(form.watch("consentWhatsApp"))}
+                checked={Boolean(consentWhatsApp)}
                 onCheckedChange={(checked) =>
                   form.setValue("consentWhatsApp", checked === true ? true : (false as never))
                 }

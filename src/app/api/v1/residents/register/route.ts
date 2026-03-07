@@ -6,6 +6,7 @@ import { internalError } from "@/lib/api-helpers";
 import { MAX_TRIAL_RESIDENTS } from "@/lib/constants";
 import { prisma, type TransactionClient } from "@/lib/prisma";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isVerificationRequired, sendVerificationEmail, autoVerifyUser } from "@/lib/verification";
 
 const registerSchema = z.object({
   societyCode: z.string().min(4).max(8),
@@ -188,8 +189,22 @@ export async function POST(request: NextRequest) {
         return newUser;
       });
 
+      // Handle email verification
+      const requiresVerification = await isVerificationRequired(society.id);
+      if (requiresVerification) {
+        await sendVerificationEmail(user.id, data.email, data.fullName);
+      } else {
+        await autoVerifyUser(user.id);
+      }
+
       return NextResponse.json(
-        { id: user.id, message: "Registration submitted successfully" },
+        {
+          id: user.id,
+          requiresVerification,
+          message: requiresVerification
+            ? "Registration submitted! Please verify your email."
+            : "Registration submitted successfully",
+        },
         { status: 201 },
       );
     } catch (err) {

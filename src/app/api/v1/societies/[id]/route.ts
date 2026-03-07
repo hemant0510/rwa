@@ -183,6 +183,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         joiningFee: data.joiningFee,
         annualFee: data.annualFee,
         ...(data.status && { status: data.status }),
+        ...(typeof data.emailVerificationRequired === "boolean" && {
+          emailVerificationRequired: data.emailVerificationRequired,
+        }),
       },
     });
 

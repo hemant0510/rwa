@@ -48,6 +48,7 @@ export const updateSocietySchema = z
     joiningFee: z.number().min(0).max(100000),
     annualFee: z.number().min(0).max(100000),
     status: z.enum(["ACTIVE", "TRIAL", "SUSPENDED", "OFFBOARDED"]).optional(),
+    emailVerificationRequired: z.boolean().optional(),
     adminEmail: z.string().email("Valid email is required").optional().or(z.literal("")),
     adminPassword: z
       .string()

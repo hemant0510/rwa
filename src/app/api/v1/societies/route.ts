@@ -5,6 +5,7 @@ import { generateSocietyId } from "@/lib/fee-calculator";
 import { prisma, type TransactionClient } from "@/lib/prisma";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createSocietySchema } from "@/lib/validations/society";
+import { isVerificationRequired, sendVerificationEmail, autoVerifyUser } from "@/lib/verification";
 
 export async function GET(request: NextRequest) {
   try {
@@ -153,7 +154,15 @@ export async function POST(request: NextRequest) {
         return { society, admin };
       });
 
-      return NextResponse.json(result.society, { status: 201 });
+      // Handle email verification for the new admin
+      const requiresVerification = await isVerificationRequired(result.society.id);
+      if (requiresVerification) {
+        await sendVerificationEmail(result.admin.id, data.adminEmail, data.adminName);
+      } else {
+        await autoVerifyUser(result.admin.id);
+      }
+
+      return NextResponse.json({ ...result.society, requiresVerification }, { status: 201 });
     } catch (err) {
       // Rollback: delete Supabase auth user if DB transaction fails
       await supabaseAdmin.auth.admin.deleteUser(authData.user.id);

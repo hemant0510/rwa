@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   MessageSquare,
   Receipt,
+  Settings,
   Upload,
   Users,
 } from "lucide-react";
@@ -24,6 +25,7 @@ const navItems = [
   { href: "/admin/reports", label: "Reports", icon: FileText },
   { href: "/admin/broadcast", label: "Broadcast", icon: MessageSquare },
   { href: "/admin/migration", label: "Migration", icon: Upload },
+  { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
 function SidebarContent({

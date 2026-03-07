@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { INDIAN_STATES } from "@/lib/constants";
 import { updateSocietySchema, type UpdateSocietyInput } from "@/lib/validations/society";
 import { getSociety, updateSociety } from "@/services/societies";
@@ -45,6 +46,7 @@ interface SocietyDetail {
   joiningFee: number;
   annualFee: number;
   status: string;
+  emailVerificationRequired?: boolean;
   admins?: {
     id: string;
     name: string;
@@ -127,7 +129,7 @@ function EditForm({
     register,
     handleSubmit,
     setValue,
-    watch,
+    control,
     formState: { errors },
   } = useForm<UpdateSocietyInput>({
     resolver: zodResolver(updateSocietySchema),
@@ -143,8 +145,14 @@ function EditForm({
       adminEmail: adminEmail,
       adminPassword: "",
       adminPasswordConfirm: "",
+      emailVerificationRequired: society.emailVerificationRequired ?? true,
     },
   });
+
+  const societyType = useWatch({ control, name: "type" });
+  const societyState = useWatch({ control, name: "state" });
+  const emailVerificationRequired = useWatch({ control, name: "emailVerificationRequired" });
+  const societyStatus = useWatch({ control, name: "status" });
 
   return (
     <form
@@ -168,10 +176,7 @@ function EditForm({
             </div>
             <div className="space-y-2">
               <Label>Society Type</Label>
-              <Select
-                value={watch("type")}
-                onValueChange={(v) => setValue("type", v as SocietyType)}
-              >
+              <Select value={societyType} onValueChange={(v) => setValue("type", v as SocietyType)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -188,7 +193,7 @@ function EditForm({
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-2">
               <Label>State</Label>
-              <Select value={watch("state")} onValueChange={(v) => setValue("state", v)}>
+              <Select value={societyState} onValueChange={(v) => setValue("state", v)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select state" />
                 </SelectTrigger>
@@ -306,6 +311,28 @@ function EditForm({
 
       <Card>
         <CardHeader>
+          <CardTitle>Email Verification</CardTitle>
+          <CardDescription>Require users to verify their email before logging in</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="emailVerification">Email Verification Required</Label>
+              <p className="text-muted-foreground text-xs">
+                When enabled, new admins and residents must verify their email to login
+              </p>
+            </div>
+            <Switch
+              id="emailVerification"
+              checked={emailVerificationRequired ?? true}
+              onCheckedChange={(checked) => setValue("emailVerificationRequired", checked)}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Status</CardTitle>
           <CardDescription>Change the society&apos;s operational status</CardDescription>
         </CardHeader>
@@ -313,7 +340,7 @@ function EditForm({
           <div className="space-y-2">
             <Label>Society Status</Label>
             <Select
-              value={watch("status") ?? ""}
+              value={societyStatus ?? ""}
               onValueChange={(v) => setValue("status", v as UpdateSocietyInput["status"])}
             >
               <SelectTrigger className="w-[200px]">
