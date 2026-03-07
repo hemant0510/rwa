@@ -26,8 +26,15 @@ const navItems = [
   { href: "/admin/migration", label: "Migration", icon: Upload },
 ];
 
-function SidebarContent({ societyName }: { societyName?: string }) {
+function SidebarContent({
+  societyName,
+  queryString,
+}: {
+  societyName?: string;
+  queryString?: string;
+}) {
   const pathname = usePathname();
+  const qs = queryString || "";
 
   return (
     <div className="flex h-full flex-col">
@@ -41,7 +48,7 @@ function SidebarContent({ societyName }: { societyName?: string }) {
           return (
             <Link
               key={item.href}
-              href={item.href}
+              href={`${item.href}${qs}`}
               className={cn(
                 "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                 isActive
@@ -59,10 +66,16 @@ function SidebarContent({ societyName }: { societyName?: string }) {
   );
 }
 
-export function AdminSidebar({ societyName }: { societyName?: string }) {
+export function AdminSidebar({
+  societyName,
+  queryString,
+}: {
+  societyName?: string;
+  queryString?: string;
+}) {
   return (
     <aside className="bg-background hidden w-[240px] shrink-0 border-r lg:block">
-      <SidebarContent societyName={societyName} />
+      <SidebarContent societyName={societyName} queryString={queryString} />
     </aside>
   );
 }
@@ -71,15 +84,17 @@ export function AdminMobileSidebar({
   open,
   onOpenChange,
   societyName,
+  queryString,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   societyName?: string;
+  queryString?: string;
 }) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="left" className="w-[240px] p-0">
-        <SidebarContent societyName={societyName} />
+        <SidebarContent societyName={societyName} queryString={queryString} />
       </SheetContent>
     </Sheet>
   );

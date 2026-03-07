@@ -22,17 +22,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CardSkeleton } from "@/components/ui/LoadingSkeleton";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Progress } from "@/components/ui/progress";
-import { useAuth } from "@/hooks/useAuth";
+import { useSocietyId } from "@/hooks/useSocietyId";
 import { APP_URL } from "@/lib/constants";
 import { getExpenseSummary } from "@/services/expenses";
 import { getFeeDashboard } from "@/services/fees";
 import { getResidents } from "@/services/residents";
 
 export default function AdminDashboardPage() {
-  const { user } = useAuth();
-  const societyId = user?.societyId ?? "";
+  const { societyId, societyCode, saQueryString } = useSocietyId();
   const [copied, setCopied] = useState(false);
-  const registrationUrl = user?.societyCode ? `${APP_URL}/register/${user.societyCode}` : null;
+  const registrationUrl = societyCode ? `${APP_URL}/register/${societyCode}` : null;
 
   const { data: residents, isLoading: loadingResidents } = useQuery({
     queryKey: ["residents", societyId, { status: undefined }],
@@ -136,7 +135,10 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
               {(pendingResidents?.total ?? 0) > 0 && (
-                <Link href="/admin/residents?status=PENDING_APPROVAL" className="mt-2 block">
+                <Link
+                  href={`/admin/residents?status=PENDING_APPROVAL${saQueryString ? `&${saQueryString.slice(1)}` : ""}`}
+                  className="mt-2 block"
+                >
                   <Button variant="link" size="sm" className="h-auto p-0 text-xs">
                     Review now
                   </Button>
@@ -217,25 +219,27 @@ export default function AdminDashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            <Link href="/admin/residents?status=PENDING_APPROVAL">
+            <Link
+              href={`/admin/residents?status=PENDING_APPROVAL${saQueryString ? `&${saQueryString.slice(1)}` : ""}`}
+            >
               <Button variant="outline" className="w-full justify-start">
                 <Clock className="mr-2 h-4 w-4" />
                 Review Pending Approvals ({pendingResidents?.total ?? 0})
               </Button>
             </Link>
-            <Link href="/admin/fees">
+            <Link href={`/admin/fees${saQueryString}`}>
               <Button variant="outline" className="w-full justify-start">
                 <CreditCard className="mr-2 h-4 w-4" />
                 Manage Fee Collection
               </Button>
             </Link>
-            <Link href="/admin/expenses">
+            <Link href={`/admin/expenses${saQueryString}`}>
               <Button variant="outline" className="w-full justify-start">
                 <IndianRupee className="mr-2 h-4 w-4" />
                 Log an Expense
               </Button>
             </Link>
-            <Link href="/admin/broadcast">
+            <Link href={`/admin/broadcast${saQueryString}`}>
               <Button variant="outline" className="w-full justify-start">
                 <Users className="mr-2 h-4 w-4" />
                 Send Broadcast

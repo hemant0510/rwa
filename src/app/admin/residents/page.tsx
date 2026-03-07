@@ -38,7 +38,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useAuth } from "@/hooks/useAuth";
+import { useSocietyId } from "@/hooks/useSocietyId";
 import { getResidents, approveResident, rejectResident } from "@/services/residents";
 import { RESIDENT_STATUS_LABELS } from "@/types/user";
 
@@ -53,8 +53,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function ResidentsPage() {
-  const { user } = useAuth();
-  const societyId = user?.societyId ?? "";
+  const { societyId } = useSocietyId();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");

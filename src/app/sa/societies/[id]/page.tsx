@@ -7,7 +7,16 @@ import { useRouter } from "next/navigation";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { ArrowLeft, Building2, CreditCard, Copy, Pencil, Trash2, Loader2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Building2,
+  CreditCard,
+  Copy,
+  LayoutDashboard,
+  Pencil,
+  Trash2,
+  Loader2,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -83,6 +92,14 @@ export default function SocietyDetailPage({ params }: { params: Promise<{ id: st
       </div>
 
       <div className="flex gap-2">
+        <Link
+          href={`/admin/dashboard?sid=${society.id}&sname=${encodeURIComponent(society.name)}&scode=${encodeURIComponent(society.societyCode)}`}
+        >
+          <Button variant="default" size="sm">
+            <LayoutDashboard className="mr-2 h-4 w-4" />
+            View Dashboard
+          </Button>
+        </Link>
         <Link href={`/sa/societies/${id}/edit`}>
           <Button variant="outline" size="sm">
             <Pencil className="mr-2 h-4 w-4" />

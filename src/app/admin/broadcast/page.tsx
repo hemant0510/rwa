@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useAuth } from "@/hooks/useAuth";
+import { useSocietyId } from "@/hooks/useSocietyId";
 import { getBroadcasts, sendBroadcast } from "@/services/notifications";
 
 const FILTER_LABELS: Record<string, string> = {
@@ -30,8 +30,7 @@ const FILTER_LABELS: Record<string, string> = {
 };
 
 export default function BroadcastPage() {
-  const { user } = useAuth();
-  const societyId = user?.societyId ?? "";
+  const { societyId } = useSocietyId();
   const queryClient = useQueryClient();
   const [message, setMessage] = useState("");
   const [recipientFilter, setRecipientFilter] = useState("ALL_ACTIVE");

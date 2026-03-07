@@ -52,6 +52,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { useSocietyId } from "@/hooks/useSocietyId";
 import {
   getResident,
   approveResident,
@@ -76,6 +77,7 @@ export default function ResidentDetailPage({ params }: { params: Promise<{ id: s
   const { id } = use(params);
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { saQueryString } = useSocietyId();
 
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -126,7 +128,7 @@ export default function ResidentDetailPage({ params }: { params: Promise<{ id: s
     onSuccess: () => {
       toast.success("Resident deactivated");
       setDeleteOpen(false);
-      router.push("/admin/residents");
+      router.push(`/admin/residents${saQueryString}`);
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -166,7 +168,7 @@ export default function ResidentDetailPage({ params }: { params: Promise<{ id: s
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Link href="/admin/residents">
+        <Link href={`/admin/residents${saQueryString}`}>
           <Button variant="ghost" size="icon">
             <ArrowLeft className="h-4 w-4" />
           </Button>

@@ -38,7 +38,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useAuth } from "@/hooks/useAuth";
+import { useSocietyId } from "@/hooks/useSocietyId";
 import { EXPENSE_CATEGORIES } from "@/lib/constants";
 import { createExpenseSchema, type CreateExpenseInput } from "@/lib/validations/expense";
 import { getExpenses, getExpenseSummary, createExpense, reverseExpense } from "@/services/expenses";
@@ -56,8 +56,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 export default function ExpensesPage() {
-  const { user } = useAuth();
-  const societyId = user?.societyId ?? "";
+  const { societyId } = useSocietyId();
   const queryClient = useQueryClient();
   const [addDialog, setAddDialog] = useState(false);
   const [reverseDialog, setReverseDialog] = useState<{

@@ -6,7 +6,7 @@ import Link from "next/link";
 
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Plus, Building2, Search } from "lucide-react";
+import { Plus, Building2, Search, LayoutDashboard } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -125,6 +125,7 @@ export default function SocietiesPage() {
                   <TableHead className="hidden sm:table-cell">City</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="hidden lg:table-cell">Onboarded</TableHead>
+                  <TableHead className="w-[80px]" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -152,6 +153,15 @@ export default function SocietiesPage() {
                     </TableCell>
                     <TableCell className="hidden lg:table-cell">
                       {format(new Date(society.onboardingDate), "dd MMM yyyy")}
+                    </TableCell>
+                    <TableCell>
+                      <Link
+                        href={`/admin/dashboard?sid=${society.id}&sname=${encodeURIComponent(society.name)}&scode=${encodeURIComponent(society.societyCode)}`}
+                      >
+                        <Button variant="ghost" size="icon" title="View Dashboard">
+                          <LayoutDashboard className="h-4 w-4" />
+                        </Button>
+                      </Link>
                     </TableCell>
                   </TableRow>
                 ))}

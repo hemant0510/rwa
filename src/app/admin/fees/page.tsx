@@ -38,15 +38,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useAuth } from "@/hooks/useAuth";
+import { useSocietyId } from "@/hooks/useSocietyId";
 import { recordPaymentSchema, type RecordPaymentInput } from "@/lib/validations/fee";
 import { getFeeDashboard, recordPayment, grantExemption } from "@/services/fees";
 import type { FeeStatus, PaymentMode } from "@/types/fee";
 import { PAYMENT_MODE_LABELS } from "@/types/fee";
 
 export default function FeesPage() {
-  const { user } = useAuth();
-  const societyId = user?.societyId ?? "";
+  const { societyId } = useSocietyId();
   const queryClient = useQueryClient();
   const [paymentDialog, setPaymentDialog] = useState<{
     open: boolean;
