@@ -214,7 +214,7 @@ model User {
   id                  String           @id @default(uuid()) @db.Uuid
   societyId           String?          @map("society_id") @db.Uuid
   rwaid               String?          @unique @db.VarChar(40)
-  authUserId          String?          @unique @map("auth_user_id") @db.Uuid
+  authUserId          String?          @map("auth_user_id") @db.Uuid
   name                String           @db.VarChar(100)
   mobile              String?          @db.VarChar(15)
   email               String           @db.VarChar(100)

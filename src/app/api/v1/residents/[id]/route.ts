@@ -58,7 +58,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     } = await supabase.auth.getUser();
     if (!authUser) return unauthorizedError();
 
-    const caller = await prisma.user.findUnique({ where: { authUserId: authUser.id } });
+    const caller = await prisma.user.findFirst({
+      where: { authUserId: authUser.id, role: "RWA_ADMIN" },
+    });
     if (!caller) return unauthorizedError();
 
     // Find resident
@@ -118,7 +120,9 @@ export async function DELETE(
     } = await supabase.auth.getUser();
     if (!authUser) return unauthorizedError();
 
-    const caller = await prisma.user.findUnique({ where: { authUserId: authUser.id } });
+    const caller = await prisma.user.findFirst({
+      where: { authUserId: authUser.id, role: "RWA_ADMIN" },
+    });
     if (!caller) return unauthorizedError();
 
     // Find resident

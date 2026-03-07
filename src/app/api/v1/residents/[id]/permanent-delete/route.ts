@@ -16,7 +16,9 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
     } = await supabase.auth.getUser();
     if (!authUser) return unauthorizedError();
 
-    const caller = await prisma.user.findUnique({ where: { authUserId: authUser.id } });
+    const caller = await prisma.user.findFirst({
+      where: { authUserId: authUser.id, role: "RWA_ADMIN" },
+    });
     if (!caller) return unauthorizedError();
 
     // Find resident

@@ -41,8 +41,8 @@ function SidebarContent({
   return (
     <div className="flex h-full flex-col">
       <div className="border-b px-6 py-4">
-        <h2 className="truncate text-lg font-bold">{societyName || "RWA Connect"}</h2>
-        <p className="text-muted-foreground text-xs">Admin Portal</p>
+        <h2 className="truncate text-lg font-bold">RWA Admin</h2>
+        <p className="text-muted-foreground text-xs">{societyName || "Admin Portal"}</p>
       </div>
       <nav className="flex-1 space-y-1 p-3">
         {navItems.map((item) => {

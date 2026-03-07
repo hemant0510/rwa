@@ -46,8 +46,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         )}
         <Header
-          title={societyName}
-          subtitle="Admin Portal"
+          title="RWA Admin"
+          subtitle={societyName}
           userName={user?.name || "Admin"}
           showMenuButton
           onMenuToggle={() => setSidebarOpen(true)}

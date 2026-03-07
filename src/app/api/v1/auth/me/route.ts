@@ -31,8 +31,10 @@ export async function GET() {
   }
 
   // Check users table (include society for trial info + verification setting)
-  const user = await prisma.user.findUnique({
+  // authUserId is not unique — user may belong to multiple societies
+  const user = await prisma.user.findFirst({
     where: { authUserId: authUser.id },
+    orderBy: { createdAt: "desc" },
     include: {
       society: {
         select: {

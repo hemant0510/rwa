@@ -21,12 +21,12 @@ export async function GET() {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { authUserId: authUser.id },
+    const user = await prisma.user.findFirst({
+      where: { authUserId: authUser.id, role: "RWA_ADMIN" },
       select: { role: true, adminPermission: true, societyId: true },
     });
 
-    if (!user || user.role !== "RWA_ADMIN" || user.adminPermission !== "FULL_ACCESS") {
+    if (!user || user.adminPermission !== "FULL_ACCESS") {
       return forbiddenError("Only admins with full access can view settings");
     }
 
@@ -59,12 +59,12 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { authUserId: authUser.id },
+    const user = await prisma.user.findFirst({
+      where: { authUserId: authUser.id, role: "RWA_ADMIN" },
       select: { role: true, adminPermission: true, societyId: true },
     });
 
-    if (!user || user.role !== "RWA_ADMIN" || user.adminPermission !== "FULL_ACCESS") {
+    if (!user || user.adminPermission !== "FULL_ACCESS") {
       return forbiddenError("Only admins with full access can update settings");
     }
 

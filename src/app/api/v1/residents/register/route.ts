@@ -92,7 +92,6 @@ export async function POST(request: NextRequest) {
     });
 
     if (existingByMobile) {
-      console.log("[REGISTER] Existing mobile record:", existingByMobile);
       if (blockingStatuses.has(existingByMobile.status)) {
         return NextResponse.json(
           {
@@ -106,11 +105,6 @@ export async function POST(request: NextRequest) {
       }
       // Non-blocking status (PENDING_APPROVAL, DEACTIVATED, REJECTED, etc.)
       // Clean up the stale record so re-registration can proceed
-      console.log(
-        "[REGISTER] Cleaning up stale mobile record:",
-        existingByMobile.id,
-        existingByMobile.status,
-      );
       await prisma.userUnit.deleteMany({ where: { userId: existingByMobile.id } });
       await prisma.emailVerificationToken.deleteMany({ where: { userId: existingByMobile.id } });
       await prisma.notificationPreference.deleteMany({ where: { userId: existingByMobile.id } });
@@ -126,7 +120,6 @@ export async function POST(request: NextRequest) {
     });
 
     if (existingByEmail) {
-      console.log("[REGISTER] Existing email record:", existingByEmail);
       if (blockingStatuses.has(existingByEmail.status)) {
         return NextResponse.json(
           {
@@ -139,11 +132,6 @@ export async function POST(request: NextRequest) {
         );
       }
       // Clean up stale email record
-      console.log(
-        "[REGISTER] Cleaning up stale email record:",
-        existingByEmail.id,
-        existingByEmail.status,
-      );
       await prisma.userUnit.deleteMany({ where: { userId: existingByEmail.id } });
       await prisma.emailVerificationToken.deleteMany({ where: { userId: existingByEmail.id } });
       await prisma.notificationPreference.deleteMany({ where: { userId: existingByEmail.id } });
@@ -164,8 +152,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create Supabase Auth account
+    // Create or reuse Supabase Auth account
     const supabaseAdmin = createAdminClient();
+    let authUserId: string;
+    let isNewAuthUser = false;
+
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: data.email,
       password: data.password,
@@ -173,13 +164,28 @@ export async function POST(request: NextRequest) {
     });
 
     if (authError) {
-      const message = authError.message.includes("already been registered")
-        ? "This email is already registered. Please use a different email or sign in."
-        : authError.message;
-      return NextResponse.json(
-        { error: { code: "AUTH_ERROR", message, status: 400 } },
-        { status: 400 },
-      );
+      if (authError.message.includes("already been registered")) {
+        // Email exists in Supabase Auth (registered in another society) — reuse existing auth account
+        const existingAuth = await prisma.user.findFirst({
+          where: { email: data.email, authUserId: { not: null } },
+          select: { authUserId: true },
+        });
+        if (!existingAuth?.authUserId) {
+          return NextResponse.json(
+            { error: { code: "AUTH_ERROR", message: "Account issue. Please contact admin." } },
+            { status: 400 },
+          );
+        }
+        authUserId = existingAuth.authUserId;
+      } else {
+        return NextResponse.json(
+          { error: { code: "AUTH_ERROR", message: authError.message } },
+          { status: 400 },
+        );
+      }
+    } else {
+      authUserId = authData.user.id;
+      isNewAuthUser = true;
     }
 
     // Create pending user + unit in a transaction
@@ -188,7 +194,7 @@ export async function POST(request: NextRequest) {
         const newUser = await tx.user.create({
           data: {
             societyId: society.id,
-            authUserId: authData.user.id,
+            authUserId,
             name: data.fullName,
             mobile: data.mobile,
             email: data.email,
@@ -269,12 +275,14 @@ export async function POST(request: NextRequest) {
         { status: 201 },
       );
     } catch (err) {
-      // Rollback: delete Supabase Auth user
-      await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
-      // Also clean up Prisma user if it was created (transaction committed but post-steps failed)
+      // Rollback: only delete Supabase Auth user if we created a new one
+      if (isNewAuthUser) {
+        await supabaseAdmin.auth.admin.deleteUser(authUserId);
+      }
+      // Clean up Prisma user if it was created (transaction committed but post-steps failed)
       try {
         const orphan = await prisma.user.findFirst({
-          where: { authUserId: authData.user.id },
+          where: { authUserId, societyId: society.id, mobile: data.mobile },
           select: { id: true },
         });
         if (orphan) {

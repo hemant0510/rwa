@@ -16,8 +16,8 @@ export async function GET() {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { authUserId: authUser.id },
+    const user = await prisma.user.findFirst({
+      where: { authUserId: authUser.id, role: "RESIDENT" },
       include: {
         society: {
           select: { name: true, societyCode: true },
