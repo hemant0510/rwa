@@ -266,11 +266,13 @@ export default function FeesPage() {
             <div className="space-y-2">
               <Label>
                 Amount (Balance: {"\u20B9"}
-                {paymentDialog.balance.toLocaleString("en-IN")})
+                {paymentDialog.balance.toLocaleString("en-IN")}){" "}
+                <span className="text-destructive">*</span>
               </Label>
               <Input
                 type="number"
                 min={1}
+                aria-invalid={!!paymentForm.formState.errors.amount}
                 {...paymentForm.register("amount", { valueAsNumber: true })}
               />
               {paymentForm.formState.errors.amount && (
@@ -280,7 +282,9 @@ export default function FeesPage() {
               )}
             </div>
             <div className="space-y-2">
-              <Label>Payment Mode</Label>
+              <Label>
+                Payment Mode <span className="text-destructive">*</span>
+              </Label>
               <Select
                 value={paymentForm.watch("paymentMode")}
                 onValueChange={(v) => paymentForm.setValue("paymentMode", v as PaymentMode)}
@@ -303,7 +307,11 @@ export default function FeesPage() {
               paymentForm.watch("paymentMode") === "BANK_TRANSFER") && (
               <div className="space-y-2">
                 <Label>Reference Number</Label>
-                <Input placeholder="Transaction ID" {...paymentForm.register("referenceNo")} />
+                <Input
+                  placeholder="Transaction ID"
+                  aria-invalid={!!paymentForm.formState.errors.referenceNo}
+                  {...paymentForm.register("referenceNo")}
+                />
                 {paymentForm.formState.errors.referenceNo && (
                   <p className="text-destructive text-sm">
                     {paymentForm.formState.errors.referenceNo.message}
@@ -312,7 +320,9 @@ export default function FeesPage() {
               </div>
             )}
             <div className="space-y-2">
-              <Label>Payment Date</Label>
+              <Label>
+                Payment Date <span className="text-destructive">*</span>
+              </Label>
               <Input type="date" {...paymentForm.register("paymentDate")} />
             </div>
             <div className="space-y-2">

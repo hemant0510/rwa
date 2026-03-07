@@ -79,11 +79,14 @@ export default function SuperAdminLoginPage() {
       <CardContent>
         <form onSubmit={form.handleSubmit(handleLogin)} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">
+              Email <span className="text-destructive">*</span>
+            </Label>
             <Input
               id="email"
               type="email"
               placeholder="admin@rwaconnect.in"
+              aria-invalid={!!form.formState.errors.email}
               {...form.register("email")}
             />
             {form.formState.errors.email && (
@@ -91,8 +94,15 @@ export default function SuperAdminLoginPage() {
             )}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input id="password" type="password" {...form.register("password")} />
+            <Label htmlFor="password">
+              Password <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="password"
+              type="password"
+              aria-invalid={!!form.formState.errors.password}
+              {...form.register("password")}
+            />
             {form.formState.errors.password && (
               <p className="text-destructive text-sm">{form.formState.errors.password.message}</p>
             )}

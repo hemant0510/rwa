@@ -152,10 +152,13 @@ export default function RegisterPage({ params }: { params: Promise<{ societyCode
             className="space-y-4"
           >
             <div className="space-y-2">
-              <Label htmlFor="fullName">Full Name</Label>
+              <Label htmlFor="fullName">
+                Full Name <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="fullName"
                 placeholder="Enter your full name"
+                aria-invalid={!!form.formState.errors.fullName}
                 {...form.register("fullName")}
               />
               {form.formState.errors.fullName && (
@@ -164,7 +167,9 @@ export default function RegisterPage({ params }: { params: Promise<{ societyCode
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="mobile">Mobile Number</Label>
+              <Label htmlFor="mobile">
+                Mobile Number <span className="text-destructive">*</span>
+              </Label>
               <div className="flex gap-2">
                 <span className="bg-muted text-muted-foreground flex items-center rounded-md border px-3 text-sm">
                   +91
@@ -173,6 +178,7 @@ export default function RegisterPage({ params }: { params: Promise<{ societyCode
                   id="mobile"
                   placeholder="9876543210"
                   maxLength={10}
+                  aria-invalid={!!form.formState.errors.mobile}
                   {...form.register("mobile")}
                 />
               </div>
@@ -182,11 +188,15 @@ export default function RegisterPage({ params }: { params: Promise<{ societyCode
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">
+                Email <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="email"
                 type="email"
                 placeholder="email@example.com"
+                autoComplete="off"
+                aria-invalid={!!form.formState.errors.email}
                 {...form.register("email")}
               />
               {form.formState.errors.email && (
@@ -196,11 +206,15 @@ export default function RegisterPage({ params }: { params: Promise<{ societyCode
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">
+                  Password <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   id="password"
                   type="password"
                   placeholder="Min 8 characters"
+                  autoComplete="new-password"
+                  aria-invalid={!!form.formState.errors.password}
                   {...form.register("password")}
                 />
                 {form.formState.errors.password && (
@@ -210,8 +224,16 @@ export default function RegisterPage({ params }: { params: Promise<{ societyCode
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="passwordConfirm">Confirm Password</Label>
-                <Input id="passwordConfirm" type="password" {...form.register("passwordConfirm")} />
+                <Label htmlFor="passwordConfirm">
+                  Confirm Password <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="passwordConfirm"
+                  type="password"
+                  autoComplete="new-password"
+                  aria-invalid={!!form.formState.errors.passwordConfirm}
+                  {...form.register("passwordConfirm")}
+                />
                 {form.formState.errors.passwordConfirm && (
                   <p className="text-destructive text-sm">
                     {form.formState.errors.passwordConfirm.message}
@@ -221,7 +243,9 @@ export default function RegisterPage({ params }: { params: Promise<{ societyCode
             </div>
 
             <div className="space-y-2">
-              <Label>Ownership Type</Label>
+              <Label>
+                Ownership Type <span className="text-destructive">*</span>
+              </Label>
               <Select
                 value={form.watch("ownershipType")}
                 onValueChange={(v) => form.setValue("ownershipType", v as "OWNER" | "TENANT")}

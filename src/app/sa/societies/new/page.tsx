@@ -158,15 +158,25 @@ export default function NewSocietyPage() {
             <CardContent className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Society Name</Label>
-                  <Input id="name" placeholder="Eden Estate RWA" {...register("name")} />
+                  <Label htmlFor="name">
+                    Society Name <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="name"
+                    placeholder="Eden Estate RWA"
+                    aria-invalid={!!errors.name}
+                    {...register("name")}
+                  />
                   {errors.name && <p className="text-destructive text-sm">{errors.name.message}</p>}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="societyCode">Society Code</Label>
+                  <Label htmlFor="societyCode">
+                    Society Code <span className="text-destructive">*</span>
+                  </Label>
                   <Input
                     id="societyCode"
                     placeholder="EDEN01"
+                    aria-invalid={!!errors.societyCode}
                     {...register("societyCode", {
                       onChange: (e) => {
                         e.target.value = e.target.value.toUpperCase();
@@ -187,7 +197,9 @@ export default function NewSocietyPage() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Society Type</Label>
+                <Label>
+                  Society Type <span className="text-destructive">*</span>
+                </Label>
                 <Select
                   value={watch("type")}
                   onValueChange={(v) => setValue("type", v as SocietyType)}
@@ -206,9 +218,11 @@ export default function NewSocietyPage() {
               </div>
               <div className="grid gap-4 sm:grid-cols-3">
                 <div className="space-y-2">
-                  <Label>State</Label>
+                  <Label>
+                    State <span className="text-destructive">*</span>
+                  </Label>
                   <Select value={watch("state")} onValueChange={(v) => setValue("state", v)}>
-                    <SelectTrigger>
+                    <SelectTrigger aria-invalid={!!errors.state}>
                       <SelectValue placeholder="Select state" />
                     </SelectTrigger>
                     <SelectContent>
@@ -224,13 +238,28 @@ export default function NewSocietyPage() {
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="city">City</Label>
-                  <Input id="city" placeholder="Gurugram" {...register("city")} />
+                  <Label htmlFor="city">
+                    City <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="city"
+                    placeholder="Gurugram"
+                    aria-invalid={!!errors.city}
+                    {...register("city")}
+                  />
                   {errors.city && <p className="text-destructive text-sm">{errors.city.message}</p>}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="pincode">Pincode</Label>
-                  <Input id="pincode" placeholder="122001" maxLength={6} {...register("pincode")} />
+                  <Label htmlFor="pincode">
+                    Pincode <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="pincode"
+                    placeholder="122001"
+                    maxLength={6}
+                    aria-invalid={!!errors.pincode}
+                    {...register("pincode")}
+                  />
                   {errors.pincode && (
                     <p className="text-destructive text-sm">{errors.pincode.message}</p>
                   )}
@@ -249,11 +278,14 @@ export default function NewSocietyPage() {
             <CardContent className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="joiningFee">Joining Fee (INR)</Label>
+                  <Label htmlFor="joiningFee">
+                    Joining Fee (INR) <span className="text-destructive">*</span>
+                  </Label>
                   <Input
                     id="joiningFee"
                     type="number"
                     min={0}
+                    aria-invalid={!!errors.joiningFee}
                     {...register("joiningFee", { valueAsNumber: true })}
                   />
                   {errors.joiningFee && (
@@ -261,11 +293,14 @@ export default function NewSocietyPage() {
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="annualFee">Annual Fee (INR)</Label>
+                  <Label htmlFor="annualFee">
+                    Annual Fee (INR) <span className="text-destructive">*</span>
+                  </Label>
                   <Input
                     id="annualFee"
                     type="number"
                     min={0}
+                    aria-invalid={!!errors.annualFee}
                     {...register("annualFee", { valueAsNumber: true })}
                   />
                   {errors.annualFee && (
@@ -289,18 +324,29 @@ export default function NewSocietyPage() {
             <CardContent className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="adminName">Full Name</Label>
-                  <Input id="adminName" placeholder="Hemant Kumar" {...register("adminName")} />
+                  <Label htmlFor="adminName">
+                    Full Name <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="adminName"
+                    placeholder="Hemant Kumar"
+                    aria-invalid={!!errors.adminName}
+                    {...register("adminName")}
+                  />
                   {errors.adminName && (
                     <p className="text-destructive text-sm">{errors.adminName.message}</p>
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="adminEmail">Email</Label>
+                  <Label htmlFor="adminEmail">
+                    Email <span className="text-destructive">*</span>
+                  </Label>
                   <Input
                     id="adminEmail"
                     type="email"
                     placeholder="admin@example.com"
+                    autoComplete="off"
+                    aria-invalid={!!errors.adminEmail}
                     {...register("adminEmail")}
                   />
                   {errors.adminEmail && (
@@ -317,6 +363,7 @@ export default function NewSocietyPage() {
                       id="adminMobile"
                       placeholder="9876543210"
                       maxLength={10}
+                      aria-invalid={!!errors.adminMobile}
                       {...register("adminMobile")}
                     />
                   </div>
@@ -327,11 +374,15 @@ export default function NewSocietyPage() {
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="adminPassword">Password</Label>
+                  <Label htmlFor="adminPassword">
+                    Password <span className="text-destructive">*</span>
+                  </Label>
                   <Input
                     id="adminPassword"
                     type="password"
                     placeholder="Min 8 characters"
+                    autoComplete="new-password"
+                    aria-invalid={!!errors.adminPassword}
                     {...register("adminPassword")}
                   />
                   {errors.adminPassword && (
@@ -339,10 +390,14 @@ export default function NewSocietyPage() {
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="adminPasswordConfirm">Confirm Password</Label>
+                  <Label htmlFor="adminPasswordConfirm">
+                    Confirm Password <span className="text-destructive">*</span>
+                  </Label>
                   <Input
                     id="adminPasswordConfirm"
                     type="password"
+                    autoComplete="new-password"
+                    aria-invalid={!!errors.adminPasswordConfirm}
                     {...register("adminPasswordConfirm")}
                   />
                   {errors.adminPasswordConfirm && (

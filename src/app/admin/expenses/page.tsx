@@ -323,14 +323,19 @@ export default function ExpensesPage() {
           >
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>Date</Label>
+                <Label>
+                  Date <span className="text-destructive">*</span>
+                </Label>
                 <Input type="date" {...form.register("date")} />
               </div>
               <div className="space-y-2">
-                <Label>Amount (INR)</Label>
+                <Label>
+                  Amount (INR) <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   type="number"
                   min={1}
+                  aria-invalid={!!form.formState.errors.amount}
                   {...form.register("amount", { valueAsNumber: true })}
                 />
                 {form.formState.errors.amount && (
@@ -339,7 +344,9 @@ export default function ExpensesPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Category</Label>
+              <Label>
+                Category <span className="text-destructive">*</span>
+              </Label>
               <Select
                 value={form.watch("category")}
                 onValueChange={(v) =>
@@ -359,8 +366,14 @@ export default function ExpensesPage() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Description</Label>
-              <Input placeholder="What was this expense for?" {...form.register("description")} />
+              <Label>
+                Description <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                placeholder="What was this expense for?"
+                aria-invalid={!!form.formState.errors.description}
+                {...form.register("description")}
+              />
               {form.formState.errors.description && (
                 <p className="text-destructive text-sm">
                   {form.formState.errors.description.message}

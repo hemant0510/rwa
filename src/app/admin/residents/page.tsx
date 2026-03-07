@@ -6,7 +6,7 @@ import Link from "next/link";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Users, Search, CheckCircle, XCircle } from "lucide-react";
+import { Users, Search, CheckCircle, XCircle, Plus, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -39,7 +39,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useSocietyId } from "@/hooks/useSocietyId";
+import { FLOOR_LEVELS } from "@/lib/constants";
 import { getResidents, approveResident, rejectResident } from "@/services/residents";
+import { getSocietyByCode } from "@/services/societies";
+import { SOCIETY_TYPE_ADDRESS_FIELDS, type SocietyType } from "@/types/society";
 import { RESIDENT_STATUS_LABELS } from "@/types/user";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -53,7 +56,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function ResidentsPage() {
-  const { societyId } = useSocietyId();
+  const { societyId, societyCode } = useSocietyId();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -63,6 +66,19 @@ export default function ResidentsPage() {
     id: "",
   });
   const [rejectReason, setRejectReason] = useState("");
+
+  // Add Resident state
+  const [addDialog, setAddDialog] = useState(false);
+  const [addForm, setAddForm] = useState({
+    fullName: "",
+    mobile: "",
+    email: "",
+    password: "",
+    passwordConfirm: "",
+    ownershipType: "OWNER" as "OWNER" | "TENANT",
+  });
+  const [unitFields, setUnitFields] = useState<Record<string, string>>({});
+  const [addFormErrors, setAddFormErrors] = useState<Record<string, string>>({});
 
   const { data, isLoading } = useQuery({
     queryKey: ["residents", societyId, { search, status: statusFilter, page }],
@@ -95,9 +111,76 @@ export default function ResidentsPage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  // Fetch society type for address fields
+  const { data: society } = useQuery({
+    queryKey: ["societies", "code", societyCode],
+    queryFn: () => getSocietyByCode(societyCode!),
+    enabled: !!societyCode,
+  });
+
+  const addressFields = society ? SOCIETY_TYPE_ADDRESS_FIELDS[society.type as SocietyType] : null;
+
+  const addMutation = useMutation({
+    mutationFn: async () => {
+      const errors: Record<string, string> = {};
+      if (addForm.fullName.length < 2) errors.fullName = "Name must be at least 2 characters";
+      if (!/^[6-9]\d{9}$/.test(addForm.mobile))
+        errors.mobile = "Enter a valid 10-digit mobile number";
+      if (!addForm.email || !/\S+@\S+\.\S+/.test(addForm.email))
+        errors.email = "Enter a valid email address";
+      if (addForm.password.length < 8) errors.password = "Password must be at least 8 characters";
+      if (addForm.password !== addForm.passwordConfirm)
+        errors.passwordConfirm = "Passwords do not match";
+      if (Object.keys(errors).length > 0) {
+        setAddFormErrors(errors);
+        throw new Error("Please fix the highlighted fields");
+      }
+      setAddFormErrors({});
+      const res = await fetch("/api/v1/residents/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          societyCode,
+          fullName: addForm.fullName,
+          mobile: addForm.mobile,
+          email: addForm.email,
+          password: addForm.password,
+          ownershipType: addForm.ownershipType,
+          consentWhatsApp: true,
+          unitAddress: Object.keys(unitFields).length > 0 ? unitFields : undefined,
+        }),
+      });
+      if (!res.ok) {
+        const err = (await res.json()) as { error?: { message?: string } };
+        throw new Error(err.error?.message || "Failed to add resident");
+      }
+      return (await res.json()) as { id: string };
+    },
+    onSuccess: () => {
+      toast.success("Resident added successfully! They will appear as Pending Approval.");
+      setAddDialog(false);
+      setAddForm({
+        fullName: "",
+        mobile: "",
+        email: "",
+        password: "",
+        passwordConfirm: "",
+        ownershipType: "OWNER",
+      });
+      setUnitFields({});
+      queryClient.invalidateQueries({ queryKey: ["residents"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   return (
     <div className="space-y-6">
-      <PageHeader title="Residents" description="Manage society residents" />
+      <PageHeader title="Residents" description="Manage society residents">
+        <Button onClick={() => setAddDialog(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          Add Resident
+        </Button>
+      </PageHeader>
 
       <div className="flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1">
@@ -241,6 +324,7 @@ export default function ResidentsPage() {
         </>
       )}
 
+      {/* Reject Dialog */}
       <Dialog
         open={rejectDialog.open}
         onOpenChange={(open) => setRejectDialog({ open, id: open ? rejectDialog.id : "" })}
@@ -268,6 +352,235 @@ export default function ResidentsPage() {
               onClick={() => rejectMutation.mutate({ id: rejectDialog.id, reason: rejectReason })}
             >
               Reject
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Resident Dialog */}
+      <Dialog
+        open={addDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            setAddForm({
+              fullName: "",
+              mobile: "",
+              email: "",
+              password: "",
+              passwordConfirm: "",
+              ownershipType: "OWNER",
+            });
+            setUnitFields({});
+            setAddFormErrors({});
+          }
+          setAddDialog(open);
+        }}
+      >
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add Resident</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>
+                Full Name <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                placeholder="Enter full name"
+                value={addForm.fullName}
+                aria-invalid={!!addFormErrors.fullName}
+                onChange={(e) => {
+                  setAddForm((f) => ({ ...f, fullName: e.target.value }));
+                  setAddFormErrors((e2) => {
+                    const { fullName: _, ...rest } = e2;
+                    return rest;
+                  });
+                }}
+              />
+              {addFormErrors.fullName && (
+                <p className="text-destructive text-sm">{addFormErrors.fullName}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>
+                Mobile Number <span className="text-destructive">*</span>
+              </Label>
+              <div className="flex gap-2">
+                <span className="bg-muted text-muted-foreground flex items-center rounded-md border px-3 text-sm">
+                  +91
+                </span>
+                <Input
+                  placeholder="9876543210"
+                  maxLength={10}
+                  value={addForm.mobile}
+                  aria-invalid={!!addFormErrors.mobile}
+                  onChange={(e) => {
+                    setAddForm((f) => ({ ...f, mobile: e.target.value }));
+                    setAddFormErrors((e2) => {
+                      const { mobile: _, ...rest } = e2;
+                      return rest;
+                    });
+                  }}
+                />
+              </div>
+              {addFormErrors.mobile && (
+                <p className="text-destructive text-sm">{addFormErrors.mobile}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>
+                Email <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                type="email"
+                placeholder="email@example.com"
+                autoComplete="off"
+                value={addForm.email}
+                aria-invalid={!!addFormErrors.email}
+                onChange={(e) => {
+                  setAddForm((f) => ({ ...f, email: e.target.value }));
+                  setAddFormErrors((e2) => {
+                    const { email: _, ...rest } = e2;
+                    return rest;
+                  });
+                }}
+              />
+              {addFormErrors.email && (
+                <p className="text-destructive text-sm">{addFormErrors.email}</p>
+              )}
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>
+                  Password <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  type="password"
+                  placeholder="Min 8 characters"
+                  autoComplete="new-password"
+                  value={addForm.password}
+                  aria-invalid={!!addFormErrors.password}
+                  onChange={(e) => {
+                    setAddForm((f) => ({ ...f, password: e.target.value }));
+                    setAddFormErrors((e2) => {
+                      const { password: _, ...rest } = e2;
+                      return rest;
+                    });
+                  }}
+                />
+                {addFormErrors.password && (
+                  <p className="text-destructive text-sm">{addFormErrors.password}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label>
+                  Confirm Password <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  type="password"
+                  autoComplete="new-password"
+                  value={addForm.passwordConfirm}
+                  aria-invalid={!!addFormErrors.passwordConfirm}
+                  onChange={(e) => {
+                    setAddForm((f) => ({ ...f, passwordConfirm: e.target.value }));
+                    setAddFormErrors((e2) => {
+                      const { passwordConfirm: _, ...rest } = e2;
+                      return rest;
+                    });
+                  }}
+                />
+                {addFormErrors.passwordConfirm && (
+                  <p className="text-destructive text-sm">{addFormErrors.passwordConfirm}</p>
+                )}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>
+                Ownership Type <span className="text-destructive">*</span>
+              </Label>
+              <Select
+                value={addForm.ownershipType}
+                onValueChange={(v) =>
+                  setAddForm((f) => ({ ...f, ownershipType: v as "OWNER" | "TENANT" }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="OWNER">Owner</SelectItem>
+                  <SelectItem value="TENANT">Tenant</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {addressFields && (
+              <div className="bg-muted/30 space-y-3 rounded-md border p-4">
+                <p className="text-sm font-medium">Address Details</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {addressFields.required.map((field) => (
+                    <div key={field} className="space-y-1">
+                      <Label className="text-xs capitalize">
+                        {field.replace(/([A-Z])/g, " $1").trim()} *
+                      </Label>
+                      {field === "floorLevel" ? (
+                        <Select
+                          value={unitFields[field] || ""}
+                          onValueChange={(v) => setUnitFields((prev) => ({ ...prev, [field]: v }))}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select floor" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {FLOOR_LEVELS.map((f) => (
+                              <SelectItem key={f} value={f}>
+                                {f}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Input
+                          value={unitFields[field] || ""}
+                          onChange={(e) =>
+                            setUnitFields((prev) => ({ ...prev, [field]: e.target.value }))
+                          }
+                        />
+                      )}
+                    </div>
+                  ))}
+                  {addressFields.optional.map((field) => (
+                    <div key={field} className="space-y-1">
+                      <Label className="text-xs capitalize">
+                        {field.replace(/([A-Z])/g, " $1").trim()}
+                      </Label>
+                      <Input
+                        value={unitFields[field] || ""}
+                        onChange={(e) =>
+                          setUnitFields((prev) => ({ ...prev, [field]: e.target.value }))
+                        }
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={
+                addForm.fullName.length < 2 ||
+                !addForm.email ||
+                !addForm.password ||
+                addMutation.isPending
+              }
+              onClick={() => addMutation.mutate()}
+            >
+              {addMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Add Resident
             </Button>
           </DialogFooter>
         </DialogContent>
