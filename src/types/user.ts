@@ -10,6 +10,7 @@ export interface User {
   ownershipType: OwnershipType | null;
   status: ResidentStatus;
   adminPermission: AdminPermission | null;
+  isEmailVerified: boolean;
   consentWhatsapp: boolean;
   joiningFeePaid: boolean;
   registeredAt: string;

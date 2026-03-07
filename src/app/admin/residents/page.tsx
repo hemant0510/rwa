@@ -258,7 +258,8 @@ export default function ResidentsPage() {
                   <TableHead>Name</TableHead>
                   <TableHead className="hidden sm:table-cell">Mobile</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="hidden md:table-cell">RWAID</TableHead>
+                  <TableHead className="hidden md:table-cell">Email Verified</TableHead>
+                  <TableHead className="hidden lg:table-cell">RWAID</TableHead>
                   <TableHead className="hidden lg:table-cell">Registered</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -281,7 +282,19 @@ export default function ResidentsPage() {
                         {RESIDENT_STATUS_LABELS[resident.status] || resident.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="hidden font-mono text-xs md:table-cell">
+                    <TableCell className="hidden md:table-cell">
+                      <Badge
+                        variant="outline"
+                        className={
+                          resident.isEmailVerified
+                            ? "border-green-200 bg-green-50 text-green-700"
+                            : "border-amber-200 bg-amber-50 text-amber-700"
+                        }
+                      >
+                        {resident.isEmailVerified ? "Verified" : "Not Verified"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="hidden font-mono text-xs lg:table-cell">
                       {resident.rwaid || "—"}
                     </TableCell>
                     <TableCell className="text-muted-foreground hidden text-sm lg:table-cell">
