@@ -31,24 +31,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Find the unverified user (multiple users may share an email across roles)
     const user = await prisma.user.findFirst({
-      where: { email: parsed.data.email },
+      where: { email: parsed.data.email, isEmailVerified: false },
       select: { id: true, name: true, email: true, isEmailVerified: true },
+      orderBy: { createdAt: "desc" },
     });
 
     if (!user) {
-      // Don't reveal whether email exists — return success anyway
+      // No unverified user — check if any verified user exists with this email
+      const verifiedUser = await prisma.user.findFirst({
+        where: { email: parsed.data.email },
+        select: { id: true },
+      });
+
+      if (verifiedUser) {
+        return NextResponse.json({
+          success: true,
+          message: "Email is already verified. You can sign in.",
+          alreadyVerified: true,
+        });
+      }
+
+      // Don't reveal whether email exists
       return NextResponse.json({
         success: true,
         message: "If that email exists, a verification email has been sent.",
-      });
-    }
-
-    if (user.isEmailVerified) {
-      return NextResponse.json({
-        success: true,
-        message: "Email is already verified. You can sign in.",
-        alreadyVerified: true,
       });
     }
 

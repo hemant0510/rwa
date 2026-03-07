@@ -74,21 +74,82 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Statuses that actively block re-registration (user is live in the system)
+    const blockingStatuses = new Set([
+      "ACTIVE_PAID",
+      "ACTIVE_PENDING",
+      "ACTIVE_OVERDUE",
+      "ACTIVE_PARTIAL",
+      "ACTIVE_EXEMPTED",
+      "MIGRATED_PENDING",
+      "DORMANT",
+    ]);
+
     // Check duplicate mobile in same society
-    const existingUser = await prisma.user.findFirst({
+    const existingByMobile = await prisma.user.findFirst({
       where: { societyId: society.id, mobile: data.mobile, role: "RESIDENT" },
+      select: { id: true, status: true, name: true },
     });
 
-    if (existingUser) {
-      return NextResponse.json(
-        {
-          error: {
-            code: "DUPLICATE_MOBILE",
-            message: "This mobile number is already registered in this society.",
+    if (existingByMobile) {
+      console.log("[REGISTER] Existing mobile record:", existingByMobile);
+      if (blockingStatuses.has(existingByMobile.status)) {
+        return NextResponse.json(
+          {
+            error: {
+              code: "DUPLICATE_MOBILE",
+              message: "This mobile number is already registered in this society.",
+            },
           },
-        },
-        { status: 409 },
+          { status: 409 },
+        );
+      }
+      // Non-blocking status (PENDING_APPROVAL, DEACTIVATED, REJECTED, etc.)
+      // Clean up the stale record so re-registration can proceed
+      console.log(
+        "[REGISTER] Cleaning up stale mobile record:",
+        existingByMobile.id,
+        existingByMobile.status,
       );
+      await prisma.userUnit.deleteMany({ where: { userId: existingByMobile.id } });
+      await prisma.emailVerificationToken.deleteMany({ where: { userId: existingByMobile.id } });
+      await prisma.notificationPreference.deleteMany({ where: { userId: existingByMobile.id } });
+      await prisma.notification.deleteMany({ where: { userId: existingByMobile.id } });
+      await prisma.auditLog.deleteMany({ where: { userId: existingByMobile.id } });
+      await prisma.user.delete({ where: { id: existingByMobile.id } });
+    }
+
+    // Check duplicate email in same society
+    const existingByEmail = await prisma.user.findFirst({
+      where: { societyId: society.id, email: data.email, role: "RESIDENT" },
+      select: { id: true, status: true, name: true },
+    });
+
+    if (existingByEmail) {
+      console.log("[REGISTER] Existing email record:", existingByEmail);
+      if (blockingStatuses.has(existingByEmail.status)) {
+        return NextResponse.json(
+          {
+            error: {
+              code: "DUPLICATE_EMAIL",
+              message: "This email is already registered in this society.",
+            },
+          },
+          { status: 409 },
+        );
+      }
+      // Clean up stale email record
+      console.log(
+        "[REGISTER] Cleaning up stale email record:",
+        existingByEmail.id,
+        existingByEmail.status,
+      );
+      await prisma.userUnit.deleteMany({ where: { userId: existingByEmail.id } });
+      await prisma.emailVerificationToken.deleteMany({ where: { userId: existingByEmail.id } });
+      await prisma.notificationPreference.deleteMany({ where: { userId: existingByEmail.id } });
+      await prisma.notification.deleteMany({ where: { userId: existingByEmail.id } });
+      await prisma.auditLog.deleteMany({ where: { userId: existingByEmail.id } });
+      await prisma.user.delete({ where: { id: existingByEmail.id } });
     }
 
     // Check blacklist
@@ -208,8 +269,22 @@ export async function POST(request: NextRequest) {
         { status: 201 },
       );
     } catch (err) {
-      // Rollback: delete Supabase Auth user if Prisma transaction fails
+      // Rollback: delete Supabase Auth user
       await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+      // Also clean up Prisma user if it was created (transaction committed but post-steps failed)
+      try {
+        const orphan = await prisma.user.findFirst({
+          where: { authUserId: authData.user.id },
+          select: { id: true },
+        });
+        if (orphan) {
+          await prisma.userUnit.deleteMany({ where: { userId: orphan.id } });
+          await prisma.emailVerificationToken.deleteMany({ where: { userId: orphan.id } });
+          await prisma.user.delete({ where: { id: orphan.id } });
+        }
+      } catch {
+        // Best-effort cleanup
+      }
       console.error("Registration error:", err);
       return internalError("Failed to register");
     }

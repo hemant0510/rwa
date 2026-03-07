@@ -1,28 +1,58 @@
 "use client";
 
-import { User, Phone, Mail, Home, Shield, LogOut } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Home, LogOut, Mail, Phone, Shield, User } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageSkeleton } from "@/components/ui/LoadingSkeleton";
 import { useAuth } from "@/hooks/useAuth";
+import { RESIDENT_STATUS_LABELS, type ResidentStatus } from "@/types/user";
 
-// TODO: Fetch from auth context
-const PROFILE = {
-  name: "Resident User",
-  mobile: "9876543210",
-  email: "resident@example.com",
-  rwaid: "RWA-HR-GUR-122001-001-2025-001",
-  society: "Eden Estate RWA",
-  unit: "S22-St7-H245",
-  ownershipType: "OWNER",
-  status: "ACTIVE_PAID",
-  registeredAt: "2025-04-01",
-  approvedAt: "2025-04-02",
+const STATUS_COLORS: Record<string, string> = {
+  PENDING_APPROVAL: "border-yellow-200 bg-yellow-50 text-yellow-700",
+  ACTIVE_PAID: "border-green-200 bg-green-50 text-green-700",
+  ACTIVE_PENDING: "border-blue-200 bg-blue-50 text-blue-700",
+  ACTIVE_OVERDUE: "border-red-200 bg-red-50 text-red-700",
+  ACTIVE_PARTIAL: "border-orange-200 bg-orange-50 text-orange-700",
+  ACTIVE_EXEMPTED: "border-purple-200 bg-purple-50 text-purple-700",
+  REJECTED: "border-gray-200 bg-gray-50 text-gray-500",
 };
+
+interface ResidentProfile {
+  id: string;
+  name: string;
+  email: string;
+  mobile: string;
+  rwaid: string | null;
+  status: ResidentStatus;
+  ownershipType: string;
+  societyName: string | null;
+  unit: string | null;
+}
+
+async function fetchProfile(): Promise<ResidentProfile> {
+  const res = await fetch("/api/v1/residents/me");
+  if (!res.ok) throw new Error("Failed to fetch profile");
+  return res.json() as Promise<ResidentProfile>;
+}
 
 export default function ResidentProfilePage() {
   const { signOut } = useAuth();
+  const { data: profile, isLoading } = useQuery({
+    queryKey: ["resident-profile"],
+    queryFn: fetchProfile,
+  });
+
+  if (isLoading) return <PageSkeleton />;
+
+  if (!profile) {
+    return <p className="text-muted-foreground text-center">Unable to load profile.</p>;
+  }
+
+  const statusLabel = RESIDENT_STATUS_LABELS[profile.status] ?? profile.status;
+  const statusColor = STATUS_COLORS[profile.status] ?? "border-gray-200 bg-gray-50 text-gray-700";
 
   return (
     <div className="space-y-6">
@@ -35,8 +65,10 @@ export default function ResidentProfilePage() {
               <User className="text-primary h-8 w-8" />
             </div>
             <div>
-              <h2 className="text-lg font-bold">{PROFILE.name}</h2>
-              <p className="text-muted-foreground font-mono text-sm">{PROFILE.rwaid}</p>
+              <h2 className="text-lg font-bold">{profile.name}</h2>
+              {profile.rwaid && (
+                <p className="text-muted-foreground font-mono text-sm">{profile.rwaid}</p>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -44,23 +76,25 @@ export default function ResidentProfilePage() {
           <div className="space-y-3">
             <div className="flex items-center gap-3">
               <Phone className="text-muted-foreground h-4 w-4" />
-              <span className="text-sm">+91 {PROFILE.mobile}</span>
+              <span className="text-sm">+91 {profile.mobile}</span>
             </div>
-            {PROFILE.email && (
+            {profile.email && (
               <div className="flex items-center gap-3">
                 <Mail className="text-muted-foreground h-4 w-4" />
-                <span className="text-sm">{PROFILE.email}</span>
+                <span className="text-sm">{profile.email}</span>
+              </div>
+            )}
+            {(profile.unit || profile.societyName) && (
+              <div className="flex items-center gap-3">
+                <Home className="text-muted-foreground h-4 w-4" />
+                <span className="text-sm">
+                  {[profile.unit, profile.societyName].filter(Boolean).join(" — ")}
+                </span>
               </div>
             )}
             <div className="flex items-center gap-3">
-              <Home className="text-muted-foreground h-4 w-4" />
-              <span className="text-sm">
-                {PROFILE.unit} &mdash; {PROFILE.society}
-              </span>
-            </div>
-            <div className="flex items-center gap-3">
               <Shield className="text-muted-foreground h-4 w-4" />
-              <span className="text-sm">{PROFILE.ownershipType}</span>
+              <span className="text-sm">{profile.ownershipType}</span>
             </div>
           </div>
         </CardContent>
@@ -70,16 +104,12 @@ export default function ResidentProfilePage() {
         <CardHeader>
           <CardTitle className="text-base">Account Status</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent>
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground text-sm">Status</span>
-            <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700">
-              Active
+            <Badge variant="outline" className={statusColor}>
+              {statusLabel}
             </Badge>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground text-sm">WhatsApp Consent</span>
-            <Badge variant="outline">Enabled</Badge>
           </div>
         </CardContent>
       </Card>

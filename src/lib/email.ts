@@ -1,32 +1,43 @@
 import nodemailer from "nodemailer";
 
-const SMTP_HOST = process.env.SMTP_HOST;
-const SMTP_PORT = parseInt(process.env.SMTP_PORT || "587", 10);
-const SMTP_USER = process.env.SMTP_USER;
-const SMTP_PASS = process.env.SMTP_PASS;
-const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER;
+function getSmtpConfig() {
+  return {
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT || "587", 10),
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+  };
+}
 
 /**
  * Check if SMTP environment variables are configured.
  * If not, email verification is automatically disabled.
  */
 export function isEmailConfigured(): boolean {
-  return !!(SMTP_HOST && SMTP_USER && SMTP_PASS);
+  const { host, user, pass } = getSmtpConfig();
+  return !!(host && user && pass);
 }
 
 let transporter: nodemailer.Transporter | null = null;
+let lastConfig = "";
 
 function getTransporter(): nodemailer.Transporter {
-  if (!transporter) {
+  const config = getSmtpConfig();
+  const configKey = `${config.host}:${config.port}:${config.user}:${config.pass}`;
+
+  // Recreate transporter if config changed (e.g. env vars added after server start)
+  if (!transporter || configKey !== lastConfig) {
     transporter = nodemailer.createTransport({
-      host: SMTP_HOST,
-      port: SMTP_PORT,
-      secure: SMTP_PORT === 465,
+      host: config.host,
+      port: config.port,
+      secure: config.port === 465,
       auth: {
-        user: SMTP_USER,
-        pass: SMTP_PASS,
+        user: config.user,
+        pass: config.pass,
       },
     });
+    lastConfig = configKey;
   }
   return transporter;
 }
@@ -37,9 +48,10 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
     return;
   }
 
+  const config = getSmtpConfig();
   const transport = getTransporter();
   await transport.sendMail({
-    from: SMTP_FROM,
+    from: config.from,
     to,
     subject,
     html,

@@ -6,7 +6,7 @@ import Link from "next/link";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Users, Search, CheckCircle, XCircle, Plus, Loader2 } from "lucide-react";
+import { Users, Search, CheckCircle, XCircle, Plus, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -40,7 +40,12 @@ import {
 } from "@/components/ui/table";
 import { useSocietyId } from "@/hooks/useSocietyId";
 import { FLOOR_LEVELS } from "@/lib/constants";
-import { getResidents, approveResident, rejectResident } from "@/services/residents";
+import {
+  getResidents,
+  approveResident,
+  rejectResident,
+  permanentDeleteResident,
+} from "@/services/residents";
 import { getSocietyByCode } from "@/services/societies";
 import { SOCIETY_TYPE_ADDRESS_FIELDS, type SocietyType } from "@/types/society";
 import { RESIDENT_STATUS_LABELS } from "@/types/user";
@@ -53,6 +58,7 @@ const STATUS_COLORS: Record<string, string> = {
   ACTIVE_PARTIAL: "border-orange-200 bg-orange-50 text-orange-700",
   ACTIVE_EXEMPTED: "border-purple-200 bg-purple-50 text-purple-700",
   REJECTED: "border-gray-200 bg-gray-50 text-gray-500",
+  DEACTIVATED: "border-red-300 bg-red-50 text-red-800",
 };
 
 export default function ResidentsPage() {
@@ -66,6 +72,11 @@ export default function ResidentsPage() {
     id: "",
   });
   const [rejectReason, setRejectReason] = useState("");
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; id: string; name: string }>({
+    open: false,
+    id: "",
+    name: "",
+  });
 
   // Add Resident state
   const [addDialog, setAddDialog] = useState(false);
@@ -106,6 +117,16 @@ export default function ResidentsPage() {
       toast.success("Resident rejected");
       setRejectDialog({ open: false, id: "" });
       setRejectReason("");
+      queryClient.invalidateQueries({ queryKey: ["residents"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: permanentDeleteResident,
+    onSuccess: () => {
+      toast.success("Resident permanently deleted");
+      setDeleteDialog({ open: false, id: "", name: "" });
       queryClient.invalidateQueries({ queryKey: ["residents"] });
     },
     onError: (err: Error) => toast.error(err.message),
@@ -211,6 +232,7 @@ export default function ResidentsPage() {
             <SelectItem value="ACTIVE_PAID">Active (Paid)</SelectItem>
             <SelectItem value="ACTIVE_PENDING">Active (Pending)</SelectItem>
             <SelectItem value="ACTIVE_OVERDUE">Active (Overdue)</SelectItem>
+            <SelectItem value="DEACTIVATED">Deactivated</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -289,6 +311,23 @@ export default function ResidentsPage() {
                           </Button>
                         </div>
                       )}
+                      {resident.status === "DEACTIVATED" && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 text-red-600 hover:text-red-700"
+                          onClick={() =>
+                            setDeleteDialog({
+                              open: true,
+                              id: resident.id,
+                              name: resident.name,
+                            })
+                          }
+                        >
+                          <Trash2 className="mr-1 h-4 w-4" />
+                          Delete
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -352,6 +391,49 @@ export default function ResidentsPage() {
               onClick={() => rejectMutation.mutate({ id: rejectDialog.id, reason: rejectReason })}
             >
               Reject
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Permanent Delete Dialog */}
+      <Dialog
+        open={deleteDialog.open}
+        onOpenChange={(open) =>
+          setDeleteDialog({
+            open,
+            id: open ? deleteDialog.id : "",
+            name: open ? deleteDialog.name : "",
+          })
+        }
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Permanently Delete Resident</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <p className="text-sm">
+              Are you sure you want to permanently delete <strong>{deleteDialog.name}</strong>?
+            </p>
+            <p className="text-destructive text-sm font-medium">
+              This will permanently delete this resident and all their data (fees, payments, units).
+              This action cannot be undone.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialog({ open: false, id: "", name: "" })}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteMutation.mutate(deleteDialog.id)}
+            >
+              {deleteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Delete Permanently
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -65,3 +65,14 @@ export async function deleteResident(id: string, reason: string) {
   }
   return res.json() as Promise<{ message: string }>;
 }
+
+export async function permanentDeleteResident(id: string) {
+  const res = await fetch(`${API_BASE}/residents/${id}/permanent-delete`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    const err = (await res.json()) as { error?: { message?: string } };
+    throw new Error(err.error?.message ?? "Failed to permanently delete resident");
+  }
+  return res.json() as Promise<{ message: string }>;
+}
