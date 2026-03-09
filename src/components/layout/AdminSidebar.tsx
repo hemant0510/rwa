@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 import {
   CreditCard,
+  Crown,
   FileText,
   LayoutDashboard,
   MessageSquare,
@@ -24,6 +25,7 @@ const navItems = [
   { href: "/admin/expenses", label: "Expenses", icon: Receipt },
   { href: "/admin/reports", label: "Reports", icon: FileText },
   { href: "/admin/broadcast", label: "Broadcast", icon: MessageSquare },
+  { href: "/admin/governing-body", label: "Governing Body", icon: Crown },
   { href: "/admin/migration", label: "Migration", icon: Upload },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];

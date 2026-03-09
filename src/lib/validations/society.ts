@@ -66,3 +66,18 @@ export const updateSocietySchema = z
   );
 
 export type UpdateSocietyInput = z.infer<typeof updateSocietySchema>;
+
+export const feeSettingsSchema = z.object({
+  joiningFee: z.number().min(0).max(100000).optional(),
+  annualFee: z.number().min(0).max(100000).optional(),
+  gracePeriodDays: z.number().int().min(1).max(365).optional(),
+  feeSessionStartMonth: z.number().int().min(1).max(12).optional(),
+});
+
+export type FeeSettingsInput = z.infer<typeof feeSettingsSchema>;
+
+export const createFeeSessionSchema = z.object({
+  year: z.number().int().min(2024).max(2100),
+});
+
+export type CreateFeeSessionInput = z.infer<typeof createFeeSessionSchema>;

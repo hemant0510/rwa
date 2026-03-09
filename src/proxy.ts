@@ -10,6 +10,8 @@ const PUBLIC_ROUTES = [
   "/register-society",
   "/verify-email",
   "/check-email",
+  "/forgot-password",
+  "/reset-password",
 ];
 const PUBLIC_API_PREFIX = [
   "/api/v1/auth/",
@@ -28,7 +30,7 @@ function isPublicApi(pathname: string): boolean {
   return PUBLIC_API_PREFIX.some((prefix) => pathname.startsWith(prefix));
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Skip static files and Next.js internals

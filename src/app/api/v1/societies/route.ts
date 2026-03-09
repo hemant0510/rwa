@@ -151,6 +151,22 @@ export async function POST(request: NextRequest) {
           },
         });
 
+        // Seed default designations for governing body
+        const defaultDesignations = [
+          { name: "President", sortOrder: 1 },
+          { name: "Vice-President", sortOrder: 2 },
+          { name: "Secretary", sortOrder: 3 },
+          { name: "Joint Secretary", sortOrder: 4 },
+          { name: "Treasurer", sortOrder: 5 },
+        ];
+        await tx.designation.createMany({
+          data: defaultDesignations.map((d) => ({
+            societyId: society.id,
+            name: d.name,
+            sortOrder: d.sortOrder,
+          })),
+        });
+
         return { society, admin };
       });
 

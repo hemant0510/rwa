@@ -107,6 +107,11 @@ export default function SuperAdminLoginPage() {
               <p className="text-destructive text-sm">{form.formState.errors.password.message}</p>
             )}
           </div>
+          <div className="text-right">
+            <a href="/forgot-password" className="text-primary text-sm hover:underline">
+              Forgot password?
+            </a>
+          </div>
           <Button className="w-full" type="submit" disabled={isLoading}>
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Sign In

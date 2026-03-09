@@ -205,6 +205,8 @@ model Society {
   dependents               Dependent[]
   blacklistedNumbers       BlacklistedNumber[]
   vehicles                 Vehicle[]
+  designations             Designation[]
+  governingBodyMembers     GoverningBodyMember[]
 
   @@map("societies")
 }
@@ -280,6 +282,9 @@ model User {
   dependents             Dependent[]
   blacklistedNumbers     BlacklistedNumber[]
   emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens    PasswordResetToken[]
+  governingBodyMembership GoverningBodyMember?  @relation("GoverningBodyMember")
+  governingBodyAssignments GoverningBodyMember[] @relation("GoverningBodyAssigner")
 
   @@unique([societyId, email])
   @@map("users")
@@ -296,6 +301,19 @@ model EmailVerificationToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("email_verification_tokens")
+}
+
+/// Password reset tokens for forgot password flow.
+model PasswordResetToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_reset_tokens")
 }
 
 /// 2b. SuperAdmin — platform super administrators (separate from society users).
@@ -802,4 +820,39 @@ model Vehicle {
 
   @@index([societyId, registrationNumber])
   @@map("vehicles")
+}
+
+/// 24. Designation — governing body designations per society.
+model Designation {
+  id        String   @id @default(uuid()) @db.Uuid
+  societyId String   @map("society_id") @db.Uuid
+  name      String   @db.VarChar(50)
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  society Society               @relation(fields: [societyId], references: [id])
+  members GoverningBodyMember[]
+
+  @@unique([societyId, name])
+  @@map("designations")
+}
+
+/// 25. GoverningBodyMember — assigns a resident to a designation (informational).
+model GoverningBodyMember {
+  id            String   @id @default(uuid()) @db.Uuid
+  societyId     String   @map("society_id") @db.Uuid
+  userId        String   @unique @map("user_id") @db.Uuid
+  designationId String   @map("designation_id") @db.Uuid
+  assignedAt    DateTime @default(now()) @map("assigned_at")
+  assignedBy    String?  @map("assigned_by") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  society     Society     @relation(fields: [societyId], references: [id])
+  user        User        @relation("GoverningBodyMember", fields: [userId], references: [id])
+  designation Designation @relation(fields: [designationId], references: [id])
+  assigner    User?       @relation("GoverningBodyAssigner", fields: [assignedBy], references: [id])
+
+  @@map("governing_body_members")
 }
