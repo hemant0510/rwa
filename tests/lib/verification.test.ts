@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+import { mockPrisma } from "../__mocks__/prisma";
+
 vi.mock("@/lib/email", () => ({
   isEmailConfigured: vi.fn().mockReturnValue(true),
   sendEmail: vi.fn().mockResolvedValue(undefined),
@@ -16,8 +18,6 @@ vi.mock("@/lib/email-templates/verification", () => ({
 import { isEmailConfigured, sendEmail } from "@/lib/email";
 import { generateVerificationToken } from "@/lib/tokens";
 import { isVerificationRequired, sendVerificationEmail, autoVerifyUser } from "@/lib/verification";
-
-import { mockPrisma } from "../__mocks__/prisma";
 
 describe("isVerificationRequired", () => {
   beforeEach(() => {
