@@ -8,6 +8,7 @@ export interface User {
   photoUrl: string | null;
   role: UserRole;
   ownershipType: OwnershipType | null;
+  otherOwnershipDetail: string | null;
   status: ResidentStatus;
   adminPermission: AdminPermission | null;
   isEmailVerified: boolean;
@@ -20,7 +21,7 @@ export interface User {
 
 export type UserRole = "RWA_ADMIN" | "RESIDENT";
 
-export type OwnershipType = "OWNER" | "TENANT";
+export type OwnershipType = "OWNER" | "TENANT" | "OTHER";
 
 export type AdminPermission = "FULL_ACCESS" | "READ_NOTIFY";
 

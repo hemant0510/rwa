@@ -39,7 +39,13 @@ export async function rejectResident(id: string, reason: string) {
 
 export async function updateResident(
   id: string,
-  data: { name?: string; mobile?: string; email?: string; ownershipType?: string },
+  data: {
+    name?: string;
+    mobile?: string;
+    email?: string;
+    ownershipType?: string;
+    otherOwnershipDetail?: string;
+  },
 ) {
   const res = await fetch(`${API_BASE}/residents/${id}`, {
     method: "PATCH",

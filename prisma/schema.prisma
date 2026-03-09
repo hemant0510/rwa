@@ -44,6 +44,7 @@ enum UserRole {
 enum OwnershipType {
   OWNER
   TENANT
+  OTHER
 }
 
 enum AdminPermission {
@@ -224,6 +225,7 @@ model User {
   idProofUrl          String?          @map("id_proof_url") @db.VarChar(500)
   role                UserRole
   ownershipType       OwnershipType?   @map("ownership_type")
+  otherOwnershipDetail String?         @map("other_ownership_detail") @db.VarChar(100)
   status              ResidentStatus   @default(PENDING_APPROVAL)
   adminPermission     AdminPermission? @map("admin_permission")
   isEmailVerified     Boolean          @default(false) @map("is_email_verified")

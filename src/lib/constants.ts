@@ -52,7 +52,11 @@ export const EXPENSE_CATEGORIES = [
 ] as const;
 
 // Floor levels for builder floors
-export const FLOOR_LEVELS = ["GF", "1F", "2F", "3F", "4F", "Terrace"] as const;
+export const FLOOR_LEVELS = ["1F", "2F", "3F", "4F"] as const;
+
+// Unit types for builder floors
+export const BUILDER_FLOORS_UNIT_TYPES = ["FLOOR", "HOUSE"] as const;
+export type BuilderFloorsUnitType = (typeof BUILDER_FLOORS_UNIT_TYPES)[number];
 
 // Indian states (code -> name)
 export const INDIAN_STATES: Record<string, string> = {

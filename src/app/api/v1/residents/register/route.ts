@@ -12,7 +12,9 @@ const registerSchema = z.object({
   societyCode: z.string().min(4).max(8),
   fullName: z.string().min(2).max(100),
   mobile: z.string().regex(/^[6-9]\d{9}$/),
-  ownershipType: z.enum(["OWNER", "TENANT"]),
+  ownershipType: z.enum(["OWNER", "TENANT", "OTHER"]),
+  otherOwnershipDetail: z.string().max(100).optional(),
+  unitType: z.string().optional(),
   email: z.string().email("Valid email is required"),
   password: z.string().min(8, "Password must be at least 8 characters").optional(),
   reuseAuth: z.boolean().optional(),
@@ -223,13 +225,15 @@ export async function POST(request: NextRequest) {
       const user = await prisma.$transaction(async (tx: TransactionClient) => {
         const newUser = await tx.user.create({
           data: {
-            societyId: society.id,
+            society: { connect: { id: society.id } },
             authUserId,
             name: data.fullName,
             mobile: data.mobile,
             email: data.email,
             role: "RESIDENT",
             ownershipType: data.ownershipType,
+            otherOwnershipDetail:
+              data.ownershipType === "OTHER" ? (data.otherOwnershipDetail?.trim() ?? null) : null,
             status: "PENDING_APPROVAL",
             consentWhatsapp: data.consentWhatsApp,
             consentWhatsappAt: new Date(),
@@ -254,8 +258,9 @@ export async function POST(request: NextRequest) {
 
           const unit = await tx.unit.create({
             data: {
-              societyId: society.id,
+              society: { connect: { id: society.id } },
               displayLabel,
+              unitType: t(data.unitType, 20),
               towerBlock: t(addr.towerBlock, 20),
               floorNo: t(addr.floorNo, 10),
               flatNo: t(addr.flatNo, 20),
@@ -269,15 +274,19 @@ export async function POST(request: NextRequest) {
               laneNo: t(addr.laneNo, 20),
               phase: t(addr.phase, 20),
               unitStatus: "OCCUPIED",
-              primaryOwnerId: data.ownershipType === "OWNER" ? newUser.id : null,
-              currentTenantId: data.ownershipType === "TENANT" ? newUser.id : null,
+              ...(data.ownershipType === "OWNER"
+                ? { primaryOwner: { connect: { id: newUser.id } } }
+                : {}),
+              ...(data.ownershipType === "TENANT"
+                ? { currentTenant: { connect: { id: newUser.id } } }
+                : {}),
             },
           });
 
           await tx.userUnit.create({
             data: {
-              userId: newUser.id,
-              unitId: unit.id,
+              user: { connect: { id: newUser.id } },
+              unit: { connect: { id: unit.id } },
               relationship: data.ownershipType,
             },
           });

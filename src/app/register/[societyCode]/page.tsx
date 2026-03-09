@@ -8,6 +8,7 @@ import { Building2, CheckCircle, Info, Loader2 } from "lucide-react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
+import { FormStepper } from "@/components/features/FormStepper";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -29,10 +30,14 @@ import {
 import { getSocietyByCode } from "@/services/societies";
 import { SOCIETY_TYPE_ADDRESS_FIELDS, type SocietyType } from "@/types/society";
 
+const TOTAL_STEPS = 3;
+
 export default function RegisterPage({ params }: { params: Promise<{ societyCode: string }> }) {
   const { societyCode } = use(params);
   const [submitted, setSubmitted] = useState(false);
   const [requiresVerification, setRequiresVerification] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
+  const [step3Touched, setStep3Touched] = useState(false);
 
   const {
     data: society,
@@ -49,6 +54,7 @@ export default function RegisterPage({ params }: { params: Promise<{ societyCode
       fullName: "",
       mobile: "",
       ownershipType: "OWNER",
+      otherOwnershipDetail: "",
       email: "",
       password: "",
       passwordConfirm: "",
@@ -57,6 +63,7 @@ export default function RegisterPage({ params }: { params: Promise<{ societyCode
   });
 
   const ownershipType = useWatch({ control: form.control, name: "ownershipType" });
+  const unitType = useWatch({ control: form.control, name: "unitType" });
   const consentWhatsApp = useWatch({ control: form.control, name: "consentWhatsApp" });
 
   const [unitFields, setUnitFields] = useState<Record<string, string>>({});
@@ -92,6 +99,85 @@ export default function RegisterPage({ params }: { params: Promise<{ societyCode
     }
   };
 
+  const handleOwnershipTypeChange = (value: string) => {
+    form.setValue("ownershipType", value as "OWNER" | "TENANT" | "OTHER");
+    if (value !== "OTHER") {
+      form.setValue("otherOwnershipDetail", "");
+    }
+  };
+
+  const handleUnitTypeChange = (value: string) => {
+    form.setValue("unitType", value as "FLOOR" | "HOUSE");
+    if (value === "HOUSE") {
+      setUnitFields((prev) => {
+        const next = { ...prev };
+        delete next.floorLevel;
+        return next;
+      });
+    }
+  };
+
+  const validateUnitFields = (): boolean => {
+    if (!society) return false;
+
+    if (!unitType) {
+      toast.error("Please select a unit type");
+      return false;
+    }
+
+    // When HOUSE is selected, floorLevel is not required
+    if (unitType === "HOUSE") {
+      // Just need houseNo for any society type
+      if (!unitFields.houseNo?.trim()) {
+        toast.error("Please fill all address fields");
+        return false;
+      }
+      return true;
+    }
+
+    // For FLOOR, validate required fields + floorLevel
+    const societyType = society.type as SocietyType;
+    const schema = unitFieldsSchema[societyType as keyof typeof unitFieldsSchema];
+    if (schema) {
+      const result = schema.safeParse(unitFields);
+      if (!result.success) {
+        toast.error("Please fill all address fields");
+        return false;
+      }
+    }
+    // floorLevel is always required when unit type is FLOOR
+    if (!unitFields.floorLevel?.trim()) {
+      toast.error("Please select a floor level");
+      return false;
+    }
+    return true;
+  };
+
+  const handleNext = async () => {
+    if (currentStep === 1) {
+      const valid = await form.trigger(["fullName", "mobile", "email"]);
+      if (!valid) return;
+    } else if (currentStep === 2) {
+      const fieldsToValidate: (keyof RegisterResidentInput)[] = ["ownershipType"];
+      if (ownershipType === "OTHER") {
+        fieldsToValidate.push("otherOwnershipDetail");
+      }
+      const valid = await form.trigger(fieldsToValidate);
+      if (!valid) {
+        // Check if errors are actually for our step's fields
+        const hasStepErrors = fieldsToValidate.some((field) => form.formState.errors[field]);
+        if (hasStepErrors) return;
+      }
+      if (!validateUnitFields()) return;
+    }
+    setCurrentStep((prev) => Math.min(prev + 1, TOTAL_STEPS));
+  };
+
+  const handleBack = () => {
+    setStep3Touched(false);
+    setCurrentStep((prev) => Math.max(prev - 1, 1));
+  };
+
   const mutation = useMutation({
     mutationFn: async (data: RegisterResidentInput) => {
       const res = await fetch("/api/v1/residents/register", {
@@ -115,6 +201,24 @@ export default function RegisterPage({ params }: { params: Promise<{ societyCode
     },
     onError: (err: Error) => toast.error(err.message),
   });
+
+  const steps: { number: number; title: string; status: "completed" | "active" | "pending" }[] = [
+    {
+      number: 1,
+      title: "Personal Info",
+      status: currentStep > 1 ? "completed" : currentStep === 1 ? "active" : "pending",
+    },
+    {
+      number: 2,
+      title: "Property",
+      status: currentStep > 2 ? "completed" : currentStep === 2 ? "active" : "pending",
+    },
+    {
+      number: 3,
+      title: "Account",
+      status: currentStep === 3 ? "active" : "pending",
+    },
+  ];
 
   if (isLoading) {
     return (
@@ -177,209 +281,289 @@ export default function RegisterPage({ params }: { params: Promise<{ societyCode
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <FormStepper steps={steps} />
+
           <form
-            onSubmit={form.handleSubmit((data) => {
-              // Validate unit fields
-              const schema = unitFieldsSchema[society.type as SocietyType];
-              if (schema) {
-                const result = schema.safeParse(unitFields);
-                if (!result.success) {
-                  toast.error("Please fill all address fields");
-                  return;
-                }
-              }
-              mutation.mutate(data);
-            })}
-            className="space-y-4"
+            onSubmit={(e) => {
+              setStep3Touched(true);
+              form.handleSubmit((data) => {
+                if (!validateUnitFields()) return;
+                mutation.mutate(data);
+              })(e);
+            }}
+            className="mt-6 space-y-4"
           >
-            <div className="space-y-2">
-              <Label htmlFor="fullName">
-                Full Name <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="fullName"
-                placeholder="Enter your full name"
-                aria-invalid={!!form.formState.errors.fullName}
-                {...form.register("fullName")}
-              />
-              {form.formState.errors.fullName && (
-                <p className="text-destructive text-sm">{form.formState.errors.fullName.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="mobile">
-                Mobile Number <span className="text-destructive">*</span>
-              </Label>
-              <div className="flex gap-2">
-                <span className="bg-muted text-muted-foreground flex items-center rounded-md border px-3 text-sm">
-                  +91
-                </span>
-                <Input
-                  id="mobile"
-                  placeholder="9876543210"
-                  maxLength={10}
-                  aria-invalid={!!form.formState.errors.mobile}
-                  {...form.register("mobile")}
-                />
-              </div>
-              {form.formState.errors.mobile && (
-                <p className="text-destructive text-sm">{form.formState.errors.mobile.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="email">
-                Email <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="email@example.com"
-                autoComplete="off"
-                aria-invalid={!!form.formState.errors.email}
-                {...form.register("email", { onBlur: handleEmailBlur })}
-              />
-              {checkingEmail && <p className="text-muted-foreground text-xs">Checking email...</p>}
-              {form.formState.errors.email && (
-                <p className="text-destructive text-sm">{form.formState.errors.email.message}</p>
-              )}
-            </div>
-
-            {existingAccount ? (
-              <div className="flex items-start gap-3 rounded-md border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-950/30">
-                <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
-                <p className="text-sm text-blue-800 dark:text-blue-200">
-                  You already have an RWA Connect account. Your existing password will be used.
-                </p>
-              </div>
-            ) : (
-              <div className="grid gap-4 sm:grid-cols-2">
+            {/* Step 1: Personal Info */}
+            {currentStep === 1 && (
+              <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="password">
-                    Password <span className="text-destructive">*</span>
+                  <Label htmlFor="fullName">
+                    Full Name <span className="text-destructive">*</span>
                   </Label>
                   <Input
-                    id="password"
-                    type="password"
-                    placeholder="Min 8 characters"
-                    autoComplete="new-password"
-                    aria-invalid={!!form.formState.errors.password}
-                    {...form.register("password")}
+                    id="fullName"
+                    placeholder="Enter your full name"
+                    aria-invalid={!!form.formState.errors.fullName}
+                    {...form.register("fullName")}
                   />
-                  {form.formState.errors.password && (
+                  {form.formState.errors.fullName && (
                     <p className="text-destructive text-sm">
-                      {form.formState.errors.password.message}
+                      {form.formState.errors.fullName.message}
                     </p>
                   )}
                 </div>
+
                 <div className="space-y-2">
-                  <Label htmlFor="passwordConfirm">
-                    Confirm Password <span className="text-destructive">*</span>
+                  <Label htmlFor="mobile">
+                    Mobile Number <span className="text-destructive">*</span>
+                  </Label>
+                  <div className="flex gap-2">
+                    <span className="bg-muted text-muted-foreground flex items-center rounded-md border px-3 text-sm">
+                      +91
+                    </span>
+                    <Input
+                      id="mobile"
+                      placeholder="9876543210"
+                      maxLength={10}
+                      aria-invalid={!!form.formState.errors.mobile}
+                      {...form.register("mobile")}
+                    />
+                  </div>
+                  {form.formState.errors.mobile && (
+                    <p className="text-destructive text-sm">
+                      {form.formState.errors.mobile.message}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="email">
+                    Email <span className="text-destructive">*</span>
                   </Label>
                   <Input
-                    id="passwordConfirm"
-                    type="password"
-                    autoComplete="new-password"
-                    aria-invalid={!!form.formState.errors.passwordConfirm}
-                    {...form.register("passwordConfirm")}
+                    id="email"
+                    type="email"
+                    placeholder="email@example.com"
+                    autoComplete="off"
+                    aria-invalid={!!form.formState.errors.email}
+                    {...form.register("email", { onBlur: handleEmailBlur })}
                   />
-                  {form.formState.errors.passwordConfirm && (
+                  {checkingEmail && (
+                    <p className="text-muted-foreground text-xs">Checking email...</p>
+                  )}
+                  {form.formState.errors.email && (
                     <p className="text-destructive text-sm">
-                      {form.formState.errors.passwordConfirm.message}
+                      {form.formState.errors.email.message}
                     </p>
                   )}
                 </div>
               </div>
             )}
 
-            <div className="space-y-2">
-              <Label>
-                Ownership Type <span className="text-destructive">*</span>
-              </Label>
-              <Select
-                value={ownershipType}
-                onValueChange={(v) => form.setValue("ownershipType", v as "OWNER" | "TENANT")}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="OWNER">Owner</SelectItem>
-                  <SelectItem value="TENANT">Tenant</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Step 2: Property Details */}
+            {currentStep === 2 && (
+              <div className="space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>
+                      Ownership Type <span className="text-destructive">*</span>
+                    </Label>
+                    <Select value={ownershipType} onValueChange={handleOwnershipTypeChange}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="OWNER">Owner</SelectItem>
+                        <SelectItem value="TENANT">Tenant</SelectItem>
+                        <SelectItem value="OTHER">Other (specify)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-            {addressFields && (
-              <div className="bg-muted/30 space-y-3 rounded-md border p-4">
-                <p className="text-sm font-medium">Address Details</p>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {addressFields.required.map((field) => (
-                    <div key={field} className="space-y-1">
-                      <Label className="text-xs capitalize">
-                        {field.replace(/([A-Z])/g, " $1").trim()} *
-                      </Label>
-                      {field === "floorLevel" ? (
-                        <Select
-                          value={unitFields[field] || ""}
-                          onValueChange={(v) => setUnitFields((prev) => ({ ...prev, [field]: v }))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select floor" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {FLOOR_LEVELS.map((f) => (
-                              <SelectItem key={f} value={f}>
-                                {f}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <Input
-                          value={unitFields[field] || ""}
-                          onChange={(e) =>
-                            setUnitFields((prev) => ({ ...prev, [field]: e.target.value }))
-                          }
-                        />
+                  <div className="space-y-2">
+                    <Label>
+                      Unit Type <span className="text-destructive">*</span>
+                    </Label>
+                    <Select value={unitType || ""} onValueChange={handleUnitTypeChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select unit type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="FLOOR">Floor</SelectItem>
+                        <SelectItem value="HOUSE">House</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {ownershipType === "OTHER" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="otherOwnershipDetail">
+                      Please specify <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="otherOwnershipDetail"
+                      placeholder="e.g., Caretaker, Family member"
+                      aria-invalid={!!form.formState.errors.otherOwnershipDetail}
+                      {...form.register("otherOwnershipDetail")}
+                    />
+                    {form.formState.errors.otherOwnershipDetail && (
+                      <p className="text-destructive text-sm">
+                        {form.formState.errors.otherOwnershipDetail.message}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {addressFields && (
+                  <div className="bg-muted/30 space-y-3 rounded-md border p-4">
+                    <p className="text-sm font-medium">Address Details</p>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {addressFields.required
+                        .filter((field) => field !== "floorLevel")
+                        .map((field) => (
+                          <div key={field} className="space-y-1">
+                            <Label className="text-xs capitalize">
+                              {field.replace(/([A-Z])/g, " $1").trim()} *
+                            </Label>
+                            <Input
+                              value={unitFields[field] || ""}
+                              onChange={(e) =>
+                                setUnitFields((prev) => ({
+                                  ...prev,
+                                  [field]: e.target.value,
+                                }))
+                              }
+                            />
+                          </div>
+                        ))}
+                      {unitType === "FLOOR" && (
+                        <div className="space-y-1">
+                          <Label className="text-xs">Floor Level *</Label>
+                          <Select
+                            value={unitFields.floorLevel || ""}
+                            onValueChange={(v) =>
+                              setUnitFields((prev) => ({ ...prev, floorLevel: v }))
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select floor" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {FLOOR_LEVELS.map((f) => (
+                                <SelectItem key={f} value={f}>
+                                  {f}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                       )}
+                      {addressFields.optional.map((field) => (
+                        <div key={field} className="space-y-1">
+                          <Label className="text-xs capitalize">
+                            {field.replace(/([A-Z])/g, " $1").trim()}
+                          </Label>
+                          <Input
+                            value={unitFields[field] || ""}
+                            onChange={(e) =>
+                              setUnitFields((prev) => ({
+                                ...prev,
+                                [field]: e.target.value,
+                              }))
+                            }
+                          />
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                  {addressFields.optional.map((field) => (
-                    <div key={field} className="space-y-1">
-                      <Label className="text-xs capitalize">
-                        {field.replace(/([A-Z])/g, " $1").trim()}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Step 3: Account Setup */}
+            {currentStep === 3 && (
+              <div className="space-y-4">
+                {existingAccount ? (
+                  <div className="flex items-start gap-3 rounded-md border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-950/30">
+                    <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
+                    <p className="text-sm text-blue-800 dark:text-blue-200">
+                      You already have an RWA Connect account. Your existing password will be used.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="password">
+                        Password <span className="text-destructive">*</span>
                       </Label>
                       <Input
-                        value={unitFields[field] || ""}
-                        onChange={(e) =>
-                          setUnitFields((prev) => ({ ...prev, [field]: e.target.value }))
-                        }
+                        id="password"
+                        type="password"
+                        placeholder="Min 8 characters"
+                        autoComplete="new-password"
+                        {...form.register("password")}
+                        aria-invalid={step3Touched && !!form.formState.errors.password}
                       />
+                      {step3Touched && form.formState.errors.password && (
+                        <p className="text-destructive text-sm">
+                          {form.formState.errors.password.message}
+                        </p>
+                      )}
                     </div>
-                  ))}
+                    <div className="space-y-2">
+                      <Label htmlFor="passwordConfirm">
+                        Confirm Password <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        id="passwordConfirm"
+                        type="password"
+                        autoComplete="new-password"
+                        {...form.register("passwordConfirm")}
+                        aria-invalid={step3Touched && !!form.formState.errors.passwordConfirm}
+                      />
+                      {step3Touched && form.formState.errors.passwordConfirm && (
+                        <p className="text-destructive text-sm">
+                          {form.formState.errors.passwordConfirm.message}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="consent"
+                    checked={Boolean(consentWhatsApp)}
+                    onCheckedChange={(checked) =>
+                      form.setValue("consentWhatsApp", checked === true ? true : (false as never))
+                    }
+                  />
+                  <Label htmlFor="consent" className="text-sm">
+                    I consent to receive WhatsApp messages from this society
+                  </Label>
                 </div>
               </div>
             )}
 
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="consent"
-                checked={Boolean(consentWhatsApp)}
-                onCheckedChange={(checked) =>
-                  form.setValue("consentWhatsApp", checked === true ? true : (false as never))
-                }
-              />
-              <Label htmlFor="consent" className="text-sm">
-                I consent to receive WhatsApp messages from this society
-              </Label>
+            {/* Navigation buttons */}
+            <div className="flex gap-3 pt-2">
+              {currentStep > 1 && (
+                <Button type="button" variant="outline" className="flex-1" onClick={handleBack}>
+                  Back
+                </Button>
+              )}
+              {currentStep < TOTAL_STEPS ? (
+                <Button type="button" className="flex-1" onClick={handleNext}>
+                  Next
+                </Button>
+              ) : (
+                <Button type="submit" className="flex-1" disabled={mutation.isPending}>
+                  {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Submit Registration
+                </Button>
+              )}
             </div>
-
-            <Button type="submit" className="w-full" disabled={mutation.isPending}>
-              {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Submit Registration
-            </Button>
           </form>
         </CardContent>
       </Card>

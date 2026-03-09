@@ -49,6 +49,6 @@ export const SOCIETY_TYPE_ADDRESS_FIELDS: Record<
   APARTMENT_COMPLEX: { required: ["towerBlock", "floorNo", "flatNo"], optional: [] },
   BUILDER_FLOORS: { required: ["houseNo", "floorLevel"], optional: [] },
   GATED_COMMUNITY_VILLAS: { required: ["villaNo"], optional: ["streetPhase"] },
-  INDEPENDENT_SECTOR: { required: ["houseNo", "streetGali", "sectorBlock"], optional: [] },
+  INDEPENDENT_SECTOR: { required: ["houseNo", "streetGali"], optional: ["sectorBlock"] },
   PLOTTED_COLONY: { required: ["plotNo"], optional: ["laneNo", "phase"] },
 };
