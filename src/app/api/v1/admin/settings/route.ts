@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { forbiddenError, internalError } from "@/lib/api-helpers";
+import { getFullAccessAdmin } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
-import { createClient } from "@/lib/supabase/server";
 
 const updateSettingsSchema = z.object({
   emailVerificationRequired: z.boolean().optional(),
@@ -14,28 +14,11 @@ const updateSettingsSchema = z.object({
   feeSessionStartMonth: z.number().int().min(1).max(12).optional(),
 });
 
-async function getAdminSocietyId() {
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
-
-  if (!authUser) return null;
-
-  const user = await prisma.user.findFirst({
-    where: { authUserId: authUser.id, role: "RWA_ADMIN" },
-    select: { role: true, adminPermission: true, societyId: true },
-  });
-
-  if (!user || user.adminPermission !== "FULL_ACCESS" || !user.societyId) return null;
-
-  return user.societyId;
-}
-
 export async function GET() {
   try {
-    const societyId = await getAdminSocietyId();
-    if (!societyId) return forbiddenError("Only admins with full access can view settings");
+    const admin = await getFullAccessAdmin();
+    if (!admin) return forbiddenError("Only admins with full access can view settings");
+    const societyId = admin.societyId;
 
     const society = await prisma.society.findUnique({
       where: { id: societyId },
@@ -80,8 +63,9 @@ export async function GET() {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const societyId = await getAdminSocietyId();
-    if (!societyId) return forbiddenError("Only admins with full access can update settings");
+    const admin = await getFullAccessAdmin();
+    if (!admin) return forbiddenError("Only admins with full access can update settings");
+    const societyId = admin.societyId;
 
     const body = await request.json();
     const parsed = updateSettingsSchema.safeParse(body);

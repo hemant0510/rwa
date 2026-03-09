@@ -5,6 +5,8 @@ import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 import { AuthContext } from "@/hooks/useAuth";
+import type { SocietySummary } from "@/hooks/useAuth";
+import { setActiveSocietyId, clearActiveSocietyId } from "@/lib/active-society";
 import { createClient } from "@/lib/supabase/client";
 import type { AdminPermission, UserRole } from "@/types/user";
 
@@ -20,6 +22,8 @@ interface AuthUser {
   societyStatus: string | null;
   trialEndsAt: string | null;
   isTrialExpired: boolean;
+  multiSociety: boolean;
+  societies: SocietySummary[] | null;
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -47,6 +51,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         societyStatus: data.societyStatus ?? null,
         trialEndsAt: data.trialEndsAt ?? null,
         isTrialExpired: data.isTrialExpired ?? false,
+        multiSociety: data.multiSociety ?? false,
+        societies: (data.societies as SocietySummary[] | null) ?? null,
       });
     } catch {
       setUser(null);
@@ -83,10 +89,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const isSuperAdmin = user?.role === "SUPER_ADMIN";
     const supabase = createClient();
     await supabase.auth.signOut();
+    clearActiveSocietyId();
     setUser(null);
     router.push(isSuperAdmin ? "/super-admin-login" : "/login");
     router.refresh();
   }, [router, user?.role]);
+
+  const switchSociety = useCallback(
+    async (societyId: string) => {
+      setActiveSocietyId(societyId);
+      await fetchMe();
+      router.refresh();
+    },
+    [fetchMe, router],
+  );
 
   return (
     <AuthContext.Provider
@@ -95,6 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         isAuthenticated: !!user,
         signOut,
+        switchSociety,
       }}
     >
       {children}

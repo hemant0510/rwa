@@ -1,10 +1,9 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Home, LogOut, Mail, Phone, Shield, User } from "lucide-react";
+import { Award, Home, Mail, Phone, Shield, User } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageSkeleton } from "@/components/ui/LoadingSkeleton";
 import { useAuth } from "@/hooks/useAuth";
@@ -30,6 +29,7 @@ interface ResidentProfile {
   ownershipType: string;
   societyName: string | null;
   unit: string | null;
+  designation: string | null;
 }
 
 async function fetchProfile(): Promise<ResidentProfile> {
@@ -39,10 +39,11 @@ async function fetchProfile(): Promise<ResidentProfile> {
 }
 
 export default function ResidentProfilePage() {
-  const { signOut } = useAuth();
+  const { user } = useAuth();
   const { data: profile, isLoading } = useQuery({
-    queryKey: ["resident-profile"],
+    queryKey: ["resident-profile", user?.societyId],
     queryFn: fetchProfile,
+    enabled: !!user,
   });
 
   if (isLoading) return <PageSkeleton />;
@@ -68,6 +69,12 @@ export default function ResidentProfilePage() {
               <h2 className="text-lg font-bold">{profile.name}</h2>
               {profile.rwaid && (
                 <p className="text-muted-foreground font-mono text-sm">{profile.rwaid}</p>
+              )}
+              {profile.designation && (
+                <div className="mt-1 flex items-center gap-1.5">
+                  <Award className="h-3.5 w-3.5 text-amber-600" />
+                  <span className="text-sm font-medium text-amber-700">{profile.designation}</span>
+                </div>
               )}
             </div>
           </div>
@@ -113,11 +120,6 @@ export default function ResidentProfilePage() {
           </div>
         </CardContent>
       </Card>
-
-      <Button variant="outline" className="text-destructive w-full" onClick={signOut}>
-        <LogOut className="mr-2 h-4 w-4" />
-        Sign Out
-      </Button>
     </div>
   );
 }

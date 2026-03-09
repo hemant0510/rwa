@@ -2,31 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { forbiddenError, internalError } from "@/lib/api-helpers";
 import { getSessionDates } from "@/lib/fee-calculator";
+import { getFullAccessAdmin } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
-import { createClient } from "@/lib/supabase/server";
 import { createFeeSessionSchema } from "@/lib/validations/society";
-
-async function getAdminWithSociety() {
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
-
-  if (!authUser) return null;
-
-  const user = await prisma.user.findFirst({
-    where: { authUserId: authUser.id, role: "RWA_ADMIN" },
-    select: { id: true, adminPermission: true, societyId: true },
-  });
-
-  if (!user || user.adminPermission !== "FULL_ACCESS" || !user.societyId) return null;
-
-  return { userId: user.id, societyId: user.societyId };
-}
 
 export async function GET() {
   try {
-    const admin = await getAdminWithSociety();
+    const admin = await getFullAccessAdmin();
     if (!admin) return forbiddenError("Only admins with full access can view fee sessions");
 
     const sessions = await prisma.feeSession.findMany({
@@ -54,7 +36,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const admin = await getAdminWithSociety();
+    const admin = await getFullAccessAdmin();
     if (!admin) return forbiddenError("Only admins with full access can create fee sessions");
 
     const body = await request.json();

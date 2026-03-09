@@ -6,11 +6,16 @@ export const registerResidentSchema = z
     mobile: z.string().regex(/^[6-9]\d{9}$/, "Invalid Indian mobile number"),
     ownershipType: z.enum(["OWNER", "TENANT"]),
     email: z.string().email("Valid email is required"),
-    password: z.string().min(8, "Password must be at least 8 characters"),
-    passwordConfirm: z.string(),
+    password: z.string().min(8, "Password must be at least 8 characters").optional(),
+    passwordConfirm: z.string().optional(),
+    reuseAuth: z.boolean().optional(),
     consentWhatsApp: z.literal(true, { error: "WhatsApp consent is required" }),
   })
-  .refine((data) => data.password === data.passwordConfirm, {
+  .refine((data) => data.reuseAuth || (data.password && data.password.length >= 8), {
+    message: "Password must be at least 8 characters",
+    path: ["password"],
+  })
+  .refine((data) => data.reuseAuth || data.password === data.passwordConfirm, {
     message: "Passwords do not match",
     path: ["passwordConfirm"],
   });

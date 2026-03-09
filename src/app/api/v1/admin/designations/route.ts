@@ -3,35 +3,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { forbiddenError, internalError } from "@/lib/api-helpers";
+import { getFullAccessAdmin } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
-import { createClient } from "@/lib/supabase/server";
 
 const createDesignationSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").max(50),
 });
 
-async function getAdminSocietyId() {
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
-
-  if (!authUser) return null;
-
-  const user = await prisma.user.findFirst({
-    where: { authUserId: authUser.id, role: "RWA_ADMIN" },
-    select: { adminPermission: true, societyId: true },
-  });
-
-  if (!user || user.adminPermission !== "FULL_ACCESS" || !user.societyId) return null;
-
-  return user.societyId;
-}
-
 export async function GET() {
   try {
-    const societyId = await getAdminSocietyId();
-    if (!societyId) return forbiddenError("Only admins with full access can view designations");
+    const admin = await getFullAccessAdmin();
+    if (!admin) return forbiddenError("Only admins with full access can view designations");
+    const societyId = admin.societyId;
 
     const designations = await prisma.designation.findMany({
       where: { societyId },
@@ -55,8 +38,9 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const societyId = await getAdminSocietyId();
-    if (!societyId) return forbiddenError("Only admins with full access can create designations");
+    const admin = await getFullAccessAdmin();
+    if (!admin) return forbiddenError("Only admins with full access can create designations");
+    const societyId = admin.societyId;
 
     const body = await request.json();
     const parsed = createDesignationSchema.safeParse(body);

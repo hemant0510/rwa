@@ -3,9 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { notFoundError, internalError, unauthorizedError, forbiddenError } from "@/lib/api-helpers";
+import { getCurrentUser } from "@/lib/get-current-user";
 import { prisma, type TransactionClient } from "@/lib/prisma";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -52,26 +52,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const { id } = await params;
 
     // Auth check
-    const supabase = await createClient();
-    const {
-      data: { user: authUser },
-    } = await supabase.auth.getUser();
-    if (!authUser) return unauthorizedError();
-
-    const caller = await prisma.user.findFirst({
-      where: { authUserId: authUser.id, role: "RWA_ADMIN" },
-    });
-    if (!caller) return unauthorizedError();
+    const admin = await getCurrentUser("RWA_ADMIN");
+    if (!admin) return unauthorizedError();
 
     // Find resident
     const resident = await prisma.user.findUnique({ where: { id } });
     if (!resident) return notFoundError("Resident not found");
 
-    // Authorization: RWA_ADMIN of same society or SuperAdmin (no societyId)
-    const isSameSocietyAdmin =
-      caller.role === "RWA_ADMIN" && caller.societyId === resident.societyId;
-    const isSuperAdmin = !caller.societyId && caller.role === "RWA_ADMIN";
-    if (!isSameSocietyAdmin && !isSuperAdmin)
+    // Authorization: admin must be of same society
+    if (admin.societyId !== resident.societyId)
       return forbiddenError("Not authorized to edit this resident");
 
     // Parse & validate
@@ -114,16 +103,8 @@ export async function DELETE(
     const { id } = await params;
 
     // Auth check
-    const supabase = await createClient();
-    const {
-      data: { user: authUser },
-    } = await supabase.auth.getUser();
-    if (!authUser) return unauthorizedError();
-
-    const caller = await prisma.user.findFirst({
-      where: { authUserId: authUser.id, role: "RWA_ADMIN" },
-    });
-    if (!caller) return unauthorizedError();
+    const admin = await getCurrentUser("RWA_ADMIN");
+    if (!admin) return unauthorizedError();
 
     // Find resident
     const resident = await prisma.user.findUnique({ where: { id } });
@@ -135,11 +116,8 @@ export async function DELETE(
       );
     }
 
-    // Authorization
-    const isSameSocietyAdmin =
-      caller.role === "RWA_ADMIN" && caller.societyId === resident.societyId;
-    const isSuperAdmin = !caller.societyId && caller.role === "RWA_ADMIN";
-    if (!isSameSocietyAdmin && !isSuperAdmin)
+    // Authorization: admin must be of same society
+    if (admin.societyId !== resident.societyId)
       return forbiddenError("Not authorized to deactivate this resident");
 
     // Parse reason
@@ -169,7 +147,7 @@ export async function DELETE(
       await tx.auditLog.create({
         data: {
           societyId: resident.societyId,
-          userId: caller.id,
+          userId: admin.userId,
           actionType: "DEACTIVATE",
           entityType: "USER",
           entityId: id,

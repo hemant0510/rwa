@@ -3,7 +3,7 @@
 import Link from "next/link";
 
 import { useQuery } from "@tanstack/react-query";
-import { CreditCard, Receipt, IndianRupee, Clock, XCircle, Loader2 } from "lucide-react";
+import { Award, CreditCard, Receipt, IndianRupee, Clock, XCircle, Loader2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +16,7 @@ interface ResidentProfile {
   status: string;
   unit: string | null;
   societyName: string | null;
+  designation: string | null;
   currentFee: {
     sessionYear: string;
     amountDue: number;
@@ -28,7 +29,7 @@ export default function ResidentHomePage() {
   const { user } = useAuth();
 
   const { data: profile, isLoading } = useQuery({
-    queryKey: ["resident", "me"],
+    queryKey: ["resident", "me", user?.societyId],
     queryFn: async () => {
       const res = await fetch("/api/v1/residents/me");
       if (!res.ok) throw new Error("Failed to fetch profile");
@@ -106,7 +107,15 @@ export default function ResidentHomePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Welcome, {profile.name}</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold">Welcome, {profile.name}</h1>
+          {profile.designation && (
+            <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-700">
+              <Award className="mr-1 h-3 w-3" />
+              {profile.designation}
+            </Badge>
+          )}
+        </div>
         <p className="text-muted-foreground text-sm">{user?.societyName}</p>
       </div>
 

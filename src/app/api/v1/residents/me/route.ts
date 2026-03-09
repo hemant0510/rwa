@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { getActiveSocietyId } from "@/lib/active-society-server";
 import { internalError } from "@/lib/api-helpers";
 import { getSessionYear } from "@/lib/fee-calculator";
 import { prisma } from "@/lib/prisma";
@@ -16,8 +17,13 @@ export async function GET() {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
+    const activeSocietyId = await getActiveSocietyId();
+
+    const where: Record<string, unknown> = { authUserId: authUser.id, role: "RESIDENT" };
+    if (activeSocietyId) where.societyId = activeSocietyId;
+
     const user = await prisma.user.findFirst({
-      where: { authUserId: authUser.id, role: "RESIDENT" },
+      where,
       include: {
         society: {
           select: { name: true, societyCode: true },
@@ -29,6 +35,13 @@ export async function GET() {
             },
           },
           take: 1,
+        },
+        governingBodyMembership: {
+          select: {
+            designation: {
+              select: { name: true },
+            },
+          },
         },
       },
     });
@@ -53,6 +66,7 @@ export async function GET() {
       ownershipType: user.ownershipType,
       societyName: user.society?.name ?? null,
       unit: user.userUnits[0]?.unit?.displayLabel ?? null,
+      designation: user.governingBodyMembership?.designation?.name ?? null,
       currentFee: currentFee
         ? {
             sessionYear: currentFee.sessionYear,

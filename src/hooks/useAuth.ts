@@ -4,6 +4,15 @@ import { useContext, createContext } from "react";
 
 import type { UserRole, AdminPermission } from "@/types/user";
 
+export interface SocietySummary {
+  societyId: string;
+  name: string | null;
+  code: string | null;
+  role: UserRole;
+  status: string;
+  designation: string | null;
+}
+
 interface AuthContextValue {
   user: {
     id: string;
@@ -16,10 +25,13 @@ interface AuthContextValue {
     societyStatus: string | null;
     trialEndsAt: string | null;
     isTrialExpired: boolean;
+    multiSociety: boolean;
+    societies: SocietySummary[] | null;
   } | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   signOut: () => Promise<void>;
+  switchSociety: (societyId: string) => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextValue>({
@@ -27,6 +39,7 @@ export const AuthContext = createContext<AuthContextValue>({
   isLoading: true,
   isAuthenticated: false,
   signOut: async () => {},
+  switchSociety: async () => {},
 });
 
 export function useAuth() {

@@ -15,7 +15,7 @@ import {
   Users,
 } from "lucide-react";
 
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -98,6 +98,7 @@ export function AdminMobileSidebar({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="left" className="w-[240px] p-0">
+        <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
         <SidebarContent societyName={societyName} queryString={queryString} />
       </SheetContent>
     </Sheet>

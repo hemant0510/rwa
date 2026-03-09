@@ -19,6 +19,7 @@ interface HeaderProps {
   onMenuToggle?: () => void;
   onSignOut?: () => void;
   showMenuButton?: boolean;
+  societySwitcher?: React.ReactNode;
 }
 
 export function Header({
@@ -28,6 +29,7 @@ export function Header({
   onMenuToggle,
   onSignOut,
   showMenuButton,
+  societySwitcher,
 }: HeaderProps) {
   const initials = userName
     .split(" ")
@@ -46,8 +48,12 @@ export function Header({
             </Button>
           )}
           <div>
-            <h1 className="text-lg font-semibold">{title}</h1>
-            {subtitle && <p className="text-muted-foreground text-sm">{subtitle}</p>}
+            {societySwitcher ?? (
+              <>
+                <h1 className="text-lg font-semibold">{title}</h1>
+                {subtitle && <p className="text-muted-foreground text-sm">{subtitle}</p>}
+              </>
+            )}
           </div>
         </div>
         <DropdownMenu>

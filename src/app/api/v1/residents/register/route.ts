@@ -14,7 +14,8 @@ const registerSchema = z.object({
   mobile: z.string().regex(/^[6-9]\d{9}$/),
   ownershipType: z.enum(["OWNER", "TENANT"]),
   email: z.string().email("Valid email is required"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+  password: z.string().min(8, "Password must be at least 8 characters").optional(),
+  reuseAuth: z.boolean().optional(),
   consentWhatsApp: z.literal(true),
   unitAddress: z.record(z.string(), z.string()).optional(),
 });
@@ -157,35 +158,64 @@ export async function POST(request: NextRequest) {
     let authUserId: string;
     let isNewAuthUser = false;
 
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email: data.email,
-      password: data.password,
-      email_confirm: true,
-    });
-
-    if (authError) {
-      if (authError.message.includes("already been registered")) {
-        // Email exists in Supabase Auth (registered in another society) — reuse existing auth account
-        const existingAuth = await prisma.user.findFirst({
-          where: { email: data.email, authUserId: { not: null } },
-          select: { authUserId: true },
-        });
-        if (!existingAuth?.authUserId) {
-          return NextResponse.json(
-            { error: { code: "AUTH_ERROR", message: "Account issue. Please contact admin." } },
-            { status: 400 },
-          );
-        }
-        authUserId = existingAuth.authUserId;
-      } else {
+    if (data.reuseAuth) {
+      // Client detected existing auth account — look up directly
+      const existingAuth = await prisma.user.findFirst({
+        where: { email: data.email, authUserId: { not: null } },
+        select: { authUserId: true },
+      });
+      if (!existingAuth?.authUserId) {
         return NextResponse.json(
-          { error: { code: "AUTH_ERROR", message: authError.message } },
+          {
+            error: {
+              code: "AUTH_ERROR",
+              message: "Existing account not found. Please use a password.",
+            },
+          },
           { status: 400 },
         );
       }
+      authUserId = existingAuth.authUserId;
     } else {
-      authUserId = authData.user.id;
-      isNewAuthUser = true;
+      if (!data.password) {
+        return NextResponse.json(
+          {
+            error: { code: "VALIDATION_ERROR", message: "Password is required for new accounts." },
+          },
+          { status: 422 },
+        );
+      }
+
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        email: data.email,
+        password: data.password,
+        email_confirm: true,
+      });
+
+      if (authError) {
+        if (authError.message.includes("already been registered")) {
+          // Email exists in Supabase Auth (registered in another society) — reuse existing auth account
+          const existingAuth = await prisma.user.findFirst({
+            where: { email: data.email, authUserId: { not: null } },
+            select: { authUserId: true },
+          });
+          if (!existingAuth?.authUserId) {
+            return NextResponse.json(
+              { error: { code: "AUTH_ERROR", message: "Account issue. Please contact admin." } },
+              { status: 400 },
+            );
+          }
+          authUserId = existingAuth.authUserId;
+        } else {
+          return NextResponse.json(
+            { error: { code: "AUTH_ERROR", message: authError.message } },
+            { status: 400 },
+          );
+        }
+      } else {
+        authUserId = authData.user.id;
+        isNewAuthUser = true;
+      }
     }
 
     // Create pending user + unit in a transaction

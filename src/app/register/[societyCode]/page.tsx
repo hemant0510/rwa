@@ -4,7 +4,7 @@ import { use, useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Building2, CheckCircle, Loader2 } from "lucide-react";
+import { Building2, CheckCircle, Info, Loader2 } from "lucide-react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -60,6 +60,37 @@ export default function RegisterPage({ params }: { params: Promise<{ societyCode
   const consentWhatsApp = useWatch({ control: form.control, name: "consentWhatsApp" });
 
   const [unitFields, setUnitFields] = useState<Record<string, string>>({});
+  const [existingAccount, setExistingAccount] = useState(false);
+  const [checkingEmail, setCheckingEmail] = useState(false);
+
+  const handleEmailBlur = async () => {
+    const email = form.getValues("email");
+    if (!email || !email.includes("@")) return;
+
+    setCheckingEmail(true);
+    try {
+      const res = await fetch("/api/v1/auth/check-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { existsInAuth: boolean };
+        setExistingAccount(data.existsInAuth);
+        if (data.existsInAuth) {
+          form.setValue("reuseAuth", true);
+          form.setValue("password", undefined);
+          form.setValue("passwordConfirm", undefined);
+        } else {
+          form.setValue("reuseAuth", undefined);
+        }
+      }
+    } catch {
+      // Silently fail — user can still register normally
+    } finally {
+      setCheckingEmail(false);
+    }
+  };
 
   const mutation = useMutation({
     mutationFn: async (data: RegisterResidentInput) => {
@@ -207,50 +238,60 @@ export default function RegisterPage({ params }: { params: Promise<{ societyCode
                 placeholder="email@example.com"
                 autoComplete="off"
                 aria-invalid={!!form.formState.errors.email}
-                {...form.register("email")}
+                {...form.register("email", { onBlur: handleEmailBlur })}
               />
+              {checkingEmail && <p className="text-muted-foreground text-xs">Checking email...</p>}
               {form.formState.errors.email && (
                 <p className="text-destructive text-sm">{form.formState.errors.email.message}</p>
               )}
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="password">
-                  Password <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Min 8 characters"
-                  autoComplete="new-password"
-                  aria-invalid={!!form.formState.errors.password}
-                  {...form.register("password")}
-                />
-                {form.formState.errors.password && (
-                  <p className="text-destructive text-sm">
-                    {form.formState.errors.password.message}
-                  </p>
-                )}
+            {existingAccount ? (
+              <div className="flex items-start gap-3 rounded-md border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-950/30">
+                <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
+                <p className="text-sm text-blue-800 dark:text-blue-200">
+                  You already have an RWA Connect account. Your existing password will be used.
+                </p>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="passwordConfirm">
-                  Confirm Password <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="passwordConfirm"
-                  type="password"
-                  autoComplete="new-password"
-                  aria-invalid={!!form.formState.errors.passwordConfirm}
-                  {...form.register("passwordConfirm")}
-                />
-                {form.formState.errors.passwordConfirm && (
-                  <p className="text-destructive text-sm">
-                    {form.formState.errors.passwordConfirm.message}
-                  </p>
-                )}
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="password">
+                    Password <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="Min 8 characters"
+                    autoComplete="new-password"
+                    aria-invalid={!!form.formState.errors.password}
+                    {...form.register("password")}
+                  />
+                  {form.formState.errors.password && (
+                    <p className="text-destructive text-sm">
+                      {form.formState.errors.password.message}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="passwordConfirm">
+                    Confirm Password <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="passwordConfirm"
+                    type="password"
+                    autoComplete="new-password"
+                    aria-invalid={!!form.formState.errors.passwordConfirm}
+                    {...form.register("passwordConfirm")}
+                  />
+                  {form.formState.errors.passwordConfirm && (
+                    <p className="text-destructive text-sm">
+                      {form.formState.errors.passwordConfirm.message}
+                    </p>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="space-y-2">
               <Label>

@@ -1,25 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { forbiddenError, internalError, notFoundError, unauthorizedError } from "@/lib/api-helpers";
+import { getCurrentUser } from "@/lib/get-current-user";
 import { prisma, type TransactionClient } from "@/lib/prisma";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
 
 export async function POST(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
 
     // Auth check
-    const supabase = await createClient();
-    const {
-      data: { user: authUser },
-    } = await supabase.auth.getUser();
-    if (!authUser) return unauthorizedError();
-
-    const caller = await prisma.user.findFirst({
-      where: { authUserId: authUser.id, role: "RWA_ADMIN" },
-    });
-    if (!caller) return unauthorizedError();
+    const admin = await getCurrentUser("RWA_ADMIN");
+    if (!admin) return unauthorizedError();
 
     // Find resident
     const resident = await prisma.user.findUnique({ where: { id } });
@@ -38,10 +30,8 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
       );
     }
 
-    // Authorization: RWA_ADMIN of same society
-    const isSameSocietyAdmin =
-      caller.role === "RWA_ADMIN" && caller.societyId === resident.societyId;
-    if (!isSameSocietyAdmin) {
+    // Authorization: admin must be of same society
+    if (admin.societyId !== resident.societyId) {
       return forbiddenError("Not authorized to delete this resident");
     }
 
@@ -91,7 +81,7 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
       await tx.auditLog.create({
         data: {
           societyId: resident.societyId,
-          userId: caller.id,
+          userId: admin.userId,
           actionType: "DELETE",
           entityType: "USER",
           entityId: id,

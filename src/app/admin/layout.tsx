@@ -6,6 +6,7 @@ import Link from "next/link";
 
 import { ArrowLeft } from "lucide-react";
 
+import { SocietySwitcher } from "@/components/features/SocietySwitcher";
 import { TrialBanner } from "@/components/features/TrialBanner";
 import { AdminSidebar, AdminMobileSidebar } from "@/components/layout/AdminSidebar";
 import { Header } from "@/components/layout/Header";
@@ -52,6 +53,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           showMenuButton
           onMenuToggle={() => setSidebarOpen(true)}
           onSignOut={isSuperAdminViewing ? undefined : signOut}
+          societySwitcher={
+            !isSuperAdminViewing && user?.multiSociety ? <SocietySwitcher /> : undefined
+          }
         />
         {!isSuperAdminViewing && <TrialBanner />}
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>

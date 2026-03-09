@@ -3,35 +3,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { forbiddenError, internalError, notFoundError } from "@/lib/api-helpers";
+import { getFullAccessAdmin } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
-import { createClient } from "@/lib/supabase/server";
 
 const updateDesignationSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").max(50),
 });
 
-async function getAdminSocietyId() {
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
-
-  if (!authUser) return null;
-
-  const user = await prisma.user.findFirst({
-    where: { authUserId: authUser.id, role: "RWA_ADMIN" },
-    select: { adminPermission: true, societyId: true },
-  });
-
-  if (!user || user.adminPermission !== "FULL_ACCESS" || !user.societyId) return null;
-
-  return user.societyId;
-}
-
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const societyId = await getAdminSocietyId();
-    if (!societyId) return forbiddenError("Only admins with full access can update designations");
+    const admin = await getFullAccessAdmin();
+    if (!admin) return forbiddenError("Only admins with full access can update designations");
+    const societyId = admin.societyId;
 
     const { id } = await params;
 
@@ -92,8 +75,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const societyId = await getAdminSocietyId();
-    if (!societyId) return forbiddenError("Only admins with full access can delete designations");
+    const admin = await getFullAccessAdmin();
+    if (!admin) return forbiddenError("Only admins with full access can delete designations");
+    const societyId = admin.societyId;
 
     const { id } = await params;
     const force = new URL(request.url).searchParams.get("force") === "true";

@@ -3,25 +3,26 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { Building2, LayoutDashboard, Settings } from "lucide-react";
+import { CreditCard, Home, Receipt, User } from "lucide-react";
 
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { href: "/sa/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/sa/societies", label: "Societies", icon: Building2 },
-  { href: "/sa/settings", label: "Settings", icon: Settings },
+  { href: "/r/home", label: "Home", icon: Home },
+  { href: "/r/payments", label: "Payments", icon: CreditCard },
+  { href: "/r/expenses", label: "Expenses", icon: Receipt },
+  { href: "/r/profile", label: "Profile", icon: User },
 ];
 
-function SidebarContent() {
+function SidebarContent({ societyName }: { societyName?: string }) {
   const pathname = usePathname();
 
   return (
     <div className="flex h-full flex-col">
       <div className="border-b px-6 py-4">
-        <h2 className="text-lg font-bold">RWA Connect</h2>
-        <p className="text-muted-foreground text-xs">Super Admin</p>
+        <h2 className="truncate text-lg font-bold">RWA Connect</h2>
+        <p className="text-muted-foreground text-xs">{societyName || "Resident Portal"}</p>
       </div>
       <nav className="flex-1 space-y-1 p-3">
         {navItems.map((item) => {
@@ -47,29 +48,28 @@ function SidebarContent() {
   );
 }
 
-export function SuperAdminSidebar() {
+export function ResidentSidebar({ societyName }: { societyName?: string }) {
   return (
-    <>
-      {/* Desktop sidebar */}
-      <aside className="bg-background hidden w-[280px] shrink-0 border-r lg:block">
-        <SidebarContent />
-      </aside>
-    </>
+    <aside className="bg-background hidden w-[240px] shrink-0 border-r lg:block">
+      <SidebarContent societyName={societyName} />
+    </aside>
   );
 }
 
-export function SuperAdminMobileSidebar({
+export function ResidentMobileSidebar({
   open,
   onOpenChange,
+  societyName,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  societyName?: string;
 }) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="left" className="w-[280px] p-0">
+      <SheetContent side="left" className="w-[240px] p-0">
         <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
-        <SidebarContent />
+        <SidebarContent societyName={societyName} />
       </SheetContent>
     </Sheet>
   );

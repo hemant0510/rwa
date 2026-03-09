@@ -3,35 +3,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { forbiddenError, internalError, notFoundError } from "@/lib/api-helpers";
+import { getFullAccessAdmin } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
-import { createClient } from "@/lib/supabase/server";
 
 const assignMemberSchema = z.object({
   userId: z.string().uuid(),
   designationId: z.string().uuid(),
 });
 
-async function getAdminWithSociety() {
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
-
-  if (!authUser) return null;
-
-  const user = await prisma.user.findFirst({
-    where: { authUserId: authUser.id, role: "RWA_ADMIN" },
-    select: { id: true, adminPermission: true, societyId: true },
-  });
-
-  if (!user || user.adminPermission !== "FULL_ACCESS" || !user.societyId) return null;
-
-  return { userId: user.id, societyId: user.societyId };
-}
-
 export async function GET() {
   try {
-    const admin = await getAdminWithSociety();
+    const admin = await getFullAccessAdmin();
     if (!admin) return forbiddenError("Only admins with full access can view governing body");
 
     const [members, designations] = await Promise.all([
@@ -74,7 +56,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const admin = await getAdminWithSociety();
+    const admin = await getFullAccessAdmin();
     if (!admin) return forbiddenError("Only admins with full access can assign members");
 
     const body = await request.json();

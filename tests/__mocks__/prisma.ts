@@ -105,6 +105,10 @@ export const mockPrisma = {
   vehicle: {
     deleteMany: vi.fn(),
   },
+  superAdmin: {
+    findUnique: vi.fn(),
+    findFirst: vi.fn(),
+  },
   $transaction: vi.fn((fn: (tx: typeof mockPrisma) => Promise<unknown>) => fn(mockPrisma)),
 };
 

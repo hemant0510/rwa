@@ -1,34 +1,17 @@
 import { NextResponse } from "next/server";
 
 import { forbiddenError, internalError, notFoundError } from "@/lib/api-helpers";
+import { getFullAccessAdmin } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
-import { createClient } from "@/lib/supabase/server";
-
-async function getAdminSocietyId() {
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
-
-  if (!authUser) return null;
-
-  const user = await prisma.user.findFirst({
-    where: { authUserId: authUser.id, role: "RWA_ADMIN" },
-    select: { adminPermission: true, societyId: true },
-  });
-
-  if (!user || user.adminPermission !== "FULL_ACCESS" || !user.societyId) return null;
-
-  return user.societyId;
-}
 
 export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ memberId: string }> },
 ) {
   try {
-    const societyId = await getAdminSocietyId();
-    if (!societyId) return forbiddenError("Only admins with full access can remove members");
+    const admin = await getFullAccessAdmin();
+    if (!admin) return forbiddenError("Only admins with full access can remove members");
+    const societyId = admin.societyId;
 
     const { memberId } = await params;
 
