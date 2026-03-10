@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { SubscriptionStatusCard } from "@/components/features/subscription/SubscriptionStatusCard";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -180,6 +181,8 @@ export default function SocietyDetailPage({ params }: { params: Promise<{ id: st
           </CardContent>
         </Card>
       </div>
+
+      <SubscriptionStatusCard societyId={id} />
 
       <Card>
         <CardHeader>

@@ -34,6 +34,8 @@ enum SubscriptionPlan {
   STANDARD
   PREMIUM
   ENTERPRISE
+  FLEX
+  TRIAL
 }
 
 enum UserRole {
@@ -154,6 +156,51 @@ enum TransferType {
   INHERITANCE
 }
 
+// Subscription system enums
+enum PlanType {
+  FLAT_FEE
+  PER_UNIT
+}
+
+enum BillingCycle {
+  MONTHLY
+  ANNUAL
+  TWO_YEAR
+  THREE_YEAR
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FLAT_AMOUNT
+}
+
+enum DiscountTriggerType {
+  COUPON_CODE
+  AUTO_TIME_LIMITED
+  PLAN_SPECIFIC
+  MANUAL_OVERRIDE
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  EXPIRED
+  CANCELLED
+  SUSPENDED
+}
+
+enum SubscriptionChangeType {
+  TRIAL_STARTED
+  PLAN_SELECTED
+  PLAN_UPGRADED
+  PLAN_DOWNGRADED
+  DISCOUNT_APPLIED
+  DISCOUNT_REMOVED
+  PLAN_CANCELLED
+  PLAN_SUSPENDED
+  PLAN_RESTORED
+}
+
 // ═══════════════════════════════════════════════════
 // CORE MVP MODELS (1–14)
 // ═══════════════════════════════════════════════════
@@ -208,6 +255,7 @@ model Society {
   vehicles                 Vehicle[]
   designations             Designation[]
   governingBodyMembers     GoverningBodyMember[]
+  subscriptions            SocietySubscription[]
 
   @@map("societies")
 }
@@ -857,4 +905,132 @@ model GoverningBodyMember {
   assigner    User?       @relation("GoverningBodyAssigner", fields: [assignedBy], references: [id])
 
   @@map("governing_body_members")
+}
+
+// ═══════════════════════════════════════════════════
+// SUBSCRIPTION SYSTEM MODELS (26–30)
+// ═══════════════════════════════════════════════════
+
+/// 26. PlatformPlan — dynamic subscription plan definitions created by Super Admin.
+model PlatformPlan {
+  id               String    @id @default(uuid()) @db.Uuid
+  name             String    @db.VarChar(100)
+  slug             String    @unique @db.VarChar(50)
+  description      String?
+  planType         PlanType  @map("plan_type")
+  residentLimit    Int?      @map("resident_limit")                     // null = unlimited; FLAT_FEE only
+  pricePerUnit     Decimal?  @map("price_per_unit") @db.Decimal(10, 2) // PER_UNIT plans only
+  featuresJson     Json      @map("features_json")                      // { whatsapp, elections, ai_insights, ... }
+  isActive         Boolean   @default(true) @map("is_active")
+  isPublic         Boolean   @default(true) @map("is_public")           // false = hidden from onboarding
+  displayOrder     Int       @default(0) @map("display_order")
+  badgeText        String?   @map("badge_text") @db.VarChar(50)         // "Most Popular", "Best Value"
+  trialAccessLevel Boolean   @default(false) @map("trial_access_level") // if true, trial societies get this plan's features
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  billingOptions   PlanBillingOption[]
+  subscriptions    SocietySubscription[]
+  fromHistory      SocietySubscriptionHistory[] @relation("HistoryFromPlan")
+  toHistory        SocietySubscriptionHistory[] @relation("HistoryToPlan")
+
+  @@map("platform_plans")
+}
+
+/// 27. PlanBillingOption — billing cycle options and prices per plan.
+model PlanBillingOption {
+  id           String       @id @default(uuid()) @db.Uuid
+  planId       String       @map("plan_id") @db.Uuid
+  billingCycle BillingCycle @map("billing_cycle")
+  price        Decimal      @db.Decimal(10, 2)
+  isActive     Boolean      @default(true) @map("is_active")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  plan          PlatformPlan                 @relation(fields: [planId], references: [id])
+  subscriptions SocietySubscription[]
+  fromHistory   SocietySubscriptionHistory[] @relation("HistoryFromBillingOption")
+  toHistory     SocietySubscriptionHistory[] @relation("HistoryToBillingOption")
+
+  @@unique([planId, billingCycle])
+  @@map("plan_billing_options")
+}
+
+/// 28. PlanDiscount — discount configurations: coupon codes, time-limited, plan-specific, manual override.
+model PlanDiscount {
+  id                  String              @id @default(uuid()) @db.Uuid
+  name                String              @db.VarChar(150)
+  description         String?
+  discountType        DiscountType        @map("discount_type")
+  discountValue       Decimal             @map("discount_value") @db.Decimal(10, 2) // 40 = 40%, 500 = ₹500 off
+  appliesToAll        Boolean             @default(false) @map("applies_to_all")
+  applicablePlanIds   String[]            @map("applicable_plan_ids")               // UUIDs of specific plans; empty if appliesToAll
+  triggerType         DiscountTriggerType @map("trigger_type")
+  couponCode          String?             @unique @map("coupon_code") @db.VarChar(30)
+  startsAt            DateTime?           @map("starts_at")
+  endsAt              DateTime?           @map("ends_at")
+  maxUsageCount       Int?                @map("max_usage_count")                   // null = unlimited
+  usageCount          Int                 @default(0) @map("usage_count")
+  allowedCycles       BillingCycle[]      @map("allowed_cycles")                   // empty = all cycles allowed
+  isActive            Boolean             @default(true) @map("is_active")
+  createdAt           DateTime            @default(now()) @map("created_at")
+  updatedAt           DateTime            @updatedAt @map("updated_at")
+
+  subscriptions SocietySubscription[]
+
+  @@map("plan_discounts")
+}
+
+/// 29. SocietySubscription — current and historical subscription records per society.
+model SocietySubscription {
+  id                 String             @id @default(uuid()) @db.Uuid
+  societyId          String             @map("society_id") @db.Uuid
+  planId             String?            @map("plan_id") @db.Uuid            // null during trial (before plan selected)
+  billingOptionId    String?            @map("billing_option_id") @db.Uuid
+  status             SubscriptionStatus @default(TRIAL)
+  trialStartsAt      DateTime?          @map("trial_starts_at")
+  trialEndsAt        DateTime?          @map("trial_ends_at")
+  currentPeriodStart DateTime?          @map("current_period_start")
+  currentPeriodEnd   DateTime?          @map("current_period_end")
+  discountId         String?            @map("discount_id") @db.Uuid
+  customDiscountPct  Decimal?           @map("custom_discount_pct") @db.Decimal(5, 2)  // for MANUAL_OVERRIDE
+  finalPrice         Decimal?           @map("final_price") @db.Decimal(10, 2)          // effective price after discount
+  unitCountSnapshot  Int?               @map("unit_count_snapshot")                     // snapshot for PER_UNIT billing
+  notes              String?
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+
+  society       Society            @relation(fields: [societyId], references: [id])
+  plan          PlatformPlan?      @relation(fields: [planId], references: [id])
+  billingOption PlanBillingOption? @relation(fields: [billingOptionId], references: [id])
+  discount      PlanDiscount?      @relation(fields: [discountId], references: [id])
+  history       SocietySubscriptionHistory[]
+
+  @@map("society_subscriptions")
+}
+
+/// 30. SocietySubscriptionHistory — immutable audit trail of all subscription changes.
+model SocietySubscriptionHistory {
+  id                  String                 @id @default(uuid()) @db.Uuid
+  subscriptionId      String                 @map("subscription_id") @db.Uuid
+  societyId           String                 @map("society_id") @db.Uuid
+  changeType          SubscriptionChangeType @map("change_type")
+  fromPlanId          String?                @map("from_plan_id") @db.Uuid
+  toPlanId            String?                @map("to_plan_id") @db.Uuid
+  fromBillingOptionId String?                @map("from_billing_option_id") @db.Uuid
+  toBillingOptionId   String?                @map("to_billing_option_id") @db.Uuid
+  prorataCredit       Decimal?               @map("prorata_credit") @db.Decimal(10, 2)
+  prorataCharge       Decimal?               @map("prorata_charge") @db.Decimal(10, 2)
+  netAmount           Decimal?               @map("net_amount") @db.Decimal(10, 2)
+  performedBy         String                 @map("performed_by") @db.VarChar(100) // SA user ID or "SYSTEM"
+  notes               String?
+  createdAt           DateTime               @default(now()) @map("created_at")
+
+  subscription      SocietySubscription @relation(fields: [subscriptionId], references: [id])
+  fromPlan          PlatformPlan?       @relation("HistoryFromPlan", fields: [fromPlanId], references: [id])
+  toPlan            PlatformPlan?       @relation("HistoryToPlan", fields: [toPlanId], references: [id])
+  fromBillingOption PlanBillingOption?  @relation("HistoryFromBillingOption", fields: [fromBillingOptionId], references: [id])
+  toBillingOption   PlanBillingOption?  @relation("HistoryToBillingOption", fields: [toBillingOptionId], references: [id])
+
+  @@map("society_subscription_history")
 }

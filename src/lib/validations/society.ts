@@ -20,6 +20,8 @@ export const createSocietySchema = z
       .min(4, "Code must be 4-8 characters")
       .max(8, "Code must be 4-8 characters")
       .regex(/^[A-Z0-9]+$/, "Only uppercase letters and numbers"),
+    planId: z.string().uuid().optional().nullable(),
+    billingOptionId: z.string().uuid().optional().nullable(),
     joiningFee: z.number().min(0).max(100000),
     annualFee: z.number().min(0).max(100000),
     adminName: z.string().min(2, "Name must be at least 2 characters").max(100),

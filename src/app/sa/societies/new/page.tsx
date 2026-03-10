@@ -6,10 +6,12 @@ import { useRouter } from "next/navigation";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ArrowRight, Check, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, CheckCircle2, Loader2 } from "lucide-react";
 import { useForm, type FieldErrors } from "react-hook-form";
 import { toast } from "sonner";
 
+import { BillingCycleSelector } from "@/components/features/plans/BillingCycleSelector";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -24,14 +26,18 @@ import {
 } from "@/components/ui/select";
 import { INDIAN_STATES, DEFAULT_JOINING_FEE, DEFAULT_ANNUAL_FEE } from "@/lib/constants";
 import { createSocietySchema, type CreateSocietyInput } from "@/lib/validations/society";
+import { getPlans } from "@/services/plans";
 import { createSociety, checkSocietyCode } from "@/services/societies";
+import { BILLING_CYCLE_LABELS, type BillingCycle } from "@/types/plan";
 import { SOCIETY_TYPE_LABELS, type SocietyType } from "@/types/society";
 
-const STEPS = ["Society Info", "Fee Config", "Primary Admin"];
+const STEPS = ["Society Info", "Choose Plan", "Fee Config", "Primary Admin"];
 
 export default function NewSocietyPage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
+  const [selectedPlanId, setSelectedPlanId] = useState<string>("");
+  const [selectedCycle, setSelectedCycle] = useState<BillingCycle>("MONTHLY");
 
   const queryClient = useQueryClient();
 
@@ -44,6 +50,8 @@ export default function NewSocietyPage() {
       pincode: "",
       type: "INDEPENDENT_SECTOR",
       societyCode: "",
+      planId: null,
+      billingOptionId: null,
       joiningFee: DEFAULT_JOINING_FEE,
       annualFee: DEFAULT_ANNUAL_FEE,
       adminName: "",
@@ -60,6 +68,15 @@ export default function NewSocietyPage() {
     queryFn: () => checkSocietyCode(code),
     enabled: code.length >= 4,
   });
+
+  const { data: plans = [] } = useQuery({
+    queryKey: ["plans"],
+    queryFn: getPlans,
+    enabled: step === 1,
+  });
+  const publicPlans = plans.filter((p) => p.isActive && p.isPublic);
+  const selectedPlan = publicPlans.find((p) => p.id === selectedPlanId);
+  const selectedOption = selectedPlan?.billingOptions.find((o) => o.billingCycle === selectedCycle);
 
   const mutation = useMutation({
     mutationFn: (data: CreateSocietyInput) => createSociety(data),
@@ -81,13 +98,33 @@ export default function NewSocietyPage() {
     formState: { errors },
   } = form;
 
+  function handlePlanSelect(planId: string) {
+    const plan = publicPlans.find((p) => p.id === planId);
+    if (!plan) return;
+    setSelectedPlanId(planId);
+    setValue("planId", planId);
+    const cycle = plan.billingOptions.some((o) => o.billingCycle === selectedCycle)
+      ? selectedCycle
+      : "MONTHLY";
+    setSelectedCycle(cycle);
+    const option = plan.billingOptions.find((o) => o.billingCycle === cycle);
+    setValue("billingOptionId", option?.id ?? null);
+  }
+
+  function handleCycleChange(cycle: BillingCycle) {
+    setSelectedCycle(cycle);
+    const option = selectedPlan?.billingOptions.find((o) => o.billingCycle === cycle);
+    setValue("billingOptionId", option?.id ?? null);
+  }
+
   const canProceed = () => {
     if (step === 0) {
       const { name, state, city, pincode, type, societyCode } = watch();
       return name && state && city && pincode.length === 6 && type && societyCode.length >= 4;
     }
-    if (step === 1) return true;
-    if (step === 2) {
+    if (step === 1) return true; // Plan is optional — SA can skip
+    if (step === 2) return true;
+    if (step === 3) {
       const { adminName, adminEmail, adminPassword, adminPasswordConfirm } = watch();
       return (
         adminName &&
@@ -102,7 +139,7 @@ export default function NewSocietyPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Onboard New Society" description="Register a society in 3 steps" />
+      <PageHeader title="Onboard New Society" description="Register a society in 4 steps" />
 
       <div className="flex items-center gap-2">
         {STEPS.map((s, i) => (
@@ -132,17 +169,16 @@ export default function NewSocietyPage() {
         onSubmit={handleSubmit(
           (data) => mutation.mutate(data),
           (fieldErrors: FieldErrors<CreateSocietyInput>) => {
-            // Find the first error's step and show a toast
             const step0Fields = ["name", "state", "city", "pincode", "type", "societyCode"];
-            const step1Fields = ["joiningFee", "annualFee"];
+            const step2Fields = ["joiningFee", "annualFee"];
             const errorKeys = Object.keys(fieldErrors);
             const firstError = Object.values(fieldErrors)[0];
             if (errorKeys.some((k) => step0Fields.includes(k)) && step !== 0) {
               toast.error(`Step 1 error: ${firstError?.message}`);
               setStep(0);
-            } else if (errorKeys.some((k) => step1Fields.includes(k)) && step !== 1) {
-              toast.error(`Step 2 error: ${firstError?.message}`);
-              setStep(1);
+            } else if (errorKeys.some((k) => step2Fields.includes(k)) && step !== 2) {
+              toast.error(`Step 3 error: ${firstError?.message}`);
+              setStep(2);
             } else if (firstError?.message) {
               toast.error(firstError.message);
             }
@@ -272,6 +308,91 @@ export default function NewSocietyPage() {
         {step === 1 && (
           <Card>
             <CardHeader>
+              <CardTitle>Choose a Subscription Plan</CardTitle>
+              <CardDescription>
+                Select a plan and billing cycle for this society. You can skip and assign a plan
+                later from the society detail page.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              {/* Plan cards */}
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {publicPlans.map((plan) => {
+                  const isSelected = plan.id === selectedPlanId;
+                  const monthlyOption = plan.billingOptions.find(
+                    (o) => o.billingCycle === "MONTHLY",
+                  );
+                  return (
+                    <button
+                      key={plan.id}
+                      type="button"
+                      onClick={() => handlePlanSelect(plan.id)}
+                      className={`relative flex flex-col items-start rounded-lg border p-3 text-left transition-all ${
+                        isSelected
+                          ? "border-primary bg-primary/5 ring-primary/20 ring-2"
+                          : "hover:border-primary/40"
+                      }`}
+                    >
+                      {plan.badgeText && <Badge className="mb-1 text-xs">{plan.badgeText}</Badge>}
+                      <span className="font-semibold">{plan.name}</span>
+                      {monthlyOption && (
+                        <span className="text-muted-foreground text-sm">
+                          from ₹{monthlyOption.price.toLocaleString("en-IN")}/mo
+                        </span>
+                      )}
+                      {plan.residentLimit ? (
+                        <span className="text-muted-foreground text-xs">
+                          Up to {plan.residentLimit} units
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">Unlimited / per-unit</span>
+                      )}
+                      {isSelected && (
+                        <CheckCircle2 className="text-primary absolute top-2 right-2 h-4 w-4" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Billing cycle */}
+              {selectedPlan && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Billing Cycle</p>
+                  <BillingCycleSelector
+                    plan={selectedPlan}
+                    selected={selectedCycle}
+                    onChange={handleCycleChange}
+                  />
+                </div>
+              )}
+
+              {/* Selected summary */}
+              {selectedPlan && selectedOption && (
+                <div className="bg-muted/30 flex items-center gap-2 rounded-lg border p-3 text-sm">
+                  <CheckCircle2 className="text-primary h-4 w-4" />
+                  <span className="font-medium">{selectedPlan.name}</span>
+                  <Badge variant="outline" className="text-xs">
+                    {BILLING_CYCLE_LABELS[selectedCycle]}
+                  </Badge>
+                  <span className="text-muted-foreground ml-auto">
+                    ₹{selectedOption.price.toLocaleString("en-IN")}
+                  </span>
+                </div>
+              )}
+
+              {!selectedPlanId && (
+                <p className="text-muted-foreground text-sm">
+                  No plan selected. You can assign one later from the society detail page.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {step === 2 && (
+          <Card>
+            <CardHeader>
               <CardTitle>Fee Configuration</CardTitle>
               <CardDescription>Set joining and annual fees</CardDescription>
             </CardHeader>
@@ -315,7 +436,7 @@ export default function NewSocietyPage() {
           </Card>
         )}
 
-        {step === 2 && (
+        {step === 3 && (
           <Card>
             <CardHeader>
               <CardTitle>Primary Admin</CardTitle>

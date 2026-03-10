@@ -167,6 +167,53 @@ export async function POST(request: NextRequest) {
           })),
         });
 
+        // Create subscription if plan selected during onboarding
+        if (data.planId && data.billingOptionId) {
+          const billingOption = await tx.planBillingOption.findUnique({
+            where: { id: data.billingOptionId },
+          });
+          if (billingOption) {
+            const now = new Date();
+            const periodEnd = new Date(now);
+            switch (billingOption.billingCycle) {
+              case "MONTHLY":
+                periodEnd.setMonth(periodEnd.getMonth() + 1);
+                break;
+              case "ANNUAL":
+                periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+                break;
+              case "TWO_YEAR":
+                periodEnd.setFullYear(periodEnd.getFullYear() + 2);
+                break;
+              case "THREE_YEAR":
+                periodEnd.setFullYear(periodEnd.getFullYear() + 3);
+                break;
+            }
+            const subscription = await tx.societySubscription.create({
+              data: {
+                societyId: society.id,
+                planId: data.planId,
+                billingOptionId: data.billingOptionId,
+                status: "ACTIVE",
+                currentPeriodStart: now,
+                currentPeriodEnd: periodEnd,
+                finalPrice: billingOption.price,
+              },
+            });
+            await tx.societySubscriptionHistory.create({
+              data: {
+                societyId: society.id,
+                subscriptionId: subscription.id,
+                changeType: "PLAN_SELECTED",
+                toPlanId: data.planId,
+                toBillingOptionId: data.billingOptionId,
+                performedBy: "SUPER_ADMIN",
+                notes: "Plan selected during society onboarding",
+              },
+            });
+          }
+        }
+
         return { society, admin };
       });
 
