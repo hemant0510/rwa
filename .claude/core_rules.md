@@ -140,3 +140,4 @@ Imports should follow this order (enforced by ESLint):
 - When adding a new master/lookup table (e.g. categories, roles, plan types), seed data for it goes in `seed-master.ts`
 - Society-specific or resident-specific data is never seeded in `seed-master.ts` — it is created through app flows or `seed.ts`
 - Always run `npx prisma generate` after schema changes before writing application code that uses new models
+- **NEVER add new seed data to `seed.ts` or `seed-master.ts` without explicit user approval** — always ask first, describe what data you intend to add and why, and wait for confirmation before writing it

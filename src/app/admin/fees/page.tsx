@@ -93,6 +93,7 @@ export default function FeesPage() {
       setPaymentDialog({ open: false, feeId: "", residentName: "", balance: 0 });
       paymentForm.reset();
       queryClient.invalidateQueries({ queryKey: ["fees"] });
+      queryClient.invalidateQueries({ queryKey: ["expenses"] });
     },
     onError: (err: Error) => toast.error(err.message),
   });

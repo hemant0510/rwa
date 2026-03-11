@@ -19,14 +19,14 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
         where: { societyId, status: "ACTIVE" },
         _sum: { amount: true },
       }),
-      prisma.feePayment.aggregate({
-        where: { societyId, isReversal: false, isReversed: false },
-        _sum: { amount: true },
+      prisma.membershipFee.aggregate({
+        where: { societyId },
+        _sum: { amountPaid: true },
       }),
     ]);
 
     const expenses = Number(totalExpenses._sum.amount || 0);
-    const collected = Number(totalCollected._sum.amount || 0);
+    const collected = Number(totalCollected._sum.amountPaid || 0);
 
     return NextResponse.json({
       totalExpenses: expenses,
