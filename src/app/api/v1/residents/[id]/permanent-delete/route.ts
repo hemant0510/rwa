@@ -53,23 +53,12 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
         where: { deactivatedBy: id },
         data: { deactivatedBy: null },
       });
-      await tx.expenseQuery.updateMany({ where: { respondedBy: id }, data: { respondedBy: null } });
-      await tx.propertyTransfer.updateMany({
-        where: { incomingUserId: id },
-        data: { incomingUserId: null },
-      });
 
       // 2. Delete owned records (order matters for FK constraints)
       await tx.emailVerificationToken.deleteMany({ where: { userId: id } });
       await tx.notificationPreference.deleteMany({ where: { userId: id } });
       await tx.notification.deleteMany({ where: { userId: id } });
-      await tx.dependent.deleteMany({ where: { userId: id } });
-      await tx.visitorLog.deleteMany({ where: { residentId: id } });
       await tx.blacklistedNumber.deleteMany({ where: { blacklistedBy: id } });
-      await tx.expenseQuery.deleteMany({ where: { raisedBy: id } });
-      await tx.festivalContribution.deleteMany({ where: { userId: id } });
-      await tx.propertyTransfer.deleteMany({ where: { outgoingUserId: id } });
-      await tx.propertyTransfer.deleteMany({ where: { initiatedBy: id } });
       await tx.broadcast.deleteMany({ where: { sentBy: id } });
       await tx.adminTerm.deleteMany({ where: { userId: id } });
       await tx.feePayment.deleteMany({ where: { userId: id } });
