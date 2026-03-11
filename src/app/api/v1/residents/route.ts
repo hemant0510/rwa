@@ -9,6 +9,9 @@ export async function GET(request: NextRequest) {
     const societyId = searchParams.get("societyId");
     const status = searchParams.get("status");
     const search = searchParams.get("search");
+    const emailVerified = searchParams.get("emailVerified");
+    const ownershipType = searchParams.get("ownershipType");
+    const year = searchParams.get("year");
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "20");
 
@@ -40,12 +43,35 @@ export async function GET(request: NextRequest) {
       where.status = status;
     }
 
+    if (emailVerified === "true") {
+      where.isEmailVerified = true;
+    } else if (emailVerified === "false") {
+      where.isEmailVerified = false;
+    }
+
+    if (ownershipType && ownershipType !== "all") {
+      where.ownershipType = ownershipType;
+    }
+
     if (search) {
       where.OR = [
         { name: { contains: search, mode: "insensitive" } },
         { mobile: { contains: search } },
+        { email: { contains: search, mode: "insensitive" } },
         { rwaid: { contains: search, mode: "insensitive" } },
       ];
+    }
+
+    // Year filter on RWAID — e.g. year=2026 matches RWAIDs containing "-2026-"
+    if (year && year !== "all") {
+      const yearClause = { rwaid: { contains: `-${year}-` } };
+      if (where.OR) {
+        // Combine with existing OR: must match search AND year
+        where.AND = [{ OR: where.OR as unknown[] }, yearClause];
+        delete where.OR;
+      } else {
+        where.AND = [yearClause];
+      }
     }
 
     const [data, total] = await Promise.all([

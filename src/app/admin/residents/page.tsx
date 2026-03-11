@@ -6,9 +6,22 @@ import Link from "next/link";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Users, Search, CheckCircle, XCircle, Plus, Loader2, Trash2 } from "lucide-react";
+import {
+  Users,
+  Search,
+  CheckCircle,
+  XCircle,
+  Plus,
+  Loader2,
+  Trash2,
+  Mail,
+  Upload,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { toast } from "sonner";
 
+import { BulkUploadDialog } from "@/components/residents/BulkUploadDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -45,6 +58,7 @@ import {
   approveResident,
   rejectResident,
   permanentDeleteResident,
+  sendResidentVerificationEmail,
 } from "@/services/residents";
 import { getSocietyByCode } from "@/services/societies";
 import { SOCIETY_TYPE_ADDRESS_FIELDS, type SocietyType } from "@/types/society";
@@ -61,12 +75,33 @@ const STATUS_COLORS: Record<string, string> = {
   DEACTIVATED: "border-red-300 bg-red-50 text-red-800",
 };
 
+const CURRENT_YEAR = new Date().getFullYear();
+const YEAR_OPTIONS = Array.from({ length: CURRENT_YEAR - 2019 }, (_, i) => 2020 + i);
+
+/** Generate smart page numbers: e.g. [1, 2, 3, '...', 8, 9, 10] */
+function getPageNumbers(current: number, total: number): (number | "...")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  if (current <= 4) return [1, 2, 3, 4, 5, "...", total];
+  if (current >= total - 3) return [1, "...", total - 4, total - 3, total - 2, total - 1, total];
+  return [1, "...", current - 1, current, current + 1, "...", total];
+}
+
 export default function ResidentsPage() {
   const { societyId, societyCode } = useSocietyId();
   const queryClient = useQueryClient();
+
+  // Filters
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [emailVerifiedFilter, setEmailVerifiedFilter] = useState("all");
+  const [ownershipFilter, setOwnershipFilter] = useState("all");
+  const [yearFilter, setYearFilter] = useState("all");
+
+  // Pagination
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
+
+  // Dialogs
   const [rejectDialog, setRejectDialog] = useState<{ open: boolean; id: string }>({
     open: false,
     id: "",
@@ -77,9 +112,10 @@ export default function ResidentsPage() {
     id: "",
     name: "",
   });
-
-  // Add Resident state
   const [addDialog, setAddDialog] = useState(false);
+  const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
+
+  // Add Resident form state
   const [addForm, setAddForm] = useState({
     fullName: "",
     mobile: "",
@@ -91,13 +127,33 @@ export default function ResidentsPage() {
   const [unitFields, setUnitFields] = useState<Record<string, string>>({});
   const [addFormErrors, setAddFormErrors] = useState<Record<string, string>>({});
 
+  // Track which resident's verification email is being sent
+  const [sendingVerificationId, setSendingVerificationId] = useState<string | null>(null);
+
   const { data, isLoading } = useQuery({
-    queryKey: ["residents", societyId, { search, status: statusFilter, page }],
+    queryKey: [
+      "residents",
+      societyId,
+      {
+        search,
+        status: statusFilter,
+        page,
+        limit,
+        emailVerifiedFilter,
+        ownershipFilter,
+        yearFilter,
+      },
+    ],
     queryFn: () =>
       getResidents(societyId, {
         search: search || undefined,
         status: statusFilter === "all" ? undefined : statusFilter,
         page,
+        limit,
+        emailVerified:
+          emailVerifiedFilter === "all" ? undefined : (emailVerifiedFilter as "true" | "false"),
+        ownershipType: ownershipFilter === "all" ? undefined : ownershipFilter,
+        year: yearFilter === "all" ? undefined : yearFilter,
       }),
     enabled: !!societyId,
   });
@@ -130,6 +186,22 @@ export default function ResidentsPage() {
       queryClient.invalidateQueries({ queryKey: ["residents"] });
     },
     onError: (err: Error) => toast.error(err.message),
+  });
+
+  const sendVerificationMutation = useMutation({
+    mutationFn: (id: string) => {
+      setSendingVerificationId(id);
+      return sendResidentVerificationEmail(id);
+    },
+    onSuccess: () => {
+      toast.success("Verification email sent");
+      setSendingVerificationId(null);
+      queryClient.invalidateQueries({ queryKey: ["residents"] });
+    },
+    onError: (err: Error) => {
+      toast.error(err.message);
+      setSendingVerificationId(null);
+    },
   });
 
   // Fetch society type for address fields
@@ -194,36 +266,51 @@ export default function ResidentsPage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  function resetPage() {
+    setPage(1);
+  }
+
+  const totalPages = data ? Math.ceil(data.total / limit) : 0;
+  const pageNumbers = totalPages > 0 ? getPageNumbers(page, totalPages) : [];
+
   return (
     <div className="space-y-6">
       <PageHeader title="Residents" description="Manage society residents">
-        <Button onClick={() => setAddDialog(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Resident
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setBulkUploadOpen(true)}>
+            <Upload className="mr-2 h-4 w-4" />
+            Import
+          </Button>
+          <Button onClick={() => setAddDialog(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Resident
+          </Button>
+        </div>
       </PageHeader>
 
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <div className="relative flex-1">
+      {/* Filters row */}
+      <div className="flex flex-wrap gap-3">
+        <div className="relative min-w-[200px] flex-1">
           <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
           <Input
-            placeholder="Search by name or mobile..."
+            placeholder="Search by name, mobile, email, or RWAID..."
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
-              setPage(1);
+              resetPage();
             }}
             className="pl-9"
           />
         </div>
+
         <Select
           value={statusFilter}
           onValueChange={(v) => {
             setStatusFilter(v);
-            setPage(1);
+            resetPage();
           }}
         >
-          <SelectTrigger className="w-[200px]">
+          <SelectTrigger className="w-[170px]">
             <SelectValue placeholder="All Statuses" />
           </SelectTrigger>
           <SelectContent>
@@ -233,6 +320,60 @@ export default function ResidentsPage() {
             <SelectItem value="ACTIVE_PENDING">Active (Pending)</SelectItem>
             <SelectItem value="ACTIVE_OVERDUE">Active (Overdue)</SelectItem>
             <SelectItem value="DEACTIVATED">Deactivated</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={emailVerifiedFilter}
+          onValueChange={(v) => {
+            setEmailVerifiedFilter(v);
+            resetPage();
+          }}
+        >
+          <SelectTrigger className="w-[160px]">
+            <SelectValue placeholder="Email Verified" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Email: All</SelectItem>
+            <SelectItem value="true">Verified</SelectItem>
+            <SelectItem value="false">Not Verified</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={ownershipFilter}
+          onValueChange={(v) => {
+            setOwnershipFilter(v);
+            resetPage();
+          }}
+        >
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="Ownership" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Types</SelectItem>
+            <SelectItem value="OWNER">Owner</SelectItem>
+            <SelectItem value="TENANT">Tenant</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={yearFilter}
+          onValueChange={(v) => {
+            setYearFilter(v);
+            resetPage();
+          }}
+        >
+          <SelectTrigger className="w-[130px]">
+            <SelectValue placeholder="RWA Year" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Years</SelectItem>
+            {YEAR_OPTIONS.map((y) => (
+              <SelectItem key={y} value={String(y)}>
+                {y}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -257,8 +398,9 @@ export default function ResidentsPage() {
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead className="hidden sm:table-cell">Mobile</TableHead>
+                  <TableHead className="hidden md:table-cell">Ownership</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="hidden md:table-cell">Email Verified</TableHead>
+                  <TableHead className="hidden md:table-cell">Email</TableHead>
                   <TableHead className="hidden lg:table-cell">RWAID</TableHead>
                   <TableHead className="hidden lg:table-cell">Registered</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -277,22 +419,56 @@ export default function ResidentsPage() {
                       <p className="text-muted-foreground text-xs sm:hidden">{resident.mobile}</p>
                     </TableCell>
                     <TableCell className="hidden sm:table-cell">{resident.mobile}</TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      {resident.ownershipType ? (
+                        <Badge
+                          variant="outline"
+                          className={
+                            resident.ownershipType === "OWNER"
+                              ? "border-blue-200 bg-blue-50 text-blue-700"
+                              : "border-violet-200 bg-violet-50 text-violet-700"
+                          }
+                        >
+                          {resident.ownershipType === "OWNER" ? "Owner" : "Tenant"}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">—</span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Badge variant="outline" className={STATUS_COLORS[resident.status] || ""}>
                         {RESIDENT_STATUS_LABELS[resident.status] || resident.status}
                       </Badge>
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
-                      <Badge
-                        variant="outline"
-                        className={
-                          resident.isEmailVerified
-                            ? "border-green-200 bg-green-50 text-green-700"
-                            : "border-amber-200 bg-amber-50 text-amber-700"
-                        }
-                      >
-                        {resident.isEmailVerified ? "Verified" : "Not Verified"}
-                      </Badge>
+                      <div className="flex items-center gap-1">
+                        <Badge
+                          variant="outline"
+                          className={
+                            resident.isEmailVerified
+                              ? "border-green-200 bg-green-50 text-green-700"
+                              : "border-amber-200 bg-amber-50 text-amber-700"
+                          }
+                        >
+                          {resident.isEmailVerified ? "Verified" : "Not Verified"}
+                        </Badge>
+                        {!resident.isEmailVerified && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-1.5 text-xs text-blue-600 hover:text-blue-700"
+                            title="Send verification email"
+                            disabled={sendingVerificationId === resident.id}
+                            onClick={() => sendVerificationMutation.mutate(resident.id)}
+                          >
+                            {sendingVerificationId === resident.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Mail className="h-3 w-3" />
+                            )}
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="hidden font-mono text-xs lg:table-cell">
                       {resident.rwaid || "—"}
@@ -348,31 +524,78 @@ export default function ResidentsPage() {
             </Table>
           </div>
 
-          {data.total > 20 && (
-            <div className="flex items-center justify-between">
-              <p className="text-muted-foreground text-sm">
-                Showing {(page - 1) * 20 + 1}-{Math.min(page * 20, data.total)} of {data.total}
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page === 1}
-                  onClick={() => setPage((p) => p - 1)}
+          {/* Pagination */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-muted-foreground text-sm">
+              Showing {data.total === 0 ? 0 : (page - 1) * limit + 1}–
+              {Math.min(page * limit, data.total)} of {data.total} residents
+            </p>
+
+            <div className="flex items-center gap-3">
+              {/* Page size selector */}
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-muted-foreground">Show</span>
+                <Select
+                  value={String(limit)}
+                  onValueChange={(v) => {
+                    setLimit(Number(v));
+                    resetPage();
+                  }}
                 >
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={page * 20 >= data.total}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  Next
-                </Button>
+                  <SelectTrigger className="h-8 w-16">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="20">20</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
+
+              {/* Page number buttons */}
+              {totalPages > 1 && (
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    disabled={page === 1}
+                    onClick={() => setPage((p) => p - 1)}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+
+                  {pageNumbers.map((p, i) =>
+                    p === "..." ? (
+                      <span key={`ellipsis-${i}`} className="text-muted-foreground px-1 text-sm">
+                        …
+                      </span>
+                    ) : (
+                      <Button
+                        key={p}
+                        variant={p === page ? "default" : "outline"}
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={() => setPage(p)}
+                      >
+                        {p}
+                      </Button>
+                    ),
+                  )}
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage((p) => p + 1)}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </>
       )}
 
@@ -680,6 +903,16 @@ export default function ResidentsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Bulk Upload Dialog */}
+      {societyCode && (
+        <BulkUploadDialog
+          open={bulkUploadOpen}
+          onOpenChange={setBulkUploadOpen}
+          societyCode={societyCode}
+          onSuccess={() => queryClient.invalidateQueries({ queryKey: ["residents"] })}
+        />
+      )}
     </div>
   );
 }
