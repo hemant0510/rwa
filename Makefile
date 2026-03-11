@@ -4,7 +4,7 @@
 # ║  Run `make` or `make help` to see all available targets   ║
 # ╚═══════════════════════════════════════════════════════════╝
 
-.PHONY: dev build start lint fix format format-check check test tw \
+.PHONY: dev build start lint fix format format-check check test tw coverage \
         db-push db-pull db-generate db-studio \
         db-migrate db-migrate-deploy db-reset \
         db-seed db-seed-master db-seed-dev \
@@ -54,6 +54,9 @@ test:             ## Run all tests once
 
 tw:               ## Run tests in watch mode
 	npm run test:watch
+
+coverage:         ## Run tests with per-file coverage report
+	npm run test:coverage
 
 # ─────────────────────────────────────────────────────────────
 #  Database — Schema & Client

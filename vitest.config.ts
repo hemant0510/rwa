@@ -39,6 +39,7 @@ export default defineConfig({
         "src/lib/supabase/**",
         "src/lib/whatsapp.ts",
         "src/lib/email-templates/**",
+        "src/app/r/loading.tsx",
       ],
       thresholds: {
         lines: 95,
