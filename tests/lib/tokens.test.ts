@@ -9,7 +9,22 @@ import {
   deletePasswordResetToken,
 } from "@/lib/tokens";
 
-import { mockPrisma } from "../__mocks__/prisma";
+const mockPrisma = vi.hoisted(() => ({
+  emailVerificationToken: {
+    findUnique: vi.fn(),
+    create: vi.fn(),
+    delete: vi.fn(),
+    deleteMany: vi.fn(),
+  },
+  passwordResetToken: {
+    findUnique: vi.fn(),
+    create: vi.fn(),
+    delete: vi.fn(),
+    deleteMany: vi.fn(),
+  },
+}));
+
+vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 
 describe("generateVerificationToken", () => {
   beforeEach(() => {

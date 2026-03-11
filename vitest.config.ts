@@ -40,6 +40,12 @@ export default defineConfig({
         "src/lib/whatsapp.ts",
         "src/lib/email-templates/**",
       ],
+      thresholds: {
+        lines: 95,
+        functions: 95,
+        branches: 95,
+        statements: 95,
+      },
     },
   },
 });

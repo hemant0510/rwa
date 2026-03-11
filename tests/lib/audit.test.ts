@@ -2,7 +2,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 import { logAudit } from "@/lib/audit";
 
-import { mockPrisma } from "../__mocks__/prisma";
+const mockPrisma = vi.hoisted(() => ({
+  auditLog: { create: vi.fn() },
+}));
+
+vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 
 describe("logAudit", () => {
   beforeEach(() => {
