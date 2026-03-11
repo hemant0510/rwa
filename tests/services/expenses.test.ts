@@ -25,6 +25,13 @@ describe("expenses service", () => {
       expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining("page=2"));
     });
 
+    it("includes to and limit params when provided", async () => {
+      mockFetch.mockResolvedValue(okJson({ data: [], total: 0, page: 1, limit: 10 }));
+      await getExpenses("soc-1", { to: "2025-12-31", limit: 10 });
+      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining("to=2025-12-31"));
+      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining("limit=10"));
+    });
+
     it("fetches without params", async () => {
       mockFetch.mockResolvedValue(okJson({ data: [], total: 0, page: 1, limit: 20 }));
       await getExpenses("soc-1");
@@ -76,6 +83,18 @@ describe("expenses service", () => {
         }),
       ).rejects.toThrow("Invalid category");
     });
+
+    it("throws with fallback message when no error message", async () => {
+      mockFetch.mockResolvedValue(errJson({}));
+      await expect(
+        createExpense("soc-1", {
+          date: "2025-04-15",
+          amount: 100,
+          category: "MAINTENANCE",
+          description: "Test",
+        }),
+      ).rejects.toThrow("Failed to create expense");
+    });
   });
 
   describe("reverseExpense", () => {
@@ -92,6 +111,13 @@ describe("expenses service", () => {
       mockFetch.mockResolvedValue(errJson({ error: { message: "Window expired" } }));
       await expect(reverseExpense("soc-1", "exp-1", { reason: "Test reason" })).rejects.toThrow(
         "Window expired",
+      );
+    });
+
+    it("throws with fallback message when no error message", async () => {
+      mockFetch.mockResolvedValue(errJson({}));
+      await expect(reverseExpense("soc-1", "exp-1", { reason: "Test" })).rejects.toThrow(
+        "Failed to reverse expense",
       );
     });
   });

@@ -300,4 +300,116 @@ describe("GET /api/v1/auth/me", () => {
     const body = await res.json();
     expect(body.redirectTo).toBe("/admin/dashboard");
   });
+
+  it("falls back to allUsers[0] when cookie points to non-existent society", async () => {
+    mockGetActiveSocietyId.mockResolvedValue("soc-nonexistent");
+    mockSupabaseClient.auth.getUser.mockResolvedValueOnce({
+      data: { user: { id: "auth-1" } },
+      error: null,
+    });
+    mockPrisma.superAdmin.findUnique.mockResolvedValue(null);
+    mockPrisma.user.findMany.mockResolvedValue([
+      {
+        id: "u1",
+        name: "First User",
+        email: "first@test.com",
+        role: "RESIDENT",
+        societyId: "soc-1",
+        adminPermission: null,
+        isEmailVerified: true,
+        authUserId: "auth-1",
+        governingBodyMembership: null,
+        society: {
+          name: "Eden Estate",
+          societyCode: "EDEN",
+          status: "ACTIVE",
+          trialEndsAt: null,
+          emailVerificationRequired: false,
+        },
+      },
+    ]);
+
+    const res = await GET();
+    const body = await res.json();
+    // Falls back to allUsers[0] since no user matches the cookie societyId
+    expect(body.societyName).toBe("Eden Estate");
+  });
+
+  it("returns isTrialExpired false when status is TRIAL but trialEndsAt is null", async () => {
+    mockSupabaseClient.auth.getUser.mockResolvedValueOnce({
+      data: { user: { id: "auth-1" } },
+      error: null,
+    });
+    mockPrisma.superAdmin.findUnique.mockResolvedValue(null);
+    mockPrisma.user.findMany.mockResolvedValue([
+      {
+        id: "u1",
+        name: "Test",
+        email: "test@test.com",
+        role: "RWA_ADMIN",
+        societyId: "soc-1",
+        adminPermission: "FULL_ACCESS",
+        isEmailVerified: true,
+        authUserId: "auth-1",
+        governingBodyMembership: null,
+        society: {
+          name: "Test",
+          societyCode: "TEST",
+          status: "TRIAL",
+          trialEndsAt: null,
+          emailVerificationRequired: false,
+        },
+      },
+    ]);
+
+    const res = await GET();
+    const body = await res.json();
+    expect(body.isTrialExpired).toBe(false);
+  });
+
+  it("builds societies array with null name/code fallbacks", async () => {
+    mockSupabaseClient.auth.getUser.mockResolvedValueOnce({
+      data: { user: { id: "auth-1" } },
+      error: null,
+    });
+    mockPrisma.superAdmin.findUnique.mockResolvedValue(null);
+    mockPrisma.user.findMany.mockResolvedValue([
+      {
+        id: "u1",
+        name: "User 1",
+        email: "u1@test.com",
+        role: "RESIDENT",
+        societyId: "soc-1",
+        adminPermission: null,
+        isEmailVerified: true,
+        authUserId: "auth-1",
+        governingBodyMembership: null,
+        society: null, // no society
+      },
+      {
+        id: "u2",
+        name: "User 2",
+        email: "u2@test.com",
+        role: "RESIDENT",
+        societyId: "soc-2",
+        adminPermission: null,
+        isEmailVerified: true,
+        authUserId: "auth-1",
+        governingBodyMembership: null,
+        society: {
+          name: null,
+          societyCode: null,
+          status: "ACTIVE",
+          trialEndsAt: null,
+          emailVerificationRequired: false,
+        },
+      },
+    ]);
+
+    const res = await GET();
+    const body = await res.json();
+    expect(body.multiSociety).toBe(true);
+    expect(body.societies[0].name).toBeNull();
+    expect(body.societies[1].code).toBeNull();
+  });
 });

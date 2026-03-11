@@ -66,6 +66,17 @@ describe("fees service", () => {
         }),
       ).rejects.toThrow("Overpayment");
     });
+
+    it("throws with fallback message when no error message", async () => {
+      mockFetch.mockResolvedValue(errJson({}));
+      await expect(
+        recordPayment("soc-1", "fee-1", {
+          amount: 1200,
+          paymentMode: "CASH",
+          paymentDate: "2025-04-15",
+        }),
+      ).rejects.toThrow("Failed to record payment");
+    });
   });
 
   describe("grantExemption", () => {
@@ -82,6 +93,13 @@ describe("fees service", () => {
       mockFetch.mockResolvedValue(errJson({ error: { message: "Already exempted" } }));
       await expect(grantExemption("soc-1", "fee-1", { reason: "Test reason" })).rejects.toThrow(
         "Already exempted",
+      );
+    });
+
+    it("throws with fallback message when no error message", async () => {
+      mockFetch.mockResolvedValue(errJson({}));
+      await expect(grantExemption("soc-1", "fee-1", { reason: "Test reason" })).rejects.toThrow(
+        "Failed to grant exemption",
       );
     });
   });

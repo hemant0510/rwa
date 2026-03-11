@@ -95,6 +95,11 @@ describe("residents service", () => {
       mockFetch.mockResolvedValue(errJson({ error: { message: "Validation failed" } }));
       await expect(updateResident("res-1", {})).rejects.toThrow("Validation failed");
     });
+
+    it("throws with fallback message when no error message", async () => {
+      mockFetch.mockResolvedValue(errJson({}));
+      await expect(updateResident("res-1", {})).rejects.toThrow("Failed to update resident");
+    });
   });
 
   describe("deleteResident", () => {
@@ -111,6 +116,13 @@ describe("residents service", () => {
       mockFetch.mockResolvedValue(errJson({ error: { message: "Already deactivated" } }));
       await expect(deleteResident("res-1", "reason")).rejects.toThrow("Already deactivated");
     });
+
+    it("throws with fallback message when no error message", async () => {
+      mockFetch.mockResolvedValue(errJson({}));
+      await expect(deleteResident("res-1", "reason")).rejects.toThrow(
+        "Failed to deactivate resident",
+      );
+    });
   });
 
   describe("permanentDeleteResident", () => {
@@ -126,6 +138,13 @@ describe("residents service", () => {
     it("throws with error message from API", async () => {
       mockFetch.mockResolvedValue(errJson({ error: { message: "Not deactivated" } }));
       await expect(permanentDeleteResident("res-1")).rejects.toThrow("Not deactivated");
+    });
+
+    it("throws with fallback message when no error message", async () => {
+      mockFetch.mockResolvedValue(errJson({}));
+      await expect(permanentDeleteResident("res-1")).rejects.toThrow(
+        "Failed to permanently delete resident",
+      );
     });
   });
 });

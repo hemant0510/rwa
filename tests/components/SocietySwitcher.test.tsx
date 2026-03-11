@@ -181,4 +181,129 @@ describe("SocietySwitcher", () => {
     await user.click(screen.getByText("Eden Estate"));
     expect(screen.getByText("GV")).toBeInTheDocument();
   });
+
+  it("renders null when societies is null (user has no societies)", () => {
+    const value = {
+      user: {
+        id: "u1",
+        name: "Test",
+        role: "RESIDENT" as const,
+        permission: null,
+        societyId: "soc-1",
+        societyName: null,
+        societyCode: null,
+        societyStatus: "ACTIVE",
+        trialEndsAt: null,
+        isTrialExpired: false,
+        multiSociety: false,
+        societies: null,
+      },
+      isLoading: false,
+      isAuthenticated: true,
+      signOut: vi.fn(),
+      switchSociety: mockSwitchSociety,
+    };
+    const { container } = render(
+      <AuthContext.Provider value={value}>
+        <SocietySwitcher />
+      </AuthContext.Provider>,
+    );
+    expect(container.innerHTML).toBe("");
+  });
+
+  it("shows Select Society when societyName is null (current society not found)", () => {
+    const societies: SocietySummary[] = [
+      {
+        societyId: "soc-99",
+        name: null,
+        code: null,
+        role: "RESIDENT",
+        status: "ACTIVE_PAID",
+        designation: null,
+      },
+      {
+        societyId: "soc-2",
+        name: "Green Valley",
+        code: "GV",
+        role: "RESIDENT",
+        status: "ACTIVE_PAID",
+        designation: null,
+      },
+    ];
+    renderSwitcher(societies, "soc-99");
+    expect(screen.getByText("Select Society")).toBeInTheDocument();
+  });
+
+  it("shows Unknown in dropdown when name and code are both null", async () => {
+    const user = userEvent.setup();
+    const societies: SocietySummary[] = [
+      {
+        societyId: "soc-1",
+        name: "Eden Estate",
+        code: "EDEN",
+        role: "RESIDENT",
+        status: "ACTIVE_PAID",
+        designation: null,
+      },
+      {
+        societyId: "soc-2",
+        name: null,
+        code: null,
+        role: "RESIDENT",
+        status: "ACTIVE_PAID",
+        designation: null,
+      },
+    ];
+    renderSwitcher(societies, "soc-1");
+    await user.click(screen.getByText("Eden Estate"));
+    expect(screen.getByText("Unknown")).toBeInTheDocument();
+  });
+
+  it("shows role as text when role not in ROLE_LABELS", async () => {
+    const user = userEvent.setup();
+    const societies: SocietySummary[] = [
+      {
+        societyId: "soc-1",
+        name: "Eden Estate",
+        code: "EDEN",
+        role: "RESIDENT",
+        status: "ACTIVE_PAID",
+        designation: null,
+      },
+      {
+        societyId: "soc-2",
+        name: "Test",
+        code: "TEST",
+        role: "SUPER_ADMIN" as SocietySummary["role"],
+        status: "ACTIVE_PAID",
+        designation: null,
+      },
+    ];
+    renderSwitcher(societies, "soc-1");
+    await user.click(screen.getByText("Eden Estate"));
+    expect(screen.getByText("SUPER_ADMIN")).toBeInTheDocument();
+  });
+
+  it("shows raw role in trigger when current society role not in ROLE_LABELS", () => {
+    const societies: SocietySummary[] = [
+      {
+        societyId: "soc-1",
+        name: "Eden Estate",
+        code: "EDEN",
+        role: "SUPER_ADMIN" as SocietySummary["role"],
+        status: "ACTIVE_PAID",
+        designation: null,
+      },
+      {
+        societyId: "soc-2",
+        name: "Green Valley",
+        code: "GV",
+        role: "RESIDENT",
+        status: "ACTIVE_PAID",
+        designation: null,
+      },
+    ];
+    renderSwitcher(societies, "soc-1");
+    expect(screen.getByText("SUPER_ADMIN")).toBeInTheDocument();
+  });
 });

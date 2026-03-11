@@ -223,7 +223,6 @@ export function SubscriptionStatusCard({ societyId }: SubscriptionStatusCardProp
                   <SelectValue placeholder="Choose a discount..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
                   {discounts
                     .filter((d) => d.isActive)
                     .map((d) => (

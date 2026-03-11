@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vitest";
 
-import { registerResidentSchema, unitFieldsSchema } from "@/lib/validations/resident";
+import {
+  registerResidentSchema,
+  unitFieldsSchema,
+  getBuilderFloorsSchema,
+} from "@/lib/validations/resident";
 
 describe("registerResidentSchema", () => {
   const validInput = {
@@ -79,6 +83,33 @@ describe("registerResidentSchema", () => {
     const result = registerResidentSchema.safeParse({ ...validInput, ownershipType: "TENANT" });
     expect(result.success).toBe(true);
   });
+
+  it("accepts OTHER ownership type with valid detail", () => {
+    const result = registerResidentSchema.safeParse({
+      ...validInput,
+      ownershipType: "OTHER",
+      otherOwnershipDetail: "Co-owner",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("fails OTHER ownership type without detail", () => {
+    const result = registerResidentSchema.safeParse({
+      ...validInput,
+      ownershipType: "OTHER",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("passes when reuseAuth is true (no password required)", () => {
+    const result = registerResidentSchema.safeParse({
+      ...validInput,
+      reuseAuth: true,
+      password: undefined,
+      passwordConfirm: undefined,
+    });
+    expect(result.success).toBe(true);
+  });
 });
 
 describe("unitFieldsSchema", () => {
@@ -94,9 +125,9 @@ describe("unitFieldsSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("validates BUILDER_FLOORS fields", () => {
-    const schema = unitFieldsSchema.BUILDER_FLOORS;
-    const result = schema.safeParse({ houseNo: "42", floorLevel: "GF" });
+  it("validates BUILDER_FLOORS_FLOOR fields", () => {
+    const schema = unitFieldsSchema.BUILDER_FLOORS_FLOOR;
+    const result = schema.safeParse({ houseNo: "42", floorLevel: "1F" });
     expect(result.success).toBe(true);
   });
 
@@ -131,6 +162,20 @@ describe("unitFieldsSchema", () => {
   it("validates PLOTTED_COLONY with optional fields", () => {
     const schema = unitFieldsSchema.PLOTTED_COLONY;
     const result = schema.safeParse({ plotNo: "P-42", laneNo: "L-3", phase: "Phase 1" });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("getBuilderFloorsSchema", () => {
+  it("returns FLOOR schema for FLOOR unit type", () => {
+    const schema = getBuilderFloorsSchema("FLOOR");
+    const result = schema.safeParse({ houseNo: "42", floorLevel: "1F" });
+    expect(result.success).toBe(true);
+  });
+
+  it("returns HOUSE schema for HOUSE unit type", () => {
+    const schema = getBuilderFloorsSchema("HOUSE");
+    const result = schema.safeParse({ houseNo: "42" });
     expect(result.success).toBe(true);
   });
 });

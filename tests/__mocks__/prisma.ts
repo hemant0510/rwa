@@ -56,6 +56,12 @@ export const mockPrisma = {
     delete: vi.fn(),
     deleteMany: vi.fn(),
   },
+  passwordResetToken: {
+    findUnique: vi.fn(),
+    create: vi.fn(),
+    delete: vi.fn(),
+    deleteMany: vi.fn(),
+  },
   notificationPreference: {
     deleteMany: vi.fn(),
   },
@@ -109,7 +115,44 @@ export const mockPrisma = {
     findUnique: vi.fn(),
     findFirst: vi.fn(),
   },
-  $transaction: vi.fn((fn: (tx: typeof mockPrisma) => Promise<unknown>) => fn(mockPrisma)),
+  platformPlan: {
+    findUnique: vi.fn(),
+    findFirst: vi.fn(),
+    findMany: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    updateMany: vi.fn(),
+  },
+  planBillingOption: {
+    findUnique: vi.fn(),
+    findMany: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+  },
+  planDiscount: {
+    findUnique: vi.fn(),
+    findFirst: vi.fn(),
+    findMany: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+  },
+  societySubscription: {
+    findUnique: vi.fn(),
+    findMany: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+  },
+  societySubscriptionHistory: {
+    findMany: vi.fn(),
+    create: vi.fn(),
+  },
+  $transaction: vi.fn((arg: unknown) => {
+    if (typeof arg === "function") {
+      return (arg as (tx: typeof mockPrisma) => Promise<unknown>)(mockPrisma);
+    }
+    // Array of promises (e.g., reorder)
+    return Promise.resolve((arg as unknown[]).map(() => ({})));
+  }),
 };
 
 vi.mock("@/lib/prisma", () => ({

@@ -166,4 +166,27 @@ describe("ResidentProfilePage", () => {
     });
     expect(screen.queryByRole("button", { name: /sign out/i })).not.toBeInTheDocument();
   });
+
+  it("does not show RWAID when null", async () => {
+    renderWithProviders({ ...profileData, rwaid: null });
+    await waitFor(() => {
+      expect(screen.getByText("Hemant Bhagat")).toBeInTheDocument();
+    });
+    expect(screen.queryByText("EDEN-001")).not.toBeInTheDocument();
+  });
+
+  it("shows raw status as label and default color for unknown status", async () => {
+    renderWithProviders({ ...profileData, status: "UNKNOWN_STATUS" });
+    await waitFor(() => {
+      expect(screen.getByText("UNKNOWN_STATUS")).toBeInTheDocument();
+    });
+  });
+
+  it("does not show email section when email is null", async () => {
+    renderWithProviders({ ...profileData, email: null });
+    await waitFor(() => {
+      expect(screen.getByText("Hemant Bhagat")).toBeInTheDocument();
+    });
+    expect(screen.queryByText("hemant@example.com")).not.toBeInTheDocument();
+  });
 });

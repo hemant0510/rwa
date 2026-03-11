@@ -16,6 +16,8 @@ export default defineConfig({
     setupFiles: ["tests/setup.ts"],
     coverage: {
       provider: "v8",
+      reporter: ["text", "json-summary"],
+      reportsDirectory: "./coverage",
       include: [
         "src/lib/**",
         "src/services/**",
@@ -29,6 +31,8 @@ export default defineConfig({
         "src/app/r/**",
         "src/app/api/v1/auth/me/**",
         "src/app/api/v1/residents/me/**",
+        "src/app/api/v1/super-admin/plans/**",
+        "src/app/api/v1/super-admin/discounts/**",
       ],
       exclude: [
         "src/lib/prisma.ts",

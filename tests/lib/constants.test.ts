@@ -71,8 +71,8 @@ describe("constants", () => {
   });
 
   it("has floor levels", () => {
-    expect(FLOOR_LEVELS).toContain("GF");
-    expect(FLOOR_LEVELS).toContain("Terrace");
+    expect(FLOOR_LEVELS).toContain("1F");
+    expect(FLOOR_LEVELS).toContain("2F");
   });
 
   it("has all Indian states", () => {

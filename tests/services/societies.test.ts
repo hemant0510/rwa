@@ -50,9 +50,34 @@ describe("societies service", () => {
       const result = await getSociety("soc-1");
       expect(result.id).toBe("soc-1");
     });
+
+    it("throws on error", async () => {
+      mockFetch.mockResolvedValue({ ok: false });
+      await expect(getSociety("soc-1")).rejects.toThrow("Failed to fetch society");
+    });
   });
 
   describe("createSociety", () => {
+    it("throws on error", async () => {
+      mockFetch.mockResolvedValue({ ok: false });
+      await expect(
+        createSociety({
+          name: "X",
+          state: "HR",
+          city: "G",
+          pincode: "122001",
+          type: "APARTMENT_COMPLEX",
+          societyCode: "TEST",
+          joiningFee: 0,
+          annualFee: 0,
+          adminName: "Admin",
+          adminEmail: "admin@test.com",
+          adminPassword: "pass123",
+          adminPasswordConfirm: "pass123",
+        }),
+      ).rejects.toThrow("Failed to create society");
+    });
+
     it("sends POST with data", async () => {
       mockFetch.mockResolvedValue(okJson({ id: "soc-new" }));
       await createSociety({
@@ -81,6 +106,11 @@ describe("societies service", () => {
       mockFetch.mockResolvedValue(okJson({ available: true }));
       const result = await checkSocietyCode("EDEN");
       expect(result.available).toBe(true);
+    });
+
+    it("throws on error", async () => {
+      mockFetch.mockResolvedValue({ ok: false });
+      await expect(checkSocietyCode("BAD")).rejects.toThrow("Failed to check code");
     });
   });
 
@@ -129,6 +159,21 @@ describe("societies service", () => {
         }),
       ).rejects.toThrow("Duplicate code");
     });
+
+    it("throws with fallback message when no error message", async () => {
+      mockFetch.mockResolvedValue(errJson({}));
+      await expect(
+        updateSociety("soc-1", {
+          name: "X",
+          state: "HR",
+          city: "G",
+          pincode: "122001",
+          type: "APARTMENT_COMPLEX",
+          joiningFee: 0,
+          annualFee: 0,
+        }),
+      ).rejects.toThrow("Failed to update society");
+    });
   });
 
   describe("deleteSociety", () => {
@@ -144,6 +189,11 @@ describe("societies service", () => {
     it("throws with API error", async () => {
       mockFetch.mockResolvedValue(errJson({ error: { message: "Has active residents" } }));
       await expect(deleteSociety("soc-1")).rejects.toThrow("Has active residents");
+    });
+
+    it("throws with fallback message when no error message", async () => {
+      mockFetch.mockResolvedValue(errJson({}));
+      await expect(deleteSociety("soc-1")).rejects.toThrow("Failed to delete society");
     });
   });
 });

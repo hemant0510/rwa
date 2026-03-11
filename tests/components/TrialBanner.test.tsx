@@ -78,4 +78,30 @@ describe("TrialBanner", () => {
     });
     expect(container.querySelector("[role='alert']")).toBeNull();
   });
+
+  it("renders nothing when TRIAL but trialEndsAt is null and not expired", () => {
+    const { container } = renderWithAuth({
+      id: "u1",
+      name: "Admin",
+      role: "RWA_ADMIN",
+      societyStatus: "TRIAL",
+      isTrialExpired: false,
+      trialEndsAt: null,
+    });
+    expect(container.innerHTML).toBe("");
+  });
+
+  it("shows singular 'day' when exactly 1 day remains", () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    renderWithAuth({
+      id: "u1",
+      name: "Admin",
+      role: "RWA_ADMIN",
+      societyStatus: "TRIAL",
+      isTrialExpired: false,
+      trialEndsAt: tomorrow.toISOString(),
+    });
+    expect(screen.getByText(/1 day\./)).toBeInTheDocument();
+  });
 });

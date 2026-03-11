@@ -46,5 +46,12 @@ describe("notifications service", () => {
         sendBroadcast("soc-1", { message: "Hello", recipientFilter: "ALL" }),
       ).rejects.toThrow("No recipients");
     });
+
+    it("throws with fallback message when no error message", async () => {
+      mockFetch.mockResolvedValue(errJson({}));
+      await expect(
+        sendBroadcast("soc-1", { message: "Hello", recipientFilter: "ALL" }),
+      ).rejects.toThrow("Failed to send broadcast");
+    });
   });
 });
