@@ -116,3 +116,27 @@ Imports should follow this order (enforced by ESLint):
 - Use `next/headers` for reading headers/cookies — never trust client-side values on the server
 - Sanitize any user-generated content before rendering
 - Environment secrets go in `.env.local` only — never hardcode them
+
+## 12. Test Coverage Rules
+
+- **Minimum coverage threshold: 95%** — pre-commit must block if overall coverage drops below 95%
+- **New features must have 100% test coverage** — every new file/feature added must be fully tested before commit is allowed
+- **If coverage drops on commit**: Claude must automatically generate missing test cases for the new feature before the commit can proceed — do not skip or bypass
+- Test files live alongside source files or in a `__tests__/` folder mirroring the `src/` structure
+- Use the project's configured test runner (check `package.json` scripts); default to **Vitest** for unit/integration tests
+- Test naming: `ComponentName.test.tsx` for components, `hookName.test.ts` for hooks, `util.test.ts` for utilities
+- Every API route handler must have at least one happy-path and one error-path test
+- Mock Prisma using `vitest-mock-extended` or similar — never hit a real DB in unit tests
+- For DB integration tests, use a separate test database seeded with `prisma/seed.ts` data
+
+## 13. Database Rules
+
+- **Master/platform data belongs in `prisma/seed-master.ts`** — this includes: SuperAdmin accounts, platform plans (`PlatformPlan`), billing options (`PlanBillingOption`), and any other platform-wide lookup/config tables
+- **`prisma/seed.ts`** is for dev/demo data only (sample societies, residents, fees) — never put platform master data here
+- **Never hardcode SuperAdmin credentials or IDs in application code** — they must come from `seed-master.ts` or environment variables
+- All schema changes require a Prisma migration (`npx prisma migrate dev`) — never edit the DB directly
+- Migration files are committed alongside schema changes — never squash or delete migration history
+- `prisma/seed-master.ts` must use `upsert` (not `create`) so it is safe to re-run on any environment without duplicating records
+- When adding a new master/lookup table (e.g. categories, roles, plan types), seed data for it goes in `seed-master.ts`
+- Society-specific or resident-specific data is never seeded in `seed-master.ts` — it is created through app flows or `seed.ts`
+- Always run `npx prisma generate` after schema changes before writing application code that uses new models
