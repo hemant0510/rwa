@@ -1,0 +1,62 @@
+import { NextRequest } from "next/server";
+
+import { Prisma } from "@prisma/client";
+
+import { internalError, successResponse } from "@/lib/api-helpers";
+import { prisma } from "@/lib/prisma";
+
+function isMissingTableError(error: unknown) {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    (error.code === "P2021" || error.code === "P2022")
+  );
+}
+
+// GET /api/v1/super-admin/billing/payments
+// Lists all subscription payments across all societies
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const page = Math.max(1, Number(searchParams.get("page") || 1));
+    const limit = Math.min(100, Math.max(1, Number(searchParams.get("limit") || 50)));
+    const skip = (page - 1) * limit;
+
+    let rows: Array<Record<string, unknown>> = [];
+    let total = 0;
+
+    try {
+      const [payments, count] = await Promise.all([
+        prisma.subscriptionPayment.findMany({
+          skip,
+          take: limit,
+          orderBy: { createdAt: "desc" },
+          include: {
+            society: { select: { id: true, name: true, code: true } },
+          },
+        }),
+        prisma.subscriptionPayment.count(),
+      ]);
+      rows = payments.map((p) => ({
+        id: p.id,
+        societyId: p.societyId,
+        societyName: p.society.name,
+        societyCode: p.society.code,
+        amount: Number(p.amount),
+        paymentMode: p.paymentMode,
+        referenceNo: p.referenceNo,
+        invoiceNo: p.invoiceNo,
+        paymentDate: p.paymentDate,
+        isReversal: p.isReversal,
+        isReversed: p.isReversed,
+        createdAt: p.createdAt,
+      }));
+      total = count;
+    } catch (error) {
+      if (!isMissingTableError(error)) throw error;
+    }
+
+    return successResponse({ rows, total, page, limit });
+  } catch {
+    return internalError("Failed to fetch all payments");
+  }
+}

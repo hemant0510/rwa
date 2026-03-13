@@ -107,6 +107,12 @@ export default function SocietyDetailPage({ params }: { params: Promise<{ id: st
             Edit Society
           </Button>
         </Link>
+        <Link href={`/sa/societies/${id}/billing`}>
+          <Button variant="outline" size="sm">
+            <CreditCard className="mr-2 h-4 w-4" />
+            Billing
+          </Button>
+        </Link>
         <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
           <AlertDialogTrigger asChild>
             <Button variant="destructive" size="sm">

@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import Link from "next/link";
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { AlertCircle, Calendar, CheckCircle2, Layers, RefreshCw, Tag } from "lucide-react";
@@ -189,6 +191,11 @@ export function SubscriptionStatusCard({ societyId }: SubscriptionStatusCardProp
           )}
 
           <div className="flex gap-2 pt-1">
+            <Link href={`/sa/societies/${societyId}/billing`}>
+              <Button variant="outline" size="sm">
+                Record Payment
+              </Button>
+            </Link>
             <Button variant="outline" size="sm" onClick={() => setSwitchOpen(true)}>
               <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
               Switch Plan

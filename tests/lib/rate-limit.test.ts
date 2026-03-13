@@ -46,5 +46,16 @@ describe("checkRateLimit", () => {
     expect(result.resetAt).toBeGreaterThanOrEqual(now + 60000);
   });
 
+  it("periodic cleanup removes stale entries", () => {
+    // Add an entry with a short window
+    checkRateLimit("test-cleanup-stale", 5, 1000);
+    // Advance past the window + past the cleanup interval (60s)
+    vi.advanceTimersByTime(61_000);
+    // After cleanup, a new request to the same key should get a fresh window
+    const result = checkRateLimit("test-cleanup-stale", 5, 1000);
+    expect(result.allowed).toBe(true);
+    expect(result.remaining).toBe(4);
+  });
+
   vi.useRealTimers();
 });
