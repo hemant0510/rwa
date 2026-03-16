@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
           take: limit,
           orderBy: { createdAt: "desc" },
           include: {
-            society: { select: { id: true, name: true, code: true } },
+            society: { select: { id: true, name: true, societyCode: true } },
             payments: { select: { amount: true } },
           },
         }),
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
           id: inv.id,
           societyId: inv.societyId,
           societyName: inv.society.name,
-          societyCode: inv.society.code,
+          societyCode: inv.society.societyCode,
           invoiceNo: inv.invoiceNo,
           planName: inv.planName,
           billingCycle: inv.billingCycle,

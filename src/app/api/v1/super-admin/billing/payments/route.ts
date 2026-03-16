@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
           take: limit,
           orderBy: { createdAt: "desc" },
           include: {
-            society: { select: { id: true, name: true, code: true } },
+            society: { select: { id: true, name: true, societyCode: true } },
           },
         }),
         prisma.subscriptionPayment.count(),
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
         id: p.id,
         societyId: p.societyId,
         societyName: p.society.name,
-        societyCode: p.society.code,
+        societyCode: p.society.societyCode,
         amount: Number(p.amount),
         paymentMode: p.paymentMode,
         referenceNo: p.referenceNo,

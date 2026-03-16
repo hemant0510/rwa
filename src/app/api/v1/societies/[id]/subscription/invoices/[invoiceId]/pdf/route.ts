@@ -19,7 +19,7 @@ export async function GET(
       where: { id: invoiceId },
       include: {
         society: {
-          select: { name: true, code: true, address: true, city: true, state: true, pincode: true },
+          select: { name: true, societyCode: true, city: true, state: true, pincode: true },
         },
         payments: {
           where: { isReversal: false, isReversed: false },
@@ -48,8 +48,8 @@ export async function GET(
         paidAmount,
         society: {
           name: invoice.society.name,
-          code: invoice.society.code ?? "",
-          address: invoice.society.address ?? "",
+          code: invoice.society.societyCode ?? "",
+          address: "",
           city: invoice.society.city ?? "",
           state: invoice.society.state ?? "",
           pincode: invoice.society.pincode ?? "",
