@@ -18,6 +18,9 @@ import {
   Upload,
   ChevronLeft,
   ChevronRight,
+  FileCheck,
+  FileX,
+  FileMinus,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -96,6 +99,7 @@ export default function ResidentsPage() {
   const [emailVerifiedFilter, setEmailVerifiedFilter] = useState("all");
   const [ownershipFilter, setOwnershipFilter] = useState("all");
   const [yearFilter, setYearFilter] = useState("all");
+  const [docFilter, setDocFilter] = useState("all");
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -142,6 +146,7 @@ export default function ResidentsPage() {
         emailVerifiedFilter,
         ownershipFilter,
         yearFilter,
+        docFilter,
       },
     ],
     queryFn: () =>
@@ -154,6 +159,7 @@ export default function ResidentsPage() {
           emailVerifiedFilter === "all" ? undefined : (emailVerifiedFilter as "true" | "false"),
         ownershipType: ownershipFilter === "all" ? undefined : ownershipFilter,
         year: yearFilter === "all" ? undefined : yearFilter,
+        docStatus: docFilter === "all" ? undefined : (docFilter as "none" | "partial" | "full"),
       }),
     enabled: !!societyId,
   });
@@ -376,6 +382,24 @@ export default function ResidentsPage() {
             ))}
           </SelectContent>
         </Select>
+
+        <Select
+          value={docFilter}
+          onValueChange={(v) => {
+            setDocFilter(v);
+            resetPage();
+          }}
+        >
+          <SelectTrigger className="w-[155px]">
+            <SelectValue placeholder="Documents" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Documents</SelectItem>
+            <SelectItem value="full">Fully Verified</SelectItem>
+            <SelectItem value="partial">Partial</SelectItem>
+            <SelectItem value="none">No Documents</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {isLoading ? (
@@ -401,6 +425,7 @@ export default function ResidentsPage() {
                   <TableHead className="hidden md:table-cell">Ownership</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="hidden md:table-cell">Email</TableHead>
+                  <TableHead className="hidden lg:table-cell">Docs</TableHead>
                   <TableHead className="hidden lg:table-cell">RWAID</TableHead>
                   <TableHead className="hidden lg:table-cell">Registered</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -469,6 +494,12 @@ export default function ResidentsPage() {
                           </Button>
                         )}
                       </div>
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell">
+                      <DocStatusBadge
+                        hasId={!!resident.idProofUrl}
+                        hasOwnership={!!resident.ownershipProofUrl}
+                      />
                     </TableCell>
                     <TableCell className="hidden font-mono text-xs lg:table-cell">
                       {resident.rwaid || "—"}
@@ -914,5 +945,49 @@ export default function ResidentsPage() {
         />
       )}
     </div>
+  );
+}
+
+function DocStatusBadge({
+  hasId,
+  hasOwnership,
+}: {
+  readonly hasId: boolean;
+  readonly hasOwnership: boolean;
+}) {
+  if (hasId && hasOwnership) {
+    return (
+      <span
+        title="Both documents uploaded"
+        className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700"
+      >
+        <FileCheck className="h-3 w-3" />
+        Verified
+      </span>
+    );
+  }
+  if (hasId || hasOwnership) {
+    return (
+      <span
+        title={
+          hasId
+            ? "ID proof uploaded, ownership proof missing"
+            : "Ownership proof uploaded, ID proof missing"
+        }
+        className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700"
+      >
+        <FileMinus className="h-3 w-3" />
+        Partial
+      </span>
+    );
+  }
+  return (
+    <span
+      title="No documents uploaded"
+      className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-xs font-medium text-red-600"
+    >
+      <FileX className="h-3 w-3" />
+      None
+    </span>
   );
 }

@@ -12,6 +12,7 @@ export async function GET(request: NextRequest) {
     const emailVerified = searchParams.get("emailVerified");
     const ownershipType = searchParams.get("ownershipType");
     const year = searchParams.get("year");
+    const docStatus = searchParams.get("docStatus"); // "none" | "partial" | "full"
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "20");
 
@@ -62,6 +63,31 @@ export async function GET(request: NextRequest) {
       ];
     }
 
+    // Document status filter — wrap existing AND array
+    if (docStatus === "full") {
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : []),
+        { idProofUrl: { not: null } },
+        { ownershipProofUrl: { not: null } },
+      ];
+    } else if (docStatus === "none") {
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : []),
+        { idProofUrl: null },
+        { ownershipProofUrl: null },
+      ];
+    } else if (docStatus === "partial") {
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : []),
+        {
+          OR: [
+            { idProofUrl: null, ownershipProofUrl: { not: null } },
+            { idProofUrl: { not: null }, ownershipProofUrl: null },
+          ],
+        },
+      ];
+    }
+
     // Year filter on RWAID — e.g. year=2026 matches RWAIDs containing "-2026-"
     if (year && year !== "all") {
       const yearClause = { rwaid: { contains: `-${year}-` } };
@@ -70,7 +96,7 @@ export async function GET(request: NextRequest) {
         where.AND = [{ OR: where.OR as unknown[] }, yearClause];
         delete where.OR;
       } else {
-        where.AND = [yearClause];
+        where.AND = [...(Array.isArray(where.AND) ? where.AND : []), yearClause];
       }
     }
 

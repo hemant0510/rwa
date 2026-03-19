@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 import { RecordSubscriptionPaymentDialog } from "@/components/features/billing/RecordPayment";
+import { recordSubscriptionPayment } from "@/services/billing";
 
 vi.mock("@/services/billing", () => ({
   recordSubscriptionPayment: vi.fn(),
@@ -14,8 +15,6 @@ vi.mock("@/services/billing", () => ({
 vi.mock("sonner", () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }));
-
-import { recordSubscriptionPayment } from "@/services/billing";
 
 const mockRecordPayment = vi.mocked(recordSubscriptionPayment);
 
@@ -125,5 +124,53 @@ describe("RecordSubscriptionPaymentDialog", () => {
     await user.click(screen.getByText("Record Payment"));
     expect(screen.getByText("Notes")).toBeInTheDocument();
     expect(screen.getByText("Payment Date")).toBeInTheDocument();
+  });
+
+  it("shows 'Saving...' while mutation is in progress", async () => {
+    let resolvePayment!: (v: unknown) => void;
+    mockRecordPayment.mockReturnValue(
+      new Promise((resolve) => {
+        resolvePayment = resolve;
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithClient(<RecordSubscriptionPaymentDialog societyId="soc-1" />);
+    await user.click(screen.getByText("Record Payment"));
+
+    const amountInput = screen.getByRole("spinbutton");
+    await user.type(amountInput, "5000");
+
+    const inputs = screen.getAllByRole("textbox");
+    await user.type(inputs[0], "REF-123");
+
+    await user.click(screen.getByText("Save Payment"));
+
+    await waitFor(() => expect(screen.getByText("Saving...")).toBeInTheDocument());
+
+    resolvePayment({ id: "p1" });
+    await waitFor(() => expect(toast.success).toHaveBeenCalled());
+  });
+
+  it("allows changing payment date", async () => {
+    const user = userEvent.setup();
+    renderWithClient(<RecordSubscriptionPaymentDialog societyId="soc-1" />);
+    await user.click(screen.getByText("Record Payment"));
+
+    const dateInput = screen.getByDisplayValue(/^\d{4}-\d{2}-\d{2}$/);
+    await user.clear(dateInput);
+    await user.type(dateInput, "2025-06-15");
+    expect(dateInput).toHaveValue("2025-06-15");
+  });
+
+  it("allows typing notes", async () => {
+    const user = userEvent.setup();
+    renderWithClient(<RecordSubscriptionPaymentDialog societyId="soc-1" />);
+    await user.click(screen.getByText("Record Payment"));
+
+    // Notes is the last textbox in the dialog
+    const textboxes = screen.getAllByRole("textbox");
+    const notesInput = textboxes[textboxes.length - 1];
+    await user.type(notesInput, "Paid via cash");
+    expect(notesInput).toHaveValue("Paid via cash");
   });
 });

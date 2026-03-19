@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 import { BulkReminderSheet } from "@/components/features/billing/BulkReminder";
+import { sendBulkReminders } from "@/services/billing";
 
 vi.mock("@/services/billing", () => ({
   sendBulkReminders: vi.fn(),
@@ -14,8 +15,6 @@ vi.mock("@/services/billing", () => ({
 vi.mock("sonner", () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }));
-
-import { sendBulkReminders } from "@/services/billing";
 
 const mockSendBulkReminders = vi.mocked(sendBulkReminders);
 
@@ -118,5 +117,26 @@ describe("BulkReminderSheet", () => {
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith("Rate limited");
     });
+  });
+
+  it("shows 'Sending...' while mutation is in progress", async () => {
+    let resolveSend!: (v: unknown) => void;
+    mockSendBulkReminders.mockReturnValue(
+      new Promise((resolve) => {
+        resolveSend = resolve;
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithClient(<BulkReminderSheet societies={societies} />);
+    await user.click(screen.getByText("Bulk Send Reminders"));
+
+    const checkboxes = screen.getAllByRole("checkbox");
+    await user.click(checkboxes[0]);
+    await user.click(screen.getByText("Send (1)"));
+
+    await waitFor(() => expect(screen.getByText("Sending...")).toBeInTheDocument());
+
+    resolveSend({ sent: 1, failed: 0 });
+    await waitFor(() => expect(toast.success).toHaveBeenCalled());
   });
 });

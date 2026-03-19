@@ -10,18 +10,19 @@ import { format } from "date-fns";
 import {
   ArrowLeft,
   CheckCircle,
-  XCircle,
-  Phone,
-  Mail,
-  Home,
-  Pencil,
-  Trash2,
-  Loader2,
-  AlertTriangle,
-  FileText,
+  CheckCircle2,
   ExternalLink,
-  Upload,
+  FileText,
+  Home,
+  Loader2,
+  Mail,
+  Pencil,
+  Phone,
   Trash,
+  Trash2,
+  Upload,
+  XCircle,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -88,10 +89,6 @@ export default function ResidentDetailPage({ params }: { params: Promise<{ id: s
   const [deleteReason, setDeleteReason] = useState("");
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
-  const [idProofUrl, setIdProofUrl] = useState<string | null | undefined>(undefined);
-  const [idProofLoading, setIdProofLoading] = useState(false);
-  const [idProofUploading, setIdProofUploading] = useState(false);
-  const idProofInputRef = useRef<HTMLInputElement>(null);
 
   // Edit form state
   const [editName, setEditName] = useState("");
@@ -123,55 +120,6 @@ export default function ResidentDetailPage({ params }: { params: Promise<{ id: s
     },
     onError: (err: Error) => toast.error(err.message),
   });
-
-  const loadIdProof = async () => {
-    setIdProofLoading(true);
-    try {
-      const res = await fetch(`/api/v1/residents/${id}/id-proof`);
-      if (res.ok) {
-        const data = (await res.json()) as { url: string | null };
-        setIdProofUrl(data.url);
-      }
-    } finally {
-      setIdProofLoading(false);
-    }
-  };
-
-  const uploadIdProof = async (file: File) => {
-    setIdProofUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch(`/api/v1/residents/${id}/id-proof`, {
-        method: "POST",
-        body: formData,
-      });
-      if (!res.ok) {
-        const err = (await res.json()) as { error?: { message?: string } };
-        toast.error(err.error?.message ?? "Upload failed");
-        return;
-      }
-      toast.success("ID proof uploaded");
-      await loadIdProof();
-    } finally {
-      setIdProofUploading(false);
-    }
-  };
-
-  const deleteIdProof = async () => {
-    setIdProofUploading(true);
-    try {
-      const res = await fetch(`/api/v1/residents/${id}/id-proof`, { method: "DELETE" });
-      if (!res.ok) {
-        toast.error("Failed to remove ID proof");
-        return;
-      }
-      toast.success("ID proof removed");
-      setIdProofUrl(null);
-    } finally {
-      setIdProofUploading(false);
-    }
-  };
 
   const editMutation = useMutation({
     mutationFn: (data: { name: string; mobile: string; email: string; ownershipType: string }) =>
@@ -380,32 +328,38 @@ export default function ResidentDetailPage({ params }: { params: Promise<{ id: s
         </Card>
       )}
 
-      {/* ID Proof */}
+      {/* Documents */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
-            ID Proof
+            Documents
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <IdProofSection
-            status={idProofUrl}
-            loading={idProofLoading}
-            uploading={idProofUploading}
-            onLoad={loadIdProof}
-            onUploadClick={() => idProofInputRef.current?.click()}
-            onDelete={deleteIdProof}
+        <CardContent className="space-y-3">
+          <AdminDocCard
+            label="ID Proof"
+            hint="Aadhaar card, Voter ID, Passport, or Driving Licence"
+            hasUploaded={!!residentData.idProofUrl}
+            getEndpoint={`/api/v1/residents/${id}/id-proof`}
+            uploadEndpoint={`/api/v1/residents/${id}/id-proof`}
+            deleteEndpoint={`/api/v1/residents/${id}/id-proof`}
+            accentClass="bg-blue-400"
           />
-          <input
-            ref={idProofInputRef}
-            type="file"
-            accept=".jpg,.jpeg,.png,.webp,.pdf"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) void uploadIdProof(file);
-            }}
+          <AdminDocCard
+            label={
+              resident.ownershipType === "TENANT" ? "Tenancy / Rental Agreement" : "Ownership Proof"
+            }
+            hint={
+              resident.ownershipType === "TENANT"
+                ? "Rental agreement or leave & licence deed"
+                : "Sale deed, registry copy, property tax receipt, or mutation"
+            }
+            hasUploaded={!!residentData.ownershipProofUrl}
+            getEndpoint={`/api/v1/residents/${id}/ownership-proof`}
+            uploadEndpoint={`/api/v1/residents/${id}/ownership-proof`}
+            deleteEndpoint={`/api/v1/residents/${id}/ownership-proof`}
+            accentClass="bg-emerald-400"
           />
         </CardContent>
       </Card>
@@ -560,72 +514,179 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function IdProofSection({
-  status,
-  loading,
-  uploading,
-  onLoad,
-  onUploadClick,
-  onDelete,
+function AdminDocCard({
+  label,
+  hint,
+  hasUploaded,
+  getEndpoint,
+  uploadEndpoint,
+  deleteEndpoint,
+  accentClass,
 }: {
-  readonly status: string | null | undefined;
-  readonly loading: boolean;
-  readonly uploading: boolean;
-  readonly onLoad: () => void;
-  readonly onUploadClick: () => void;
-  readonly onDelete: () => void;
+  readonly label: string;
+  readonly hint: string;
+  readonly hasUploaded: boolean;
+  readonly getEndpoint: string;
+  readonly uploadEndpoint: string;
+  readonly deleteEndpoint: string;
+  readonly accentClass: string;
 }) {
-  if (status === undefined) {
-    return (
-      <Button variant="outline" size="sm" onClick={onLoad} disabled={loading}>
-        {loading ? (
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        ) : (
-          <FileText className="mr-2 h-4 w-4" />
-        )}
-        Load ID Proof
-      </Button>
-    );
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const queryClient = useQueryClient();
+
+  const {
+    data: signedUrl,
+    refetch,
+    isLoading,
+  } = useQuery({
+    queryKey: ["admin-doc", getEndpoint],
+    queryFn: async () => {
+      const res = await fetch(getEndpoint);
+      if (!res.ok) return null;
+      const data = (await res.json()) as { url: string | null };
+      return data.url;
+    },
+    enabled: hasUploaded,
+    staleTime: 50 * 60 * 1000,
+  });
+
+  async function handleUpload(file: File) {
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch(uploadEndpoint, { method: "POST", body: form });
+      const body = (await res.json()) as { error?: { message: string } };
+      if (!res.ok) {
+        toast.error(body.error?.message ?? "Upload failed");
+        return;
+      }
+      toast.success(`${label} uploaded`);
+      void refetch();
+      queryClient.invalidateQueries({ queryKey: ["residents"] });
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
   }
 
-  if (status) {
-    return (
-      <div className="flex items-center gap-3">
-        <Button variant="outline" size="sm" asChild>
-          <a href={status} target="_blank" rel="noopener noreferrer">
-            <ExternalLink className="mr-2 h-4 w-4" />
-            View Document
-          </a>
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onDelete}
-          disabled={uploading}
-          className="text-destructive hover:text-destructive"
-        >
-          {uploading ? (
-            <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-          ) : (
-            <Trash className="mr-1 h-4 w-4" />
-          )}
-          Remove
-        </Button>
-      </div>
-    );
+  async function handleDelete() {
+    setDeleting(true);
+    try {
+      const res = await fetch(deleteEndpoint, { method: "DELETE" });
+      if (!res.ok) {
+        toast.error(`Failed to remove ${label}`);
+        return;
+      }
+      toast.success(`${label} removed`);
+      void refetch();
+      queryClient.invalidateQueries({ queryKey: ["residents"] });
+    } finally {
+      setDeleting(false);
+    }
   }
 
   return (
-    <div className="space-y-2">
-      <p className="text-muted-foreground text-sm">No ID proof uploaded.</p>
-      <Button variant="outline" size="sm" onClick={onUploadClick} disabled={uploading}>
-        {uploading ? (
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        ) : (
-          <Upload className="mr-2 h-4 w-4" />
-        )}
-        Upload ID Proof
-      </Button>
+    <div
+      className={`relative overflow-hidden rounded-xl border bg-white transition-shadow hover:shadow-sm`}
+    >
+      <div className={`absolute top-0 left-0 h-full w-1 ${accentClass}`} />
+      <div className="flex items-center justify-between gap-3 py-3 pr-4 pl-5">
+        <div className="flex min-w-0 items-center gap-3">
+          <div
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${hasUploaded ? "bg-green-100 text-green-600" : "bg-slate-100 text-slate-400"}`}
+          >
+            {hasUploaded ? (
+              <CheckCircle2 className="h-4.5 w-4.5" />
+            ) : (
+              <FileText className="h-4.5 w-4.5" />
+            )}
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold">{label}</p>
+            <p className="text-muted-foreground text-xs">{hint}</p>
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          <span
+            className={`mr-1 rounded-full px-2 py-0.5 text-xs font-medium ${hasUploaded ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"}`}
+          >
+            {hasUploaded ? "Uploaded" : "Not uploaded"}
+          </span>
+          {hasUploaded && (
+            <>
+              {isLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+              ) : signedUrl ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  title="View document"
+                  onClick={() => window.open(signedUrl, "_blank")}
+                >
+                  <ExternalLink className="h-4 w-4" />
+                </Button>
+              ) : null}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                title="Replace document"
+                onClick={() => fileRef.current?.click()}
+                disabled={uploading}
+              >
+                {uploading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4" />
+                )}
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-red-400 hover:text-red-600"
+                title="Remove document"
+                onClick={handleDelete}
+                disabled={deleting}
+              >
+                {deleting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash className="h-4 w-4" />
+                )}
+              </Button>
+            </>
+          )}
+          {!hasUploaded && (
+            <Button
+              size="sm"
+              className="h-8 gap-1.5 text-xs"
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading}
+            >
+              {uploading ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Upload className="h-3.5 w-3.5" />
+              )}
+              {uploading ? "Uploading…" : "Upload"}
+            </Button>
+          )}
+        </div>
+      </div>
+      <input
+        ref={fileRef}
+        type="file"
+        accept=".jpg,.jpeg,.png,.webp,.pdf"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) void handleUpload(f);
+        }}
+      />
     </div>
   );
 }

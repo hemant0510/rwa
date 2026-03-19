@@ -187,4 +187,50 @@ describe("GET /api/v1/residents", () => {
     const res = await GET(makeReq({ societyId: "soc-1" }));
     expect(res.status).toBe(500);
   });
+
+  it("docStatus=full adds AND requiring both proofs uploaded", async () => {
+    await GET(makeReq({ societyId: "soc-1", docStatus: "full" }));
+    const callArg = mockPrisma.user.findMany.mock.calls[0][0];
+    expect(callArg.where.AND).toEqual(
+      expect.arrayContaining([{ idProofUrl: { not: null } }, { ownershipProofUrl: { not: null } }]),
+    );
+  });
+
+  it("docStatus=none adds AND requiring both proofs missing", async () => {
+    await GET(makeReq({ societyId: "soc-1", docStatus: "none" }));
+    const callArg = mockPrisma.user.findMany.mock.calls[0][0];
+    expect(callArg.where.AND).toEqual(
+      expect.arrayContaining([{ idProofUrl: null }, { ownershipProofUrl: null }]),
+    );
+  });
+
+  it("docStatus=partial adds AND with OR clause (exactly one proof)", async () => {
+    await GET(makeReq({ societyId: "soc-1", docStatus: "partial" }));
+    const callArg = mockPrisma.user.findMany.mock.calls[0][0];
+    const andClauses = callArg.where.AND as unknown[];
+    expect(andClauses).toBeDefined();
+    const hasOr = andClauses.some(
+      (c) => typeof c === "object" && c !== null && "OR" in (c as object),
+    );
+    expect(hasOr).toBe(true);
+  });
+
+  it("docStatus not provided leaves AND undefined", async () => {
+    await GET(makeReq({ societyId: "soc-1" }));
+    const callArg = mockPrisma.user.findMany.mock.calls[0][0];
+    expect(callArg.where.AND).toBeUndefined();
+  });
+
+  it("docStatus=full combined with year preserves both filters in AND", async () => {
+    await GET(makeReq({ societyId: "soc-1", docStatus: "full", year: "2026" }));
+    const callArg = mockPrisma.user.findMany.mock.calls[0][0];
+    const andClauses = callArg.where.AND as unknown[];
+    expect(andClauses).toEqual(
+      expect.arrayContaining([
+        { idProofUrl: { not: null } },
+        { ownershipProofUrl: { not: null } },
+        { rwaid: { contains: "-2026-" } },
+      ]),
+    );
+  });
 });

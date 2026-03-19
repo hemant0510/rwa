@@ -264,6 +264,7 @@ model User {
   email               String           @db.VarChar(100)
   photoUrl            String?          @map("photo_url") @db.VarChar(500)
   idProofUrl          String?          @map("id_proof_url") @db.VarChar(500)
+  ownershipProofUrl   String?          @map("ownership_proof_url") @db.VarChar(500)
   role                UserRole
   ownershipType       OwnershipType?   @map("ownership_type")
   otherOwnershipDetail String?         @map("other_ownership_detail") @db.VarChar(100)

@@ -6,6 +6,8 @@ export interface User {
   mobile: string | null;
   email: string;
   photoUrl: string | null;
+  idProofUrl: string | null;
+  ownershipProofUrl: string | null;
   role: UserRole;
   ownershipType: OwnershipType | null;
   otherOwnershipDetail: string | null;

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 import { SendReminderDialog } from "@/components/features/billing/SendReminder";
+import { sendReminder } from "@/services/billing";
 
 vi.mock("@/services/billing", () => ({
   sendReminder: vi.fn(),
@@ -14,8 +15,6 @@ vi.mock("@/services/billing", () => ({
 vi.mock("sonner", () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }));
-
-import { sendReminder } from "@/services/billing";
 
 const mockSendReminder = vi.mocked(sendReminder);
 
@@ -70,5 +69,23 @@ describe("SendReminderDialog", () => {
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith("No admins found");
     });
+  });
+
+  it("shows 'Sending...' while mutation is in progress", async () => {
+    let resolveReminder!: (v: unknown) => void;
+    mockSendReminder.mockReturnValue(
+      new Promise((resolve) => {
+        resolveReminder = resolve;
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithClient(<SendReminderDialog societyId="soc-1" />);
+    await user.click(screen.getByText("Send Reminder"));
+    await user.click(screen.getByText("Send"));
+
+    await waitFor(() => expect(screen.getByText("Sending...")).toBeInTheDocument());
+
+    resolveReminder({ sent: 1 });
+    await waitFor(() => expect(toast.success).toHaveBeenCalled());
   });
 });
