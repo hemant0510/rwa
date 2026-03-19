@@ -1,5 +1,5 @@
 import type { CreateSocietyInput, UpdateSocietyInput } from "@/lib/validations/society";
-import type { Society, SocietyType } from "@/types/society";
+import type { Society, SocietyDetail, SocietyType } from "@/types/society";
 
 const API_BASE = "/api/v1";
 
@@ -16,7 +16,29 @@ export async function getSocieties(params?: { status?: string; search?: string; 
 export async function getSociety(id: string) {
   const res = await fetch(`${API_BASE}/societies/${id}`);
   if (!res.ok) throw new Error("Failed to fetch society");
-  return res.json() as Promise<Society>;
+  return res.json() as Promise<SocietyDetail>;
+}
+
+export interface ActivateAdminInput {
+  name: string;
+  email: string;
+  password?: string;
+  mobile?: string;
+  permission: "FULL_ACCESS" | "READ_NOTIFY";
+  existingUserId?: string;
+}
+
+export async function activateAdmin(societyId: string, data: ActivateAdminInput) {
+  const res = await fetch(`${API_BASE}/societies/${societyId}/admins`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = (await res.json()) as { error?: { message?: string } };
+    throw new Error(err.error?.message ?? "Failed to activate admin");
+  }
+  return res.json() as Promise<{ message: string }>;
 }
 
 export async function createSociety(data: CreateSocietyInput) {

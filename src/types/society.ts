@@ -42,6 +42,26 @@ export const SOCIETY_TYPE_LABELS: Record<SocietyType, string> = {
   PLOTTED_COLONY: "Plotted Colony",
 };
 
+export interface AdminSummary {
+  id: string;
+  name: string;
+  email: string;
+  mobile: string | null;
+  authUserId: string | null;
+  adminPermission: "FULL_ACCESS" | "READ_NOTIFY" | null;
+  createdAt: string;
+}
+
+export interface SocietyDetail extends Society {
+  residentCount: number;
+  admins: AdminSummary[];
+  feeStats: {
+    totalCollected: number;
+    breakdown: { status: string; _count: number; _sum: { amountPaid: number | null } }[];
+  };
+  balance: number;
+}
+
 export const SOCIETY_TYPE_ADDRESS_FIELDS: Record<
   SocietyType,
   { required: string[]; optional: string[] }

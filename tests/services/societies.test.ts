@@ -8,6 +8,7 @@ import {
   getSocietyByCode,
   updateSociety,
   deleteSociety,
+  activateAdmin,
 } from "@/services/societies";
 
 const mockFetch = vi.fn();
@@ -194,6 +195,40 @@ describe("societies service", () => {
     it("throws with fallback message when no error message", async () => {
       mockFetch.mockResolvedValue(errJson({}));
       await expect(deleteSociety("soc-1")).rejects.toThrow("Failed to delete society");
+    });
+  });
+
+  describe("activateAdmin", () => {
+    const validInput = {
+      name: "Rajesh Kumar",
+      email: "rajesh@eden.com",
+      password: "securepass1",
+      permission: "FULL_ACCESS" as const,
+    };
+
+    it("returns message on success", async () => {
+      mockFetch.mockResolvedValue(okJson({ message: "Admin activated" }));
+      const result = await activateAdmin("soc-1", validInput);
+      expect(result.message).toBe("Admin activated");
+    });
+
+    it("sends POST to correct endpoint", async () => {
+      mockFetch.mockResolvedValue(okJson({ message: "ok" }));
+      await activateAdmin("soc-1", validInput);
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining("/societies/soc-1/admins"),
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
+
+    it("throws with API error message when response is not ok", async () => {
+      mockFetch.mockResolvedValue(errJson({ error: { message: "Email already registered" } }));
+      await expect(activateAdmin("soc-1", validInput)).rejects.toThrow("Email already registered");
+    });
+
+    it("throws fallback message when error has no message", async () => {
+      mockFetch.mockResolvedValue(errJson({}));
+      await expect(activateAdmin("soc-1", validInput)).rejects.toThrow("Failed to activate admin");
     });
   });
 });

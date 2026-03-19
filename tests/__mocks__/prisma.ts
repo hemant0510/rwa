@@ -105,6 +105,8 @@ export const mockPrisma = {
     deleteMany: vi.fn(),
   },
   adminTerm: {
+    findFirst: vi.fn(),
+    create: vi.fn(),
     deleteMany: vi.fn(),
     updateMany: vi.fn(),
   },

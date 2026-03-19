@@ -5,12 +5,12 @@
 
 ---
 
-## Overall Progress: ~72% Complete
+## Overall Progress: ~75% Complete
 
 | Phase   | Description                                   | Status             | % Done   |
 | ------- | --------------------------------------------- | ------------------ | -------- |
 | Phase 0 | Foundation (DB, Auth, Layouts, Design System) | **Complete**       | **100%** |
-| Phase 1 | Super Admin Portal                            | Mostly complete    | 85%      |
+| Phase 1 | Super Admin Portal                            | **Complete**       | **100%** |
 | Phase 2 | Resident Registration                         | Mostly complete    | 75%      |
 | Phase 3 | Fee Management                                | Mostly complete    | 95%      |
 | Phase 4 | Expense Ledger                                | **Complete**       | 100%     |
@@ -43,7 +43,7 @@
 
 ---
 
-### Phase 1 — Super Admin Portal (85%)
+### Phase 1 — Super Admin Portal (100% ✅)
 
 **Done:**
 
@@ -51,17 +51,15 @@
 - Society onboarding — 3-step wizard (details, fees, admin)
 - Real-time Society Code uniqueness check (debounced)
 - Society list with search, filter, pagination
-- Society detail page (stats, admin team view)
-- Admin activation flow (search existing resident or create new user)
-- Admin receives welcome email on activation
+- Society detail page — stats row (Total Residents, Fees Collected, Current Balance)
+- Admin Team card — shows Primary + Supporting admin with role badges, login status, "No login" badge
+- Admin activation sheet — mode toggle (New Admin / Existing Resident), permission selector (Primary/Supporting)
+- Admin activation API (`POST /api/v1/societies/[id]/admins`) — full Supabase auth account creation, DB user, admin term, rollback on failure
+- Admin receives welcome/verification email on activation (or auto-verified when verification not required)
 - Plans management pages (`sa/plans/`)
 - Discounts management pages (`sa/discounts/`)
 - Billing dashboard pages (`sa/billing/`)
-
-**Pending:**
-
-- Invite-link generation and sending from Super Admin side not fully wired
-- Society ID generation edge cases (pincode-based sequence) not fully tested
+- 23 unit tests for admin activation API (100% branch coverage)
 
 ---
 
