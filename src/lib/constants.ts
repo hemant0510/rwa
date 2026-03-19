@@ -34,6 +34,9 @@ export const VERIFICATION_RESEND_COOLDOWN_SECONDS = 120;
 export const PASSWORD_RESET_TOKEN_EXPIRY_HOURS = 1;
 export const PASSWORD_RESET_COOLDOWN_SECONDS = 120;
 
+// Account setup (bulk-uploaded residents) — longer window so residents have time to act
+export const ACCOUNT_SETUP_TOKEN_EXPIRY_HOURS = 168; // 7 days
+
 // Indian mobile validation
 export const INDIAN_MOBILE_PATTERN = /^[6-9]\d{9}$/;
 export const PINCODE_PATTERN = /^\d{6}$/;

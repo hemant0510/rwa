@@ -54,11 +54,15 @@ export async function deleteVerificationToken(token: string): Promise<void> {
 /**
  * Generate a password reset token for a user.
  * Deletes any existing reset token for the same user before creating a new one.
+ * Pass a custom expiryHours for longer-lived tokens (e.g. account setup emails).
  */
-export async function generatePasswordResetToken(userId: string): Promise<string> {
+export async function generatePasswordResetToken(
+  userId: string,
+  expiryHours: number = PASSWORD_RESET_TOKEN_EXPIRY_HOURS,
+): Promise<string> {
   const token = crypto.randomBytes(32).toString("hex");
   const expiresAt = new Date();
-  expiresAt.setHours(expiresAt.getHours() + PASSWORD_RESET_TOKEN_EXPIRY_HOURS);
+  expiresAt.setHours(expiresAt.getHours() + expiryHours);
 
   await prisma.passwordResetToken.deleteMany({ where: { userId } });
 

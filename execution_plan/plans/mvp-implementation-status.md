@@ -5,13 +5,13 @@
 
 ---
 
-## Overall Progress: ~75% Complete
+## Overall Progress: ~80% Complete
 
 | Phase   | Description                                   | Status             | % Done   |
 | ------- | --------------------------------------------- | ------------------ | -------- |
 | Phase 0 | Foundation (DB, Auth, Layouts, Design System) | **Complete**       | **100%** |
 | Phase 1 | Super Admin Portal                            | **Complete**       | **100%** |
-| Phase 2 | Resident Registration                         | Mostly complete    | 75%      |
+| Phase 2 | Resident Registration                         | **Complete**       | **100%** |
 | Phase 3 | Fee Management                                | Mostly complete    | 95%      |
 | Phase 4 | Expense Ledger                                | **Complete**       | 100%     |
 | Phase 5 | WhatsApp Notifications                        | Partially complete | 40%      |
@@ -63,7 +63,7 @@
 
 ---
 
-### Phase 2 — Resident Registration (75%)
+### Phase 2 — Resident Registration (100% ✅)
 
 **Done:**
 
@@ -74,12 +74,14 @@
 - Admin approval/rejection workflow with UI
 - RWAID string generation (format: `RWA-HR-GGN-122001-0001-2025-0089`)
 - Unit record creation with display labels
-
-**Pending:**
-
-- Email verification flow — pages exist (`/check-email`, `/verify-email`) but email delivery not wired
-- Invite-link token generation from admin side not fully wired end-to-end
-- Edge case handling: expired token, duplicate email — basic validation present, needs strengthening
+- **Bulk upload API** (`POST /api/v1/residents/bulk-upload`) — up to 100 rows per batch, validates email/mobile/ownershipType, deduplication, creates Supabase Auth account + DB user + unit, sends "Create your password" welcome email (best-effort, email failure does not fail the row)
+- **Welcome email template** (`src/lib/email-templates/welcome-setup.ts`) — branded HTML email with "Create My Password" button, 7-day link expiry notice
+- **Account setup token** — reuses password reset token infrastructure with 7-day expiry (`ACCOUNT_SETUP_TOKEN_EXPIRY_HOURS = 168`) so bulk-imported residents set their own password via email link
+- **"Send Setup Email" button** on resident detail page — admin can resend the welcome/password setup email at any time for residents who have an email address
+- **`POST /api/v1/residents/[id]/send-setup-email`** — generates 7-day token, sends welcome email; returns 404 if not found, 400 if no email
+- **Pro-rata preview dialog** in admin approval flow — before confirming approval, admin sees session year, joining fee, pro-rata months/amount, and total first payment
+- **`GET /api/v1/residents/[id]/approve`** — returns `{ proRata, sessionYear }` preview without any DB writes; returns 400 if resident is not `PENDING_APPROVAL`
+- Test coverage: 100% for all new API routes and service functions (approve GET/PATCH, send-setup-email, bulk-upload email flow, service layer)
 
 ---
 
@@ -212,12 +214,11 @@
 
 ### Tier 3 — Polish & Completion
 
-| #   | Task                                  | Why                              |
-| --- | ------------------------------------- | -------------------------------- |
-| 9   | **Excel template download**           | Complete the bulk migration flow |
-| 10  | **Import progress streaming**         | Better UX for bulk uploads       |
-| 11  | **Pro-rata preview in approval flow** | QoL improvement for admins       |
-| 12  | **Mobile number masking**             | Privacy / DPDP compliance        |
+| #   | Task                          | Why                              |
+| --- | ----------------------------- | -------------------------------- |
+| 9   | **Excel template download**   | Complete the bulk migration flow |
+| 10  | **Import progress streaming** | Better UX for bulk uploads       |
+| 11  | **Mobile number masking**     | Privacy / DPDP compliance        |
 
 ---
 

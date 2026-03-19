@@ -5,9 +5,13 @@ import { randomBytes } from "crypto";
 import { z } from "zod";
 
 import { internalError } from "@/lib/api-helpers";
+import { ACCOUNT_SETUP_TOKEN_EXPIRY_HOURS, APP_URL } from "@/lib/constants";
+import { sendEmail } from "@/lib/email";
+import { getWelcomeSetupEmailHtml } from "@/lib/email-templates/welcome-setup";
 import { generateRWAID } from "@/lib/fee-calculator";
 import { prisma, type TransactionClient } from "@/lib/prisma";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { generatePasswordResetToken } from "@/lib/tokens";
 
 const bulkRecordSchema = z.object({
   fullName: z.string().min(2).max(100),
@@ -31,7 +35,7 @@ const bulkRecordSchema = z.object({
 
 const bulkUploadSchema = z.object({
   societyCode: z.string().min(4).max(8),
-  records: z.array(bulkRecordSchema).min(1).max(10),
+  records: z.array(bulkRecordSchema).min(1).max(100),
 });
 
 export type BulkRecordResult = {
@@ -166,7 +170,7 @@ export async function POST(request: NextRequest) {
         const now = new Date();
 
         // Create user + unit in a transaction
-        await prisma.$transaction(async (tx: TransactionClient) => {
+        const { id: newUserId } = await prisma.$transaction(async (tx: TransactionClient) => {
           const newUser = await tx.user.create({
             data: {
               society: { connect: { id: society.id } },
@@ -219,7 +223,25 @@ export async function POST(request: NextRequest) {
               },
             });
           }
+
+          return newUser;
         });
+
+        // Send "Create your password" welcome email (best-effort — don't fail the row on email error)
+        try {
+          const setupToken = await generatePasswordResetToken(
+            newUserId,
+            ACCOUNT_SETUP_TOKEN_EXPIRY_HOURS,
+          );
+          const setupUrl = `${APP_URL}/reset-password?token=${setupToken}`;
+          await sendEmail(
+            record.email,
+            `Welcome to ${society.name} — Create your password`,
+            getWelcomeSetupEmailHtml(record.fullName, society.name, setupUrl),
+          );
+        } catch (emailErr) {
+          console.warn(`Bulk upload: failed to send setup email to ${record.email}:`, emailErr);
+        }
 
         results.push({ rowIndex: i, success: true, rwaid });
       } catch (err) {

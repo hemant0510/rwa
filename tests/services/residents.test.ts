@@ -10,6 +10,8 @@ import {
   permanentDeleteResident,
   sendResidentVerificationEmail,
   bulkUploadResidents,
+  sendSetupEmail,
+  getApprovalPreview,
 } from "@/services/residents";
 
 const mockFetch = vi.fn();
@@ -246,6 +248,60 @@ describe("residents service", () => {
     it("throws with fallback message when no error message", async () => {
       mockFetch.mockResolvedValue(errJson({}));
       await expect(bulkUploadResidents("EDEN", records)).rejects.toThrow("Bulk upload failed");
+    });
+  });
+
+  describe("sendSetupEmail", () => {
+    it("sends POST to correct endpoint", async () => {
+      mockFetch.mockResolvedValue(okJson({ success: true, message: "Setup email sent" }));
+      const result = await sendSetupEmail("r1");
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining("/residents/r1/send-setup-email"),
+        expect.objectContaining({ method: "POST" }),
+      );
+      expect(result.success).toBe(true);
+    });
+
+    it("throws with API error message on failure", async () => {
+      mockFetch.mockResolvedValue(errJson({ error: { message: "No email address" } }));
+      await expect(sendSetupEmail("r1")).rejects.toThrow("No email address");
+    });
+
+    it("throws with fallback message when no error message", async () => {
+      mockFetch.mockResolvedValue(errJson({}));
+      await expect(sendSetupEmail("r1")).rejects.toThrow("Failed to send setup email");
+    });
+  });
+
+  describe("getApprovalPreview", () => {
+    const mockPreview = {
+      proRata: {
+        joiningFee: 1000,
+        annualFee: 1200,
+        monthlyRate: 100,
+        remainingMonths: 6,
+        proRataAmount: 600,
+        totalFirstPayment: 1600,
+      },
+      sessionYear: "2025-26",
+    };
+
+    it("fetches preview from correct endpoint", async () => {
+      mockFetch.mockResolvedValue(okJson(mockPreview));
+      const result = await getApprovalPreview("r1");
+      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining("/residents/r1/approve"));
+      expect(result.proRata.totalFirstPayment).toBe(1600);
+      expect(result.sessionYear).toBe("2025-26");
+    });
+
+    it("throws with API error message on failure", async () => {
+      mockFetch.mockResolvedValue(errJson({ error: { message: "Resident not pending" } }));
+      await expect(getApprovalPreview("r1")).rejects.toThrow("Resident not pending");
+    });
+
+    it("throws with fallback message when no error message", async () => {
+      mockFetch.mockResolvedValue(errJson({}));
+      await expect(getApprovalPreview("r1")).rejects.toThrow("Failed to load preview");
     });
   });
 });

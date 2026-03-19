@@ -122,6 +122,34 @@ export async function sendResidentVerificationEmail(id: string) {
   return res.json() as Promise<{ success: boolean; message: string }>;
 }
 
+export async function sendSetupEmail(id: string) {
+  const res = await fetch(`${API_BASE}/residents/${id}/send-setup-email`, { method: "POST" });
+  if (!res.ok) {
+    const err = (await res.json()) as { error?: { message?: string } };
+    throw new Error(err.error?.message ?? "Failed to send setup email");
+  }
+  return res.json() as Promise<{ success: boolean; message: string }>;
+}
+
+export async function getApprovalPreview(id: string) {
+  const res = await fetch(`${API_BASE}/residents/${id}/approve`);
+  if (!res.ok) {
+    const err = (await res.json()) as { error?: { message?: string } };
+    throw new Error(err.error?.message ?? "Failed to load preview");
+  }
+  return res.json() as Promise<{
+    proRata: {
+      joiningFee: number;
+      annualFee: number;
+      monthlyRate: number;
+      remainingMonths: number;
+      proRataAmount: number;
+      totalFirstPayment: number;
+    };
+    sessionYear: string;
+  }>;
+}
+
 export async function bulkUploadResidents(
   societyCode: string,
   records: BulkResidentRecord[],

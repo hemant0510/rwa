@@ -37,6 +37,8 @@ export default defineConfig({
         "src/app/api/v1/super-admin/plans/**",
         "src/app/api/v1/super-admin/discounts/**",
         "src/app/api/v1/societies/[id]/admins/**",
+        "src/app/api/v1/residents/[id]/send-setup-email/**",
+        "src/app/api/v1/residents/[id]/approve/**",
       ],
       exclude: [
         "src/lib/prisma.ts",

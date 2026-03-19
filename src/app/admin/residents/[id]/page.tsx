@@ -18,6 +18,7 @@ import {
   Mail,
   Pencil,
   Phone,
+  Send,
   Trash,
   Trash2,
   Upload,
@@ -64,6 +65,8 @@ import {
   rejectResident,
   updateResident,
   deleteResident,
+  sendSetupEmail,
+  getApprovalPreview,
 } from "@/services/residents";
 import type { FeeStatus } from "@/types/fee";
 import { RESIDENT_STATUS_LABELS } from "@/types/user";
@@ -89,6 +92,11 @@ export default function ResidentDetailPage({ params }: { params: Promise<{ id: s
   const [deleteReason, setDeleteReason] = useState("");
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
+  const [approveOpen, setApproveOpen] = useState(false);
+  const [approvePreview, setApprovePreview] = useState<Awaited<
+    ReturnType<typeof getApprovalPreview>
+  > | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   // Edit form state
   const [editName, setEditName] = useState("");
@@ -142,6 +150,26 @@ export default function ResidentDetailPage({ params }: { params: Promise<{ id: s
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const setupEmailMutation = useMutation({
+    mutationFn: () => sendSetupEmail(id),
+    onSuccess: () => toast.success("Setup email sent"),
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const openApproveDialog = async () => {
+    setApprovePreview(null);
+    setApproveOpen(true);
+    setPreviewLoading(true);
+    try {
+      const preview = await getApprovalPreview(id);
+      setApprovePreview(preview);
+    } catch {
+      toast.error("Could not load fee preview");
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
   const openEditDialog = () => {
     if (!resident) return;
     setEditName(resident.name);
@@ -188,6 +216,21 @@ export default function ResidentDetailPage({ params }: { params: Promise<{ id: s
           </Badge>
         </PageHeader>
         <div className="ml-auto flex gap-2">
+          {resident.email && !resident.status.startsWith("PENDING") && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setupEmailMutation.mutate()}
+              disabled={setupEmailMutation.isPending}
+            >
+              {setupEmailMutation.isPending ? (
+                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="mr-1 h-4 w-4" />
+              )}
+              Send Setup Email
+            </Button>
+          )}
           {canEdit && (
             <Button variant="outline" size="sm" onClick={openEditDialog}>
               <Pencil className="mr-1 h-4 w-4" />
@@ -229,11 +272,7 @@ export default function ResidentDetailPage({ params }: { params: Promise<{ id: s
             </p>
           </div>
           <div className="flex gap-2">
-            <Button
-              size="sm"
-              onClick={() => approveMutation.mutate()}
-              disabled={approveMutation.isPending}
-            >
+            <Button size="sm" onClick={openApproveDialog}>
               <CheckCircle className="mr-1 h-4 w-4" />
               Approve
             </Button>
@@ -430,6 +469,59 @@ export default function ResidentDetailPage({ params }: { params: Promise<{ id: s
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Approve Preview Dialog */}
+      <AlertDialog open={approveOpen} onOpenChange={setApproveOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Approve Registration</AlertDialogTitle>
+            <AlertDialogDescription>
+              Review the fee that will be generated before confirming.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {previewLoading ? (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
+            </div>
+          ) : approvePreview ? (
+            <div className="bg-muted/30 space-y-2 rounded-md border p-4 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Session</span>
+                <span className="font-medium">{approvePreview.sessionYear}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Joining fee</span>
+                <span>₹{approvePreview.proRata.joiningFee.toLocaleString("en-IN")}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">
+                  Pro-rata ({approvePreview.proRata.remainingMonths} months remaining)
+                </span>
+                <span>₹{approvePreview.proRata.proRataAmount.toLocaleString("en-IN")}</span>
+              </div>
+              <div className="flex justify-between border-t pt-2 font-semibold">
+                <span>Total due</span>
+                <span>₹{approvePreview.proRata.totalFirstPayment.toLocaleString("en-IN")}</span>
+              </div>
+            </div>
+          ) : (
+            <p className="text-muted-foreground py-2 text-sm">Fee preview unavailable.</p>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <Button
+              onClick={() => {
+                approveMutation.mutate();
+                setApproveOpen(false);
+              }}
+              disabled={approveMutation.isPending}
+            >
+              {approveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Confirm Approval
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Reject Dialog */}
       <AlertDialog open={rejectOpen} onOpenChange={setRejectOpen}>

@@ -31,9 +31,17 @@ const mockSupabaseAdmin = vi.hoisted(() => ({
   },
 }));
 
+const mockGeneratePasswordResetToken = vi.hoisted(() => vi.fn().mockResolvedValue("setup-token"));
+const mockSendEmail = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: vi.fn().mockReturnValue(mockSupabaseAdmin),
+}));
+vi.mock("@/lib/tokens", () => ({ generatePasswordResetToken: mockGeneratePasswordResetToken }));
+vi.mock("@/lib/email", () => ({ sendEmail: mockSendEmail }));
+vi.mock("@/lib/email-templates/welcome-setup", () => ({
+  getWelcomeSetupEmailHtml: vi.fn().mockReturnValue("<html>welcome</html>"),
 }));
 
 import { POST } from "@/app/api/v1/residents/bulk-upload/route";
@@ -73,6 +81,8 @@ describe("POST /api/v1/residents/bulk-upload", () => {
       data: { user: { id: "auth-uuid-1" } },
       error: null,
     });
+    mockGeneratePasswordResetToken.mockResolvedValue("setup-token");
+    mockSendEmail.mockResolvedValue(undefined);
   });
 
   it("returns 422 when body is missing required fields", async () => {
@@ -288,6 +298,23 @@ describe("POST /api/v1/residents/bulk-upload", () => {
     const body = await res.json();
     // sequence = 5 + 1 = 6, padded to 4 → 0006
     expect(body.results[0].rwaid).toContain("-2022-0006");
+  });
+
+  it("sends setup email after successfully creating a resident", async () => {
+    await POST(makeReq({ societyCode: "EDEN", records: [validRecord] }));
+    expect(mockGeneratePasswordResetToken).toHaveBeenCalledWith("new-r1", 168);
+    expect(mockSendEmail).toHaveBeenCalledWith(
+      validRecord.email,
+      expect.stringContaining("Create your password"),
+      expect.any(String),
+    );
+  });
+
+  it("does not fail the row when setup email errors", async () => {
+    mockSendEmail.mockRejectedValueOnce(new Error("SMTP down"));
+    const res = await POST(makeReq({ societyCode: "EDEN", records: [validRecord] }));
+    const body = await res.json();
+    expect(body.results[0].success).toBe(true); // row still succeeds
   });
 
   it("returns 500 on unexpected server error", async () => {

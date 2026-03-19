@@ -4,6 +4,45 @@ import { notFoundError, internalError } from "@/lib/api-helpers";
 import { generateRWAID, calculateProRata, getSessionYear } from "@/lib/fee-calculator";
 import { prisma, type TransactionClient } from "@/lib/prisma";
 
+// GET /api/v1/residents/[id]/approve
+// Returns a pro-rata preview without modifying the database.
+export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await params;
+
+    const user = await prisma.user.findUnique({
+      where: { id },
+      include: { society: true },
+    });
+
+    if (!user) return notFoundError("Resident not found");
+    if (user.status !== "PENDING_APPROVAL") {
+      return NextResponse.json(
+        { error: { code: "INVALID_STATUS", message: "Resident is not pending approval" } },
+        { status: 400 },
+      );
+    }
+
+    const society = user.society;
+    if (!society) return internalError("Resident has no society");
+
+    const now = new Date();
+    const approvalMonth = now.getMonth() + 1;
+    const proRata = calculateProRata({
+      annualFee: Number(society.annualFee),
+      joiningFee: Number(society.joiningFee),
+      sessionStartMonth: society.feeSessionStartMonth,
+      approvalMonth,
+    });
+    const sessionYear = getSessionYear(now, society.feeSessionStartMonth);
+
+    return NextResponse.json({ proRata, sessionYear });
+  } catch (err) {
+    console.error("Pro-rata preview error:", err);
+    return internalError("Failed to calculate preview");
+  }
+}
+
 export async function PATCH(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
