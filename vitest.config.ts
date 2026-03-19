@@ -22,6 +22,7 @@ export default defineConfig({
         "src/lib/**",
         "src/services/**",
         "src/hooks/**",
+        "src/middleware.ts",
         "src/components/layout/AdminSidebar.tsx",
         "src/components/layout/ResidentSidebar.tsx",
         "src/components/layout/Header.tsx",

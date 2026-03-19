@@ -2,13 +2,30 @@
 
 import { useState } from "react";
 
+import { toast } from "sonner";
+
 import { Header } from "@/components/layout/Header";
 import { SuperAdminSidebar, SuperAdminMobileSidebar } from "@/components/layout/SuperAdminSidebar";
 import { useAuth } from "@/hooks/useAuth";
+import { useIdleTimeout } from "@/hooks/useIdleTimeout";
+import { ADMIN_SESSION_TIMEOUT_MS } from "@/lib/constants";
 
 export default function SuperAdminLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { signOut } = useAuth();
+
+  useIdleTimeout({
+    timeoutMs: ADMIN_SESSION_TIMEOUT_MS,
+    onWarning: () => {
+      toast.warning("Session expiring soon", {
+        description: "You'll be signed out in 15 minutes due to inactivity.",
+        duration: 10_000,
+      });
+    },
+    onTimeout: () => {
+      void signOut();
+    },
+  });
 
   return (
     <div className="flex h-screen overflow-hidden">

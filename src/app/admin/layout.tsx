@@ -5,6 +5,7 @@ import { useState } from "react";
 import Link from "next/link";
 
 import { ArrowLeft } from "lucide-react";
+import { toast } from "sonner";
 
 import { SocietySwitcher } from "@/components/features/SocietySwitcher";
 import { TrialBanner } from "@/components/features/TrialBanner";
@@ -12,12 +13,27 @@ import { AdminSidebar, AdminMobileSidebar } from "@/components/layout/AdminSideb
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
+import { useIdleTimeout } from "@/hooks/useIdleTimeout";
 import { useSocietyId } from "@/hooks/useSocietyId";
+import { ADMIN_SESSION_TIMEOUT_MS } from "@/lib/constants";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, signOut } = useAuth();
   const { societyName: overrideName, isSuperAdminViewing, saQueryString } = useSocietyId();
+
+  useIdleTimeout({
+    timeoutMs: ADMIN_SESSION_TIMEOUT_MS,
+    onWarning: () => {
+      toast.warning("Session expiring soon", {
+        description: "You'll be signed out in 15 minutes due to inactivity.",
+        duration: 10_000,
+      });
+    },
+    onTimeout: () => {
+      void signOut();
+    },
+  });
 
   const societyName = isSuperAdminViewing
     ? (overrideName ?? "Society")
