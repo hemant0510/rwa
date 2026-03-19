@@ -16,6 +16,15 @@ export const mockSupabaseClient = {
   },
 };
 
+export const mockStorageBucket = {
+  remove: vi.fn().mockResolvedValue({ error: null }),
+  upload: vi.fn().mockResolvedValue({ error: null }),
+  createSignedUrl: vi.fn().mockResolvedValue({
+    data: { signedUrl: "https://example.com/signed-url" },
+    error: null,
+  }),
+};
+
 export const mockSupabaseAdmin = {
   auth: {
     admin: {
@@ -23,6 +32,9 @@ export const mockSupabaseAdmin = {
       deleteUser: vi.fn(),
       updateUserById: vi.fn(),
     },
+  },
+  storage: {
+    from: vi.fn().mockReturnValue(mockStorageBucket),
   },
 };
 

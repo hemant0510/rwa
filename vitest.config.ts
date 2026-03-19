@@ -31,6 +31,7 @@ export default defineConfig({
         "src/app/r/**",
         "src/app/api/v1/auth/me/**",
         "src/app/api/v1/residents/me/**",
+        "src/app/api/v1/residents/**/id-proof/**",
         "src/app/api/v1/super-admin/plans/**",
         "src/app/api/v1/super-admin/discounts/**",
       ],

@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useRef, useState } from "react";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -18,6 +18,10 @@ import {
   Trash2,
   Loader2,
   AlertTriangle,
+  FileText,
+  ExternalLink,
+  Upload,
+  Trash,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -82,6 +86,12 @@ export default function ResidentDetailPage({ params }: { params: Promise<{ id: s
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteReason, setDeleteReason] = useState("");
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+  const [idProofUrl, setIdProofUrl] = useState<string | null | undefined>(undefined);
+  const [idProofLoading, setIdProofLoading] = useState(false);
+  const [idProofUploading, setIdProofUploading] = useState(false);
+  const idProofInputRef = useRef<HTMLInputElement>(null);
 
   // Edit form state
   const [editName, setEditName] = useState("");
@@ -104,13 +114,64 @@ export default function ResidentDetailPage({ params }: { params: Promise<{ id: s
   });
 
   const rejectMutation = useMutation({
-    mutationFn: () => rejectResident(id, "Rejected by admin"),
+    mutationFn: (reason: string) => rejectResident(id, reason),
     onSuccess: () => {
       toast.success("Resident rejected");
+      setRejectOpen(false);
+      setRejectReason("");
       queryClient.invalidateQueries({ queryKey: ["residents"] });
     },
     onError: (err: Error) => toast.error(err.message),
   });
+
+  const loadIdProof = async () => {
+    setIdProofLoading(true);
+    try {
+      const res = await fetch(`/api/v1/residents/${id}/id-proof`);
+      if (res.ok) {
+        const data = (await res.json()) as { url: string | null };
+        setIdProofUrl(data.url);
+      }
+    } finally {
+      setIdProofLoading(false);
+    }
+  };
+
+  const uploadIdProof = async (file: File) => {
+    setIdProofUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`/api/v1/residents/${id}/id-proof`, {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) {
+        const err = (await res.json()) as { error?: { message?: string } };
+        toast.error(err.error?.message ?? "Upload failed");
+        return;
+      }
+      toast.success("ID proof uploaded");
+      await loadIdProof();
+    } finally {
+      setIdProofUploading(false);
+    }
+  };
+
+  const deleteIdProof = async () => {
+    setIdProofUploading(true);
+    try {
+      const res = await fetch(`/api/v1/residents/${id}/id-proof`, { method: "DELETE" });
+      if (!res.ok) {
+        toast.error("Failed to remove ID proof");
+        return;
+      }
+      toast.success("ID proof removed");
+      setIdProofUrl(null);
+    } finally {
+      setIdProofUploading(false);
+    }
+  };
 
   const editMutation = useMutation({
     mutationFn: (data: { name: string; mobile: string; email: string; ownershipType: string }) =>
@@ -228,12 +289,7 @@ export default function ResidentDetailPage({ params }: { params: Promise<{ id: s
               <CheckCircle className="mr-1 h-4 w-4" />
               Approve
             </Button>
-            <Button
-              size="sm"
-              variant="destructive"
-              onClick={() => rejectMutation.mutate()}
-              disabled={rejectMutation.isPending}
-            >
+            <Button size="sm" variant="destructive" onClick={() => setRejectOpen(true)}>
               <XCircle className="mr-1 h-4 w-4" />
               Reject
             </Button>
@@ -324,6 +380,36 @@ export default function ResidentDetailPage({ params }: { params: Promise<{ id: s
         </Card>
       )}
 
+      {/* ID Proof */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            ID Proof
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <IdProofSection
+            status={idProofUrl}
+            loading={idProofLoading}
+            uploading={idProofUploading}
+            onLoad={loadIdProof}
+            onUploadClick={() => idProofInputRef.current?.click()}
+            onDelete={deleteIdProof}
+          />
+          <input
+            ref={idProofInputRef}
+            type="file"
+            accept=".jpg,.jpeg,.png,.webp,.pdf"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void uploadIdProof(file);
+            }}
+          />
+        </CardContent>
+      </Card>
+
       {/* Edit Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent>
@@ -391,6 +477,38 @@ export default function ResidentDetailPage({ params }: { params: Promise<{ id: s
         </DialogContent>
       </Dialog>
 
+      {/* Reject Dialog */}
+      <AlertDialog open={rejectOpen} onOpenChange={setRejectOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reject Registration</AlertDialogTitle>
+            <AlertDialogDescription>
+              Provide a reason so the resident knows why they were rejected.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="rejectReason">Reason</Label>
+            <Input
+              id="rejectReason"
+              placeholder="e.g., Incomplete details, Not a valid resident"
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setRejectReason("")}>Cancel</AlertDialogCancel>
+            <Button
+              variant="destructive"
+              disabled={rejectReason.trim().length < 5 || rejectMutation.isPending}
+              onClick={() => rejectMutation.mutate(rejectReason.trim())}
+            >
+              {rejectMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Reject
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Deactivate AlertDialog */}
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
@@ -438,6 +556,76 @@ function DetailRow({ label, value }: { label: string; value: string }) {
     <div className="flex items-center justify-between">
       <span className="text-muted-foreground text-sm">{label}</span>
       <span className="text-sm font-medium">{value}</span>
+    </div>
+  );
+}
+
+function IdProofSection({
+  status,
+  loading,
+  uploading,
+  onLoad,
+  onUploadClick,
+  onDelete,
+}: {
+  readonly status: string | null | undefined;
+  readonly loading: boolean;
+  readonly uploading: boolean;
+  readonly onLoad: () => void;
+  readonly onUploadClick: () => void;
+  readonly onDelete: () => void;
+}) {
+  if (status === undefined) {
+    return (
+      <Button variant="outline" size="sm" onClick={onLoad} disabled={loading}>
+        {loading ? (
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        ) : (
+          <FileText className="mr-2 h-4 w-4" />
+        )}
+        Load ID Proof
+      </Button>
+    );
+  }
+
+  if (status) {
+    return (
+      <div className="flex items-center gap-3">
+        <Button variant="outline" size="sm" asChild>
+          <a href={status} target="_blank" rel="noopener noreferrer">
+            <ExternalLink className="mr-2 h-4 w-4" />
+            View Document
+          </a>
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onDelete}
+          disabled={uploading}
+          className="text-destructive hover:text-destructive"
+        >
+          {uploading ? (
+            <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+          ) : (
+            <Trash className="mr-1 h-4 w-4" />
+          )}
+          Remove
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <p className="text-muted-foreground text-sm">No ID proof uploaded.</p>
+      <Button variant="outline" size="sm" onClick={onUploadClick} disabled={uploading}>
+        {uploading ? (
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        ) : (
+          <Upload className="mr-2 h-4 w-4" />
+        )}
+        Upload ID Proof
+      </Button>
     </div>
   );
 }

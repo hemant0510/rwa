@@ -1,10 +1,10 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useRef, useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Building2, CheckCircle, Info, Loader2 } from "lucide-react";
+import { Building2, CheckCircle, Info, Loader2, Upload, X } from "lucide-react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -31,6 +31,8 @@ import { getSocietyByCode } from "@/services/societies";
 import { SOCIETY_TYPE_ADDRESS_FIELDS, type SocietyType } from "@/types/society";
 
 const TOTAL_STEPS = 3;
+const ALLOWED_ID_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+const MAX_ID_SIZE = 5 * 1024 * 1024; // 5 MB
 
 export default function RegisterPage({ params }: { params: Promise<{ societyCode: string }> }) {
   const { societyCode } = use(params);
@@ -38,6 +40,9 @@ export default function RegisterPage({ params }: { params: Promise<{ societyCode
   const [requiresVerification, setRequiresVerification] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [step3Touched, setStep3Touched] = useState(false);
+  const [idProofFile, setIdProofFile] = useState<File | null>(null);
+  const [idProofError, setIdProofError] = useState<string | null>(null);
+  const idProofInputRef = useRef<HTMLInputElement>(null);
 
   const {
     data: society,
@@ -193,7 +198,26 @@ export default function RegisterPage({ params }: { params: Promise<{ societyCode
         const err = (await res.json()) as { error?: { message?: string } };
         throw new Error(err.error?.message || "Registration failed");
       }
-      return (await res.json()) as { id: string; message: string; requiresVerification?: boolean };
+      const result = (await res.json()) as {
+        id: string;
+        message: string;
+        requiresVerification?: boolean;
+      };
+
+      // Upload ID proof if provided
+      if (idProofFile && result.id) {
+        const formData = new FormData();
+        formData.append("file", idProofFile);
+        // Best-effort upload — registration already succeeded, don't block on this
+        await fetch(`/api/v1/residents/${result.id}/id-proof`, {
+          method: "POST",
+          body: formData,
+        }).catch(() => {
+          // Silently ignore upload failures — admin can request later
+        });
+      }
+
+      return result;
     },
     onSuccess: (data) => {
       setRequiresVerification(data.requiresVerification ?? false);
@@ -530,6 +554,70 @@ export default function RegisterPage({ params }: { params: Promise<{ societyCode
                     </div>
                   </div>
                 )}
+
+                {/* ID Proof Upload */}
+                <div className="space-y-2">
+                  <Label className="text-sm">
+                    ID Proof{" "}
+                    <span className="text-muted-foreground font-normal">
+                      (optional — Aadhaar / Voter ID / Passport)
+                    </span>
+                  </Label>
+                  {idProofFile ? (
+                    <div className="bg-muted/30 flex items-center justify-between rounded-md border px-3 py-2">
+                      <span className="max-w-[220px] truncate text-sm">{idProofFile.name}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setIdProofFile(null);
+                          setIdProofError(null);
+                          if (idProofInputRef.current) idProofInputRef.current.value = "";
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => idProofInputRef.current?.click()}
+                      className="border-muted-foreground/30 hover:border-primary/50 flex w-full items-center gap-2 rounded-md border border-dashed px-3 py-2 text-sm transition-colors"
+                    >
+                      <Upload className="text-muted-foreground h-4 w-4 shrink-0" />
+                      <span className="text-muted-foreground">
+                        Click to upload (JPG, PNG, PDF — max 5 MB)
+                      </span>
+                    </button>
+                  )}
+                  <input
+                    ref={idProofInputRef}
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.webp,.pdf"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] ?? null;
+                      setIdProofError(null);
+                      if (!file) {
+                        setIdProofFile(null);
+                        return;
+                      }
+                      if (!ALLOWED_ID_TYPES.includes(file.type)) {
+                        setIdProofError("Invalid file type. Use JPG, PNG, WebP, or PDF.");
+                        setIdProofFile(null);
+                        return;
+                      }
+                      if (file.size > MAX_ID_SIZE) {
+                        setIdProofError("File too large. Max 5 MB allowed.");
+                        setIdProofFile(null);
+                        return;
+                      }
+                      setIdProofFile(file);
+                    }}
+                  />
+                  {idProofError && <p className="text-destructive text-sm">{idProofError}</p>}
+                </div>
 
                 <div className="flex items-center gap-2">
                   <Checkbox
