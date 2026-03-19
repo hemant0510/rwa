@@ -328,14 +328,11 @@ export default function ResidentProfilePage() {
   return (
     <div className="space-y-4">
       {/* ── Profile card ── */}
-      <Card className="overflow-hidden border-0 shadow-md">
-        {/* Hero gradient banner */}
-        <div className="from-primary via-primary/90 h-14 bg-gradient-to-r to-emerald-600" />
-
-        <CardContent className="pt-0 pb-5">
-          {/* Avatar row — overlaps the banner */}
-          <div className="-mt-7 mb-4 flex items-end justify-between gap-3">
-            <div className="bg-primary flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border-4 border-white text-lg font-bold text-white shadow-md sm:h-16 sm:w-16 sm:text-xl">
+      <Card className="border-0 shadow-md">
+        <CardContent className="pt-5 pb-5">
+          {/* Avatar row */}
+          <div className="mb-4 flex items-end justify-between gap-3">
+            <div className="bg-primary flex h-14 w-14 shrink-0 items-center justify-center rounded-xl text-lg font-bold text-white shadow-md sm:h-16 sm:w-16 sm:text-xl">
               {initials}
             </div>
             <Badge variant="outline" className={`mb-1 ${statusStyle} font-medium`}>
