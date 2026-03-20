@@ -95,6 +95,12 @@ describe("GET /api/v1/residents/[id]/approve — pro-rata preview", () => {
     expect(mockPrisma.membershipFee.create).not.toHaveBeenCalled();
   });
 
+  it("returns 500 when resident has no society", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ ...mockPendingUser, society: null });
+    const res = await GET(makeGetReq("r1"), makeParams("r1"));
+    expect(res.status).toBe(500);
+  });
+
   it("returns 500 on database error", async () => {
     mockPrisma.user.findUnique.mockRejectedValue(new Error("DB error"));
     const res = await GET(makeGetReq("r1"), makeParams("r1"));
@@ -163,6 +169,12 @@ describe("PATCH /api/v1/residents/[id]/approve", () => {
     const res = await PATCH(makePatchReq("r1"), makeParams("r1"));
     const body = await res.json();
     expect(body.rwaid).toContain("-0011"); // 10 + 1, zero-padded
+  });
+
+  it("returns 500 when resident has no society", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ ...mockPendingUser, society: null });
+    const res = await PATCH(makePatchReq("r1"), makeParams("r1"));
+    expect(res.status).toBe(500);
   });
 
   it("returns 500 on database error", async () => {

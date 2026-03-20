@@ -5,14 +5,14 @@
 
 ---
 
-## Overall Progress: ~80% Complete
+## Overall Progress: ~85% Complete
 
 | Phase   | Description                                   | Status             | % Done   |
 | ------- | --------------------------------------------- | ------------------ | -------- |
 | Phase 0 | Foundation (DB, Auth, Layouts, Design System) | **Complete**       | **100%** |
 | Phase 1 | Super Admin Portal                            | **Complete**       | **100%** |
 | Phase 2 | Resident Registration                         | **Complete**       | **100%** |
-| Phase 3 | Fee Management                                | Mostly complete    | 95%      |
+| Phase 3 | Fee Management                                | **Complete**       | **100%** |
 | Phase 4 | Expense Ledger                                | **Complete**       | 100%     |
 | Phase 5 | WhatsApp Notifications                        | Partially complete | 40%      |
 | Phase 6 | Data Migration & Reports                      | Partially complete | 50%      |
@@ -85,7 +85,7 @@
 
 ---
 
-### Phase 3 — Fee Management (95%)
+### Phase 3 — Fee Management (100% ✅)
 
 **Done:**
 
@@ -98,13 +98,12 @@
 - Fee tracker table with filtering, search, pagination
 - Fee status lifecycle & transitions
 - Grant fee exemption
-- Payment correction and reversal
-
-**Pending:**
-
-- Cron jobs for automatic fee status transitions:
-  - `NOT_YET_DUE → PENDING` on April 1 (cron route exists, logic not implemented)
-  - `PENDING → OVERDUE` on April 16 (cron route exists, logic not implemented)
+- **Payment correction** (`PATCH /fees/[feeId]/payments/[paymentId]`) — within 48-hour window, updates amount/mode/reference, recalculates fee and user status
+- **Payment reversal** (`POST /fees/[feeId]/payments/[paymentId]/reverse`) — marks original reversed, creates reversal entry, recalculates fee and user status
+- **`NOT_YET_DUE → PENDING` cron** (`POST /api/cron/fee-status-activate`) — runs daily, flips fees where `sessionStart ≤ today`
+- **`PENDING → OVERDUE` cron** (`POST /api/cron/fee-overdue-check`) — runs daily, flips fees where `gracePeriodEnd < today`
+- **`recordedBy` bug fixed** — payment recorder now uses actual admin ID from `getCurrentUser` instead of resident ID
+- Test coverage: 100% for all new and modified routes (record payment, correction, reversal, both cron jobs)
 
 ---
 

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { parseBody, notFoundError, internalError } from "@/lib/api-helpers";
+import { parseBody, notFoundError, internalError, unauthorizedError } from "@/lib/api-helpers";
 import { generateReceiptNo } from "@/lib/fee-calculator";
+import { getCurrentUser } from "@/lib/get-current-user";
 import { prisma, type TransactionClient } from "@/lib/prisma";
 import { recordPaymentSchema } from "@/lib/validations/fee";
 
@@ -21,6 +22,9 @@ export async function POST(
     });
 
     if (!fee || fee.societyId !== societyId) return notFoundError("Fee record not found");
+
+    const admin = await getCurrentUser("RWA_ADMIN");
+    if (!admin) return unauthorizedError("Admin authentication required");
 
     const balance = Number(fee.amountDue) - Number(fee.amountPaid);
     if (data.amount > balance) {
@@ -51,7 +55,7 @@ export async function POST(
           receiptNo,
           paymentDate: new Date(data.paymentDate),
           notes: data.notes || null,
-          recordedBy: fee.userId, // TODO: Use actual admin ID from auth
+          recordedBy: admin.userId,
           correctionWindowEnds: new Date(Date.now() + 48 * 60 * 60 * 1000),
         },
       });

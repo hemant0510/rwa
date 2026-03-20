@@ -39,6 +39,9 @@ export default defineConfig({
         "src/app/api/v1/societies/[id]/admins/**",
         "src/app/api/v1/residents/[id]/send-setup-email/**",
         "src/app/api/v1/residents/[id]/approve/**",
+        "src/app/api/v1/societies/[id]/fees/[feeId]/payments/**",
+        "src/app/api/cron/fee-status-activate/**",
+        "src/app/api/cron/fee-overdue-check/**",
       ],
       exclude: [
         "src/lib/prisma.ts",

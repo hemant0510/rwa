@@ -81,7 +81,8 @@ describe("RecordSubscriptionPaymentDialog", () => {
     const refInput = inputs[0]; // first textbox is reference no
     await user.type(refInput, "UPI-REF-123");
 
-    // Click save
+    // Wait for form to be valid, then click save
+    await waitFor(() => expect(screen.getByText("Save Payment")).not.toBeDisabled());
     await user.click(screen.getByText("Save Payment"));
 
     await waitFor(() => {
