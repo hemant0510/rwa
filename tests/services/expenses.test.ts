@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-import { getExpenses, getExpenseSummary, createExpense, reverseExpense } from "@/services/expenses";
+import {
+  getExpenses,
+  getExpenseSummary,
+  createExpense,
+  updateExpense,
+  reverseExpense,
+} from "@/services/expenses";
 
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
@@ -18,7 +24,7 @@ describe("expenses service", () => {
   });
 
   describe("getExpenses", () => {
-    it("fetches expenses with params", async () => {
+    it("fetches expenses with category and page params", async () => {
       mockFetch.mockResolvedValue(okJson({ data: [], total: 0, page: 1, limit: 20 }));
       await getExpenses("soc-1", { category: "MAINTENANCE", from: "2025-01-01", page: 2 });
       expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining("category=MAINTENANCE"));
@@ -40,7 +46,7 @@ describe("expenses service", () => {
 
     it("throws on error", async () => {
       mockFetch.mockResolvedValue({ ok: false });
-      await expect(getExpenses("soc-1")).rejects.toThrow();
+      await expect(getExpenses("soc-1")).rejects.toThrow("Failed to fetch expenses");
     });
   });
 
@@ -53,12 +59,12 @@ describe("expenses service", () => {
 
     it("throws on error", async () => {
       mockFetch.mockResolvedValue({ ok: false });
-      await expect(getExpenseSummary("soc-1")).rejects.toThrow();
+      await expect(getExpenseSummary("soc-1")).rejects.toThrow("Failed to fetch expense summary");
     });
   });
 
   describe("createExpense", () => {
-    it("sends POST", async () => {
+    it("sends POST to expenses endpoint", async () => {
       mockFetch.mockResolvedValue(okJson({ id: "exp-1" }));
       await createExpense("soc-1", {
         date: "2025-04-15",
@@ -72,7 +78,20 @@ describe("expenses service", () => {
       );
     });
 
-    it("throws with API error", async () => {
+    it("includes receiptUrl in body when provided", async () => {
+      mockFetch.mockResolvedValue(okJson({ id: "exp-1" }));
+      await createExpense("soc-1", {
+        date: "2025-04-15",
+        amount: 5000,
+        category: "SECURITY",
+        description: "Guard salary",
+        receiptUrl: "https://cdn.test/receipt.pdf",
+      });
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.receiptUrl).toBe("https://cdn.test/receipt.pdf");
+    });
+
+    it("throws with API error message", async () => {
       mockFetch.mockResolvedValue(errJson({ error: { message: "Invalid category" } }));
       await expect(
         createExpense("soc-1", {
@@ -97,6 +116,52 @@ describe("expenses service", () => {
     });
   });
 
+  describe("updateExpense", () => {
+    it("sends PATCH to expense endpoint with expenseId", async () => {
+      mockFetch.mockResolvedValue(okJson({ id: "exp-1", amount: 6000 }));
+      await updateExpense("soc-1", "exp-1", { amount: 6000 });
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining("/expenses/exp-1"),
+        expect.objectContaining({ method: "PATCH" }),
+      );
+    });
+
+    it("sends partial update (only category)", async () => {
+      mockFetch.mockResolvedValue(okJson({ id: "exp-1" }));
+      await updateExpense("soc-1", "exp-1", { category: "SECURITY" });
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.category).toBe("SECURITY");
+      expect(body.amount).toBeUndefined();
+    });
+
+    it("sends partial update (only description)", async () => {
+      mockFetch.mockResolvedValue(okJson({ id: "exp-1" }));
+      await updateExpense("soc-1", "exp-1", { description: "Updated description" });
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.description).toBe("Updated description");
+    });
+
+    it("throws with API error message", async () => {
+      mockFetch.mockResolvedValue(errJson({ error: { message: "Correction window expired" } }));
+      await expect(updateExpense("soc-1", "exp-1", { amount: 1000 })).rejects.toThrow(
+        "Correction window expired",
+      );
+    });
+
+    it("throws with fallback message when no error message", async () => {
+      mockFetch.mockResolvedValue(errJson({}));
+      await expect(updateExpense("soc-1", "exp-1", { amount: 1000 })).rejects.toThrow(
+        "Failed to update expense",
+      );
+    });
+
+    it("sends content-type application/json", async () => {
+      mockFetch.mockResolvedValue(okJson({ id: "exp-1" }));
+      await updateExpense("soc-1", "exp-1", { amount: 500 });
+      expect(mockFetch.mock.calls[0][1].headers["Content-Type"]).toBe("application/json");
+    });
+  });
+
   describe("reverseExpense", () => {
     it("sends POST to reverse endpoint", async () => {
       mockFetch.mockResolvedValue(okJson({ message: "Reversed" }));
@@ -107,10 +172,10 @@ describe("expenses service", () => {
       );
     });
 
-    it("throws with API error", async () => {
-      mockFetch.mockResolvedValue(errJson({ error: { message: "Window expired" } }));
+    it("throws with API error message", async () => {
+      mockFetch.mockResolvedValue(errJson({ error: { message: "Already reversed" } }));
       await expect(reverseExpense("soc-1", "exp-1", { reason: "Test reason" })).rejects.toThrow(
-        "Window expired",
+        "Already reversed",
       );
     });
 

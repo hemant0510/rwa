@@ -13,7 +13,7 @@
 | Phase 1 | Super Admin Portal                            | **Complete**       | **100%** |
 | Phase 2 | Resident Registration                         | **Complete**       | **100%** |
 | Phase 3 | Fee Management                                | **Complete**       | **100%** |
-| Phase 4 | Expense Ledger                                | **Complete**       | 100%     |
+| Phase 4 | Expense Ledger                                | **Complete**       | **100%** |
 | Phase 5 | WhatsApp Notifications                        | Partially complete | 40%      |
 | Phase 6 | Data Migration & Reports                      | Partially complete | 50%      |
 | Phase 7 | Security & Launch Hardening                   | Not started        | 10%      |
@@ -113,13 +113,18 @@
 
 - Expense ledger dashboard (running balance, totals, category breakdown)
 - Running balance = Total Collected − Total Expenses
-- Category breakdown (horizontal bar chart, no external library)
-- Add expense form (date, amount, category, description, receipt upload)
+- Category breakdown — horizontal CSS bars (no external library) on both admin and resident views
+- Add expense form (date, amount, category, description)
+- Receipt / invoice upload (JPG/PNG/PDF, max 5MB) — Supabase Storage `expense-receipts` bucket
+- Balance impact preview — live calculation shown in Add Expense dialog
 - 9 expense categories: Maintenance, Security, Cleaning, Staff Salary, Infrastructure, Utilities, Emergency, Administrative, Other
-- Expense correction (edit within 24h window)
-- Expense reversal (after 24h — creates negative entry, original struck-through)
-- Balance impact preview (live calculation)
-- Expense list with filters, search, pagination
+- **Expense correction** (`PATCH /expenses/[id]`) — edit amount, category, description within 24h window; `EditExpenseDialog` opens from `ExpenseDetailSheet`; `CorrectionWindowBadge` shows remaining time
+- **Expense reversal** (`POST /expenses/[id]/reverse`) — marks original `REVERSED` (struck-through in table), creates negative-amount reversal entry (double-entry audit trail), sets `reversedBy` + `reversedAt`
+- `ExpenseDetailSheet` — side sheet on row click; shows all details, receipt link, correction window badge, Edit / Reverse action buttons
+- Reversed rows visually struck-through with muted opacity in admin table
+- Date range filter (From / To inputs) on admin expenses table
+- Resident expense view: read-only, 3-card summary (Collected / Expenses / Balance), category bars
+- Test coverage: 29 service + validation tests, 32 admin page tests, 23 resident page tests (all passing)
 
 ---
 

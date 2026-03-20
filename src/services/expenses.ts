@@ -1,4 +1,8 @@
-import type { CreateExpenseInput, ReverseExpenseInput } from "@/lib/validations/expense";
+import type {
+  CreateExpenseInput,
+  ReverseExpenseInput,
+  UpdateExpenseInput,
+} from "@/lib/validations/expense";
 
 const API_BASE = "/api/v1";
 
@@ -10,9 +14,11 @@ export interface Expense {
   category: string;
   description: string;
   status: "ACTIVE" | "REVERSED";
+  receiptUrl: string | null;
   reversalNote: string | null;
   reversedAt: string | null;
-  correctionWindowEnds: string;
+  reversedBy: string | null;
+  correctionWindowEnds: string | null;
   loggedBy: string;
   logger: { name: string };
   createdAt: string;
@@ -60,6 +66,23 @@ export async function createExpense(societyId: string, data: CreateExpenseInput)
   if (!res.ok) {
     const err = await res.json();
     throw new Error(err.error?.message || "Failed to create expense");
+  }
+  return res.json() as Promise<Expense>;
+}
+
+export async function updateExpense(
+  societyId: string,
+  expenseId: string,
+  data: UpdateExpenseInput,
+) {
+  const res = await fetch(`${API_BASE}/societies/${societyId}/expenses/${expenseId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error?.message || "Failed to update expense");
   }
   return res.json() as Promise<Expense>;
 }
