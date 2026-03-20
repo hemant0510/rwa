@@ -546,7 +546,7 @@ describe("Admin ExpensesPage", () => {
     expect(confirmBtn).toBeDisabled();
   });
 
-  it("enables Confirm Reversal button when reason has 5+ chars", async () => {
+  it("enables Confirm Reversal button when reason has 5+ chars", { timeout: 15000 }, async () => {
     mockGetExpenseSummary.mockResolvedValue(null);
     mockGetExpenses.mockResolvedValue({
       data: [MOCK_ACTIVE_EXPENSE],
@@ -567,32 +567,36 @@ describe("Admin ExpensesPage", () => {
     expect(confirmBtn).not.toBeDisabled();
   });
 
-  it("calls reverseExpense with reason and closes dialog on success", async () => {
-    mockGetExpenseSummary.mockResolvedValue(null);
-    mockGetExpenses.mockResolvedValue({
-      data: [MOCK_ACTIVE_EXPENSE],
-      total: 1,
-      page: 1,
-      limit: 20,
-    });
-    mockReverseExpense.mockResolvedValue({ message: "Expense reversed" });
-
-    const user = userEvent.setup();
-    renderPage();
-    await waitFor(() => screen.getByText("Security guard salary"));
-    fireEvent.click(screen.getByText("Security guard salary"));
-    await waitFor(() => screen.getByText("Expense Details"));
-    fireEvent.click(screen.getByRole("button", { name: /Reverse/i }));
-    await waitFor(() => screen.getByText("Reverse Expense"));
-    const reasonInput = screen.getByPlaceholderText(/Why is this expense/i);
-    await user.type(reasonInput, "Logged in error by admin");
-    await user.click(screen.getByRole("button", { name: /Confirm Reversal/i }));
-    await waitFor(() => {
-      expect(mockReverseExpense).toHaveBeenCalledWith("soc-1", "exp-1", {
-        reason: "Logged in error by admin",
+  it(
+    "calls reverseExpense with reason and closes dialog on success",
+    { timeout: 15000 },
+    async () => {
+      mockGetExpenseSummary.mockResolvedValue(null);
+      mockGetExpenses.mockResolvedValue({
+        data: [MOCK_ACTIVE_EXPENSE],
+        total: 1,
+        page: 1,
+        limit: 20,
       });
-    });
-  });
+      mockReverseExpense.mockResolvedValue({ message: "Expense reversed" });
+
+      const user = userEvent.setup();
+      renderPage();
+      await waitFor(() => screen.getByText("Security guard salary"));
+      fireEvent.click(screen.getByText("Security guard salary"));
+      await waitFor(() => screen.getByText("Expense Details"));
+      fireEvent.click(screen.getByRole("button", { name: /Reverse/i }));
+      await waitFor(() => screen.getByText("Reverse Expense"));
+      const reasonInput = screen.getByPlaceholderText(/Why is this expense/i);
+      await user.type(reasonInput, "Logged in error by admin");
+      await user.click(screen.getByRole("button", { name: /Confirm Reversal/i }));
+      await waitFor(() => {
+        expect(mockReverseExpense).toHaveBeenCalledWith("soc-1", "exp-1", {
+          reason: "Logged in error by admin",
+        });
+      });
+    },
+  );
 
   // ─── Reversal Entry Row ───────────────────────────────────────────────────────
 

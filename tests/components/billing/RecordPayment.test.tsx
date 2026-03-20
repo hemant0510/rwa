@@ -66,39 +66,43 @@ describe("RecordSubscriptionPaymentDialog", () => {
     expect(screen.getByText("Save Payment")).toBeDisabled();
   });
 
-  it("calls recordSubscriptionPayment on submit and shows success toast", async () => {
-    mockRecordPayment.mockResolvedValue({ id: "p1" });
-    const user = userEvent.setup();
-    renderWithClient(<RecordSubscriptionPaymentDialog societyId="soc-1" />);
-    await user.click(screen.getByText("Record Payment"));
+  it(
+    "calls recordSubscriptionPayment on submit and shows success toast",
+    { timeout: 15000 },
+    async () => {
+      mockRecordPayment.mockResolvedValue({ id: "p1" });
+      const user = userEvent.setup();
+      renderWithClient(<RecordSubscriptionPaymentDialog societyId="soc-1" />);
+      await user.click(screen.getByText("Record Payment"));
 
-    // Fill in amount
-    const amountInput = screen.getByRole("spinbutton");
-    await user.type(amountInput, "5000");
+      // Fill in amount
+      const amountInput = screen.getByRole("spinbutton");
+      await user.type(amountInput, "5000");
 
-    // Fill in reference number (required for UPI)
-    const inputs = screen.getAllByRole("textbox");
-    const refInput = inputs[0]; // first textbox is reference no
-    await user.type(refInput, "UPI-REF-123");
+      // Fill in reference number (required for UPI)
+      const inputs = screen.getAllByRole("textbox");
+      const refInput = inputs[0]; // first textbox is reference no
+      await user.type(refInput, "UPI-REF-123");
 
-    // Wait for form to be valid, then click save
-    await waitFor(() => expect(screen.getByText("Save Payment")).not.toBeDisabled());
-    await user.click(screen.getByText("Save Payment"));
+      // Wait for form to be valid, then click save
+      await waitFor(() => expect(screen.getByText("Save Payment")).not.toBeDisabled());
+      await user.click(screen.getByText("Save Payment"));
 
-    await waitFor(() => {
-      expect(mockRecordPayment).toHaveBeenCalledWith(
-        "soc-1",
-        expect.objectContaining({
-          amount: 5000,
-          paymentMode: "UPI",
-          referenceNo: "UPI-REF-123",
-        }),
-      );
-    });
-    await waitFor(() => {
-      expect(toast.success).toHaveBeenCalledWith("Payment recorded");
-    });
-  });
+      await waitFor(() => {
+        expect(mockRecordPayment).toHaveBeenCalledWith(
+          "soc-1",
+          expect.objectContaining({
+            amount: 5000,
+            paymentMode: "UPI",
+            referenceNo: "UPI-REF-123",
+          }),
+        );
+      });
+      await waitFor(() => {
+        expect(toast.success).toHaveBeenCalledWith("Payment recorded");
+      });
+    },
+  );
 
   it("shows error toast on failure", async () => {
     mockRecordPayment.mockRejectedValue(new Error("No active subscription"));

@@ -27,24 +27,33 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-interface MigrationResult {
-  total: number;
-  valid: number;
-  invalid: number;
-  errors: { row: number; field: string; message: string }[];
-}
+import { useAuth } from "@/hooks/useAuth";
+import {
+  downloadMigrationTemplate,
+  validateMigrationFile,
+  importMigrationRecords,
+  type ValidateResult,
+} from "@/services/migration";
 
 export default function MigrationPage() {
+  const { user } = useAuth();
+  const societyId = user?.societyId ?? "";
+
   const [file, setFile] = useState<File | null>(null);
   const [step, setStep] = useState<"upload" | "validating" | "preview" | "importing" | "done">(
     "upload",
   );
-  const [result, setResult] = useState<MigrationResult | null>(null);
+  const [result, setResult] = useState<ValidateResult | null>(null);
+  const [importedCount, setImportedCount] = useState(0);
 
-  const handleDownloadTemplate = () => {
-    // TODO: Generate and download Excel template
-    toast.info("Template download will be available once backend is connected");
+  const handleDownloadTemplate = async () => {
+    if (!societyId) return;
+    try {
+      await downloadMigrationTemplate(societyId);
+      toast.success("Template downloaded");
+    } catch {
+      toast.error("Failed to download template");
+    }
   };
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -58,40 +67,35 @@ export default function MigrationPage() {
   }, []);
 
   const handleValidate = async () => {
-    if (!file) return;
+    if (!file || !societyId) return;
     setStep("validating");
 
     try {
-      // TODO: Upload file to validation API
-      await new Promise((r) => setTimeout(r, 2000));
-
-      // Mock validation result
-      setResult({
-        total: 25,
-        valid: 22,
-        invalid: 3,
-        errors: [
-          { row: 5, field: "mobile", message: "Invalid mobile number format" },
-          { row: 12, field: "houseNo", message: "House number is required" },
-          { row: 18, field: "name", message: "Name must be at least 2 characters" },
-        ],
-      });
+      const validationResult = await validateMigrationFile(societyId, file);
+      setResult(validationResult);
       setStep("preview");
-    } catch {
-      toast.error("Validation failed");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Validation failed");
       setStep("upload");
     }
   };
 
   const handleImport = async () => {
+    if (!result || !societyId) return;
     setStep("importing");
+
     try {
-      // TODO: Call import API
-      await new Promise((r) => setTimeout(r, 3000));
+      const validRows = result.preview.filter((_, i) => {
+        const rowNum = i + 2;
+        return !result.errors.some((e) => e.row === rowNum);
+      });
+
+      const importResult = await importMigrationRecords(societyId, validRows);
+      setImportedCount(importResult.summary.imported);
       setStep("done");
-      toast.success(`Successfully imported ${result?.valid ?? 0} residents`);
-    } catch {
-      toast.error("Import failed");
+      toast.success(`Successfully imported ${importResult.summary.imported} residents`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Import failed");
       setStep("preview");
     }
   };
@@ -99,7 +103,7 @@ export default function MigrationPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Bulk Migration" description="Import residents from Excel">
-        <Button variant="outline" onClick={handleDownloadTemplate}>
+        <Button variant="outline" onClick={handleDownloadTemplate} disabled={!societyId}>
           <Download className="mr-2 h-4 w-4" />
           Download Template
         </Button>
@@ -252,8 +256,7 @@ export default function MigrationPage() {
             <CheckCircle className="h-12 w-12 text-green-500" />
             <h2 className="text-xl font-bold">Import Complete!</h2>
             <p className="text-muted-foreground text-sm">
-              {result?.valid ?? 0} residents have been imported as &quot;Migrated (Pending)&quot;
-              status.
+              {importedCount} residents have been imported successfully.
             </p>
             <div className="flex gap-3">
               <Button
@@ -262,6 +265,7 @@ export default function MigrationPage() {
                   setStep("upload");
                   setFile(null);
                   setResult(null);
+                  setImportedCount(0);
                 }}
               >
                 Import More

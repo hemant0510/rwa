@@ -1,11 +1,25 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+
+// Intercept setInterval before module import to capture the cleanup callback
+const { getCleanupFn } = vi.hoisted(() => {
+  let capturedFn: (() => void) | null = null;
+  const origSetInterval = globalThis.setInterval;
+  (globalThis as unknown as Record<string, unknown>).setInterval = (fn: () => void, ms: number) => {
+    if (ms === 60_000) capturedFn = fn;
+    return (origSetInterval as typeof setInterval)(fn, ms);
+  };
+  return { getCleanupFn: () => capturedFn };
+});
 
 import { checkRateLimit } from "@/lib/rate-limit";
 
 describe("checkRateLimit", () => {
   beforeEach(() => {
-    // Use a unique key per test to avoid collisions
     vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("allows first request", () => {
@@ -57,5 +71,22 @@ describe("checkRateLimit", () => {
     expect(result.remaining).toBe(4);
   });
 
-  vi.useRealTimers();
+  it("cleanup deletes expired entries but keeps non-expired ones", () => {
+    // Register two keys with different windows
+    checkRateLimit("cleanup-expired-key", 5, 100); // very short window
+    checkRateLimit("cleanup-valid-key", 5, 60_000); // long window
+
+    // Advance time past the short window so first key expires
+    vi.advanceTimersByTime(500);
+
+    // Invoke the cleanup callback directly (covers setInterval callback branches)
+    const cleanup = getCleanupFn();
+    expect(cleanup).not.toBeNull();
+    if (cleanup) cleanup();
+
+    // The non-expired key should still be tracked (second call → count=2, remaining=3)
+    const result = checkRateLimit("cleanup-valid-key", 5, 60_000);
+    expect(result.allowed).toBe(true);
+    expect(result.remaining).toBe(3);
+  });
 });
