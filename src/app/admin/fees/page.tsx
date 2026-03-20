@@ -5,7 +5,7 @@ import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { CreditCard, IndianRupee, Loader2 } from "lucide-react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useSocietyId } from "@/hooks/useSocietyId";
+import { maskMobile } from "@/lib/utils";
 import { recordPaymentSchema, type RecordPaymentInput } from "@/lib/validations/fee";
 import { getFeeDashboard, recordPayment, grantExemption } from "@/services/fees";
 import type { FeeStatus, PaymentMode } from "@/types/fee";
@@ -85,6 +86,7 @@ export default function FeesPage() {
       notes: "",
     },
   });
+  const paymentMode = useWatch({ control: paymentForm.control, name: "paymentMode" });
 
   const paymentMutation = useMutation({
     mutationFn: (data: RecordPaymentInput) => recordPayment(societyId, paymentDialog.feeId, data),
@@ -181,7 +183,9 @@ export default function FeesPage() {
                     <TableRow key={fee.id}>
                       <TableCell>
                         <p className="font-medium">{fee.user.name}</p>
-                        <p className="text-muted-foreground text-xs sm:hidden">{fee.user.mobile}</p>
+                        <p className="text-muted-foreground text-xs sm:hidden">
+                          {maskMobile(fee.user.mobile)}
+                        </p>
                       </TableCell>
                       <TableCell className="hidden font-mono text-xs sm:table-cell">
                         {fee.user.rwaid || "—"}
@@ -287,7 +291,7 @@ export default function FeesPage() {
                 Payment Mode <span className="text-destructive">*</span>
               </Label>
               <Select
-                value={paymentForm.watch("paymentMode")}
+                value={paymentMode}
                 onValueChange={(v) => paymentForm.setValue("paymentMode", v as PaymentMode)}
               >
                 <SelectTrigger>
@@ -304,8 +308,7 @@ export default function FeesPage() {
                 </SelectContent>
               </Select>
             </div>
-            {(paymentForm.watch("paymentMode") === "UPI" ||
-              paymentForm.watch("paymentMode") === "BANK_TRANSFER") && (
+            {(paymentMode === "UPI" || paymentMode === "BANK_TRANSFER") && (
               <div className="space-y-2">
                 <Label>Reference Number</Label>
                 <Input

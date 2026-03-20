@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-import { validateMigrationFile, importMigrationRecords } from "@/services/migration";
+import {
+  validateMigrationFile,
+  importMigrationRecords,
+  importMigrationRecordsStream,
+} from "@/services/migration";
 
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
@@ -92,6 +96,132 @@ describe("migration service", () => {
     it("throws fallback error when no message", async () => {
       mockFetch.mockResolvedValue(errJson({}));
       await expect(importMigrationRecords("soc-1", validRecords)).rejects.toThrow("Import failed");
+    });
+  });
+
+  describe("importMigrationRecordsStream", () => {
+    const records = [
+      {
+        fullName: "Jane",
+        email: "jane@example.com",
+        mobile: "9876543211",
+        ownershipType: "OWNER",
+        feeStatus: "PAID",
+        unitFields: {},
+      },
+    ];
+
+    function makeStreamResponse(lines: string[]) {
+      const text = lines.join("\n") + "\n";
+      const encoded = new TextEncoder().encode(text);
+      const reader = {
+        read: vi
+          .fn()
+          .mockImplementationOnce(() => Promise.resolve({ done: false, value: encoded }))
+          .mockImplementationOnce(() => Promise.resolve({ done: true, value: undefined })),
+      };
+      return {
+        ok: true,
+        body: { getReader: () => reader },
+        json: () => Promise.resolve({}),
+      };
+    }
+
+    it("calls the import-stream endpoint with POST", async () => {
+      const doneEvent = { type: "done", summary: { total: 1, imported: 1, failed: 0 } };
+      mockFetch.mockResolvedValue(makeStreamResponse([`data: ${JSON.stringify(doneEvent)}`]));
+
+      const events: unknown[] = [];
+      await importMigrationRecordsStream("soc-1", records as never, (e) => events.push(e));
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining("/migration/import-stream"),
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
+
+    it("calls onEvent for each parsed SSE event", async () => {
+      const progressEvent = {
+        type: "progress",
+        rowIndex: 0,
+        total: 1,
+        processed: 0,
+        imported: 0,
+        failed: 0,
+      };
+      const doneEvent = { type: "done", summary: { total: 1, imported: 1, failed: 0 } };
+      mockFetch.mockResolvedValue(
+        makeStreamResponse([
+          `data: ${JSON.stringify(progressEvent)}`,
+          `data: ${JSON.stringify(doneEvent)}`,
+        ]),
+      );
+
+      const events: unknown[] = [];
+      await importMigrationRecordsStream("soc-1", records as never, (e) => events.push(e));
+
+      expect(events).toHaveLength(2);
+      expect(events[0]).toMatchObject({ type: "progress" });
+      expect(events[1]).toMatchObject({ type: "done" });
+    });
+
+    it("ignores non-data SSE lines", async () => {
+      const doneEvent = { type: "done", summary: { total: 1, imported: 1, failed: 0 } };
+      mockFetch.mockResolvedValue(
+        makeStreamResponse([`: comment line`, ``, `data: ${JSON.stringify(doneEvent)}`]),
+      );
+
+      const events: unknown[] = [];
+      await importMigrationRecordsStream("soc-1", records as never, (e) => events.push(e));
+      expect(events).toHaveLength(1);
+    });
+
+    it("skips malformed JSON lines without throwing", async () => {
+      const doneEvent = { type: "done", summary: { total: 1, imported: 1, failed: 0 } };
+      mockFetch.mockResolvedValue(
+        makeStreamResponse([`data: NOT_VALID_JSON`, `data: ${JSON.stringify(doneEvent)}`]),
+      );
+
+      const events: unknown[] = [];
+      await importMigrationRecordsStream("soc-1", records as never, (e) => events.push(e));
+      expect(events).toHaveLength(1);
+      expect(events[0]).toMatchObject({ type: "done" });
+    });
+
+    it("throws when response is not ok", async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        body: null,
+        json: () => Promise.resolve({ error: { message: "Unauthorized" } }),
+      });
+
+      await expect(
+        importMigrationRecordsStream("soc-1", records as never, vi.fn()),
+      ).rejects.toThrow("Unauthorized");
+    });
+
+    it("throws fallback error when error response has no message", async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        body: null,
+        json: () => Promise.resolve({}),
+      });
+
+      await expect(
+        importMigrationRecordsStream("soc-1", records as never, vi.fn()),
+      ).rejects.toThrow("Import failed");
+    });
+
+    it("throws when response body is null", async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        body: null,
+        json: () => Promise.resolve({}),
+      });
+
+      await expect(
+        importMigrationRecordsStream("soc-1", records as never, vi.fn()),
+      ).rejects.toThrow("Import failed");
     });
   });
 

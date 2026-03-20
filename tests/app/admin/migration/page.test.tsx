@@ -4,27 +4,29 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+import MigrationPage from "@/app/admin/migration/page";
 import { AuthContext } from "@/hooks/useAuth";
 
-const { mockDownloadMigrationTemplate, mockValidateMigrationFile, mockImportMigrationRecords } =
-  vi.hoisted(() => ({
-    mockDownloadMigrationTemplate: vi.fn(),
-    mockValidateMigrationFile: vi.fn(),
-    mockImportMigrationRecords: vi.fn(),
-  }));
+const {
+  mockDownloadMigrationTemplate,
+  mockValidateMigrationFile,
+  mockImportMigrationRecordsStream,
+} = vi.hoisted(() => ({
+  mockDownloadMigrationTemplate: vi.fn(),
+  mockValidateMigrationFile: vi.fn(),
+  mockImportMigrationRecordsStream: vi.fn(),
+}));
 
 vi.mock("@/services/migration", () => ({
   downloadMigrationTemplate: (...args: unknown[]) => mockDownloadMigrationTemplate(...args),
   validateMigrationFile: (...args: unknown[]) => mockValidateMigrationFile(...args),
-  importMigrationRecords: (...args: unknown[]) => mockImportMigrationRecords(...args),
+  importMigrationRecordsStream: (...args: unknown[]) => mockImportMigrationRecordsStream(...args),
 }));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
   usePathname: () => "/admin/migration",
 }));
-
-import MigrationPage from "@/app/admin/migration/page";
 
 function renderPage(userOverrides: Record<string, unknown> = {}) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -94,14 +96,6 @@ const MOCK_VALIDATE_RESULT = {
       unitFields: {},
     },
   ],
-};
-
-const MOCK_IMPORT_RESULT = {
-  results: [
-    { rowIndex: 0, success: true, rwaid: "RWA-1" },
-    { rowIndex: 1, success: true, rwaid: "RWA-2" },
-  ],
-  summary: { total: 2, imported: 2, failed: 0 },
 };
 
 describe("MigrationPage", () => {
@@ -243,9 +237,14 @@ describe("MigrationPage", () => {
     });
   });
 
-  it("calls importMigrationRecords and shows done step", async () => {
+  it("calls importMigrationRecordsStream and shows done step", async () => {
     mockValidateMigrationFile.mockResolvedValue(MOCK_VALIDATE_RESULT);
-    mockImportMigrationRecords.mockResolvedValue(MOCK_IMPORT_RESULT);
+    // Simulate the stream: call onEvent with done event then resolve
+    mockImportMigrationRecordsStream.mockImplementation(
+      async (_societyId: unknown, _records: unknown, onEvent: (e: unknown) => void) => {
+        onEvent({ type: "done", summary: { total: 2, imported: 2, failed: 0 } });
+      },
+    );
     renderPage();
 
     const input = document.querySelector('input[type="file"]') as HTMLInputElement;
@@ -298,7 +297,11 @@ describe("MigrationPage", () => {
 
   it("shows Import More button in done step", async () => {
     mockValidateMigrationFile.mockResolvedValue(MOCK_VALIDATE_RESULT);
-    mockImportMigrationRecords.mockResolvedValue(MOCK_IMPORT_RESULT);
+    mockImportMigrationRecordsStream.mockImplementation(
+      async (_societyId: unknown, _records: unknown, onEvent: (e: unknown) => void) => {
+        onEvent({ type: "done", summary: { total: 2, imported: 2, failed: 0 } });
+      },
+    );
     renderPage();
 
     const input = document.querySelector('input[type="file"]') as HTMLInputElement;

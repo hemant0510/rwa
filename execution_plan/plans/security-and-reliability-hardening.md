@@ -134,7 +134,7 @@ If two admins upload simultaneously, both reads return the same count, and both 
 **Files to change:**
 | File | Change |
 |---|---|
-| `prisma/dbinuse.prisma` | Verify/add `@@unique` on `rwaid` field |
+| `supabase/dbinuse.prisma` | Verify/add `@@unique` on `rwaid` field |
 | `src/app/api/v1/residents/bulk-upload/route.ts` | Catch Prisma `P2002`, retry with +1 sequence (max 3 retries) |
 
 ---

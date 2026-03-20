@@ -97,3 +97,61 @@ export async function importMigrationRecords(
 
   return res.json() as Promise<ImportResult>;
 }
+
+export type ImportStreamEvent =
+  | {
+      type: "progress";
+      rowIndex: number;
+      total: number;
+      processed: number;
+      imported: number;
+      failed: number;
+    }
+  | { type: "result"; rowIndex: number; success: boolean; rwaid?: string; error?: string }
+  | { type: "done"; summary: { total: number; imported: number; failed: number } }
+  | { type: "error"; message: string };
+
+/**
+ * Streams import progress via SSE.
+ * Calls onEvent for each parsed SSE message until the stream closes.
+ */
+export async function importMigrationRecordsStream(
+  societyId: string,
+  records: ImportRecord[],
+  onEvent: (event: ImportStreamEvent) => void,
+): Promise<void> {
+  const res = await fetch(`${API_BASE}/societies/${societyId}/migration/import-stream`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ records }),
+  });
+
+  if (!res.ok || !res.body) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: { message?: string } }).error?.message ?? "Import failed");
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+
+    for (const line of lines) {
+      if (line.startsWith("data: ")) {
+        try {
+          const event = JSON.parse(line.slice(6)) as ImportStreamEvent;
+          onEvent(event);
+        } catch {
+          // malformed SSE line — skip
+        }
+      }
+    }
+  }
+}

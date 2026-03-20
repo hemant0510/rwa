@@ -472,6 +472,110 @@ describe("PlanSwitchModal", () => {
     });
   });
 
+  describe("pending button text", () => {
+    it("shows 'Assigning...' while assigning (isPending + !isSwitch)", async () => {
+      const user = userEvent.setup();
+      const plans = [makePlan({ id: "plan-1", name: "Basic Plan" })];
+      mockGetPlans.mockResolvedValue(plans);
+      let resolveAssign!: (v: unknown) => void;
+      mockAssignPlan.mockReturnValue(new Promise((resolve) => (resolveAssign = resolve)));
+      renderModal({ currentPlan: null });
+
+      await waitFor(() => screen.getByText("Basic Plan"));
+      await user.click(screen.getByText("Basic Plan"));
+      await waitFor(() => screen.getByRole("button", { name: /assign plan/i }));
+      await user.click(screen.getByRole("button", { name: /assign plan/i }));
+
+      await waitFor(() =>
+        expect(screen.getByRole("button", { name: /assigning/i })).toBeInTheDocument(),
+      );
+      resolveAssign({ proRata: { netAmount: 0 } });
+    });
+
+    it("shows 'Switching...' while switching (isPending + isSwitch)", async () => {
+      const user = userEvent.setup();
+      const currentPlan = makePlan({ id: "plan-1", name: "Basic Plan" });
+      const plans = [currentPlan, makePlan({ id: "plan-2", name: "Pro Plan" })];
+      mockGetPlans.mockResolvedValue(plans);
+      let resolveSwitch!: (v: unknown) => void;
+      mockSwitchPlan.mockReturnValue(new Promise((resolve) => (resolveSwitch = resolve)));
+      renderModal({ currentPlan });
+
+      await waitFor(() => screen.getByText("Pro Plan"));
+      await user.click(screen.getByText("Pro Plan"));
+      await waitFor(() => screen.getByRole("button", { name: /confirm switch/i }));
+      await user.click(screen.getByRole("button", { name: /confirm switch/i }));
+
+      await waitFor(() =>
+        expect(screen.getByRole("button", { name: /switching/i })).toBeInTheDocument(),
+      );
+      resolveSwitch({ proRata: { netAmount: 0 } });
+    });
+  });
+
+  describe("handlePlanSelect resets cycle when plan lacks current cycle", () => {
+    it("resets to MONTHLY when switching to plan without current ANNUAL cycle", async () => {
+      const user = userEvent.setup();
+      const planWithAnnual = makePlan({
+        id: "plan-1",
+        name: "Plan With Annual",
+        billingOptions: [
+          {
+            id: "opt-m",
+            planId: "plan-1",
+            billingCycle: "MONTHLY",
+            price: 999,
+            isActive: true,
+            createdAt: "",
+            updatedAt: "",
+          },
+          {
+            id: "opt-a",
+            planId: "plan-1",
+            billingCycle: "ANNUAL",
+            price: 9990,
+            isActive: true,
+            createdAt: "",
+            updatedAt: "",
+          },
+        ],
+      });
+      const planMonthlyOnly = makePlan({
+        id: "plan-2",
+        name: "Plan Monthly Only",
+        billingOptions: [
+          {
+            id: "opt-2m",
+            planId: "plan-2",
+            billingCycle: "MONTHLY",
+            price: 500,
+            isActive: true,
+            createdAt: "",
+            updatedAt: "",
+          },
+        ],
+      });
+      mockGetPlans.mockResolvedValue([planWithAnnual, planMonthlyOnly]);
+      renderModal({ currentPlan: null });
+
+      // Select plan-1 and switch to ANNUAL cycle
+      await waitFor(() => screen.getByText("Plan With Annual"));
+      await user.click(screen.getByText("Plan With Annual"));
+
+      await waitFor(() => screen.getByText("Billing Cycle"));
+      // Click the ANNUAL billing option button
+      await user.click(screen.getByText("Annual"));
+
+      // Now select plan-2 (which has no ANNUAL) — should reset to MONTHLY
+      await user.click(screen.getByText("Plan Monthly Only"));
+
+      // MONTHLY should now be the active cycle for plan-2
+      await waitFor(() => {
+        expect(screen.getByText("Monthly")).toBeInTheDocument();
+      });
+    });
+  });
+
   describe("dialog not open", () => {
     it("does not render dialog content when open=false", () => {
       const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });

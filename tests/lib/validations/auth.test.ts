@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { loginSchema, superAdminLoginSchema } from "@/lib/validations/auth";
+import { loginSchema, superAdminLoginSchema, resetPasswordSchema } from "@/lib/validations/auth";
 
 describe("loginSchema", () => {
   it("passes with valid input", () => {
@@ -110,6 +110,41 @@ describe("superAdminLoginSchema", () => {
       password: "",
     });
 
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("resetPasswordSchema", () => {
+  const validReset = {
+    token: "reset-token-abc",
+    password: "newpassword123",
+    confirmPassword: "newpassword123",
+  };
+
+  it("passes with matching passwords", () => {
+    const result = resetPasswordSchema.safeParse(validReset);
+    expect(result.success).toBe(true);
+  });
+
+  it("fails when passwords do not match", () => {
+    const result = resetPasswordSchema.safeParse({
+      ...validReset,
+      confirmPassword: "differentpassword",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("fails when token is empty", () => {
+    const result = resetPasswordSchema.safeParse({ ...validReset, token: "" });
+    expect(result.success).toBe(false);
+  });
+
+  it("fails when password is too short", () => {
+    const result = resetPasswordSchema.safeParse({
+      ...validReset,
+      password: "short",
+      confirmPassword: "short",
+    });
     expect(result.success).toBe(false);
   });
 });

@@ -167,6 +167,39 @@ describe("RecordSubscriptionPaymentDialog", () => {
     expect(dateInput).toHaveValue("2025-06-15");
   });
 
+  it("changes payment mode via Select onValueChange", async () => {
+    const user = userEvent.setup();
+    renderWithClient(<RecordSubscriptionPaymentDialog societyId="soc-1" />);
+    await user.click(screen.getByText("Record Payment"));
+
+    // Open the payment mode select (combobox)
+    const trigger = screen.getByRole("combobox");
+    await user.click(trigger);
+
+    // Select "Cash" option
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: "Cash" })).toBeInTheDocument();
+    });
+    await user.click(screen.getByRole("option", { name: "Cash" }));
+
+    // When CASH is selected, reference field is not required
+    await waitFor(() => {
+      expect(screen.queryByText(/Required for/)).not.toBeInTheDocument();
+    });
+  });
+
+  it("toggles send email checkbox via onCheckedChange", async () => {
+    const user = userEvent.setup();
+    renderWithClient(<RecordSubscriptionPaymentDialog societyId="soc-1" />);
+    await user.click(screen.getByText("Record Payment"));
+
+    const checkbox = screen.getByRole("checkbox");
+    // sendEmail defaults to true
+    expect(checkbox).toBeChecked();
+    await user.click(checkbox);
+    expect(checkbox).not.toBeChecked();
+  });
+
   it("allows typing notes", async () => {
     const user = userEvent.setup();
     renderWithClient(<RecordSubscriptionPaymentDialog societyId="soc-1" />);

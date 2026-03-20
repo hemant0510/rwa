@@ -267,4 +267,4 @@ SocietySubscription       — Active subscription for a society (one at a time)
 | `src/components/features/plans/FeatureFlagGrid.tsx`               | Feature toggle grid                        |
 | `src/components/features/subscription/SubscriptionStatusCard.tsx` | Society subscription status                |
 | `src/components/features/subscription/PlanSwitchModal.tsx`        | Plan switch dialog                         |
-| `prisma/seed/plans.ts`                                            | Seeds all 6 plans + billing options        |
+| `supabase/seed/plans.ts`                                          | Seeds all 6 plans + billing options        |

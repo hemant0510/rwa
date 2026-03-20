@@ -2,11 +2,10 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const { mockPush, mockRefresh, mockToast, mockSignIn, mockSignOut, mockFetch } = vi.hoisted(() => ({
+const { mockPush, mockRefresh, mockToast, mockSignOut, mockFetch } = vi.hoisted(() => ({
   mockPush: vi.fn(),
   mockRefresh: vi.fn(),
   mockToast: { success: vi.fn(), error: vi.fn() },
-  mockSignIn: vi.fn(),
   mockSignOut: vi.fn(),
   mockFetch: vi.fn(),
 }));
@@ -21,11 +20,47 @@ vi.mock("sonner", () => ({
 
 vi.mock("@/lib/supabase/client", () => ({
   createClient: () => ({
-    auth: { signInWithPassword: mockSignIn, signOut: mockSignOut },
+    auth: { signOut: mockSignOut },
   }),
 }));
 
 global.fetch = mockFetch;
+
+// Helper to build fetch mock responses
+function loginOk() {
+  return { ok: true, status: 200, json: () => Promise.resolve({ success: true }) };
+}
+function loginError(message: string, status = 401) {
+  return {
+    ok: false,
+    status,
+    json: () => Promise.resolve({ error: { code: "INVALID_CREDENTIALS", message } }),
+  };
+}
+function loginRateLimited() {
+  return {
+    ok: false,
+    status: 429,
+    json: () =>
+      Promise.resolve({
+        error: {
+          code: "RATE_LIMIT_EXCEEDED",
+          message: "Too many login attempts. Please wait 15 minutes before trying again.",
+        },
+      }),
+  };
+}
+function meOk(overrides: Record<string, unknown> = {}) {
+  return {
+    ok: true,
+    status: 200,
+    json: () =>
+      Promise.resolve({ redirectTo: "/admin/dashboard", emailVerified: true, ...overrides }),
+  };
+}
+function meNotFound() {
+  return { ok: false, status: 404, json: () => Promise.resolve({ error: "Not found" }) };
+}
 
 import LoginPage from "@/app/(auth)/login/page";
 
@@ -71,11 +106,8 @@ describe("LoginPage", () => {
   });
 
   it("handles successful login", async () => {
-    mockSignIn.mockResolvedValue({ error: null });
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ redirectTo: "/admin/dashboard", emailVerified: true }),
-    });
+    // First fetch = /api/v1/auth/login proxy, second = /api/v1/auth/me
+    mockFetch.mockResolvedValueOnce(loginOk()).mockResolvedValueOnce(meOk());
 
     const user = userEvent.setup();
     render(<LoginPage />);
@@ -85,19 +117,12 @@ describe("LoginPage", () => {
     await user.click(screen.getByRole("button", { name: /sign in/i }));
 
     await waitFor(() => {
-      expect(mockSignIn).toHaveBeenCalledWith({
-        email: "test@example.com",
-        password: "password123",
-      });
-    });
-
-    await waitFor(() => {
       expect(mockToast.success).toHaveBeenCalledWith("Login successful!");
     });
   });
 
-  it("shows error toast on auth error", async () => {
-    mockSignIn.mockResolvedValue({ error: { message: "Invalid credentials" } });
+  it("shows error toast on auth error (invalid credentials)", async () => {
+    mockFetch.mockResolvedValueOnce(loginError("Invalid credentials"));
 
     const user = userEvent.setup();
     render(<LoginPage />);
@@ -111,13 +136,27 @@ describe("LoginPage", () => {
     });
   });
 
-  it("redirects to check-email when email not verified", async () => {
-    mockSignIn.mockResolvedValue({ error: null });
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: () =>
-        Promise.resolve({ redirectTo: null, emailVerified: false, email: "test@example.com" }),
+  it("shows rate limit toast on 429", async () => {
+    mockFetch.mockResolvedValueOnce(loginRateLimited());
+
+    const user = userEvent.setup();
+    render(<LoginPage />);
+
+    await user.type(screen.getByLabelText(/email/i), "test@example.com");
+    await user.type(screen.getByLabelText(/password/i), "password123");
+    await user.click(screen.getByRole("button", { name: /sign in/i }));
+
+    await waitFor(() => {
+      expect(mockToast.error).toHaveBeenCalledWith(expect.stringMatching(/too many/i));
     });
+  });
+
+  it("redirects to check-email when email not verified", async () => {
+    mockFetch
+      .mockResolvedValueOnce(loginOk())
+      .mockResolvedValueOnce(
+        meOk({ redirectTo: null, emailVerified: false, email: "test@example.com" }),
+      );
 
     const user = userEvent.setup();
     render(<LoginPage />);
@@ -136,8 +175,7 @@ describe("LoginPage", () => {
   });
 
   it("handles account not found", async () => {
-    mockSignIn.mockResolvedValue({ error: null });
-    mockFetch.mockResolvedValue({ ok: false });
+    mockFetch.mockResolvedValueOnce(loginOk()).mockResolvedValueOnce(meNotFound());
 
     const user = userEvent.setup();
     render(<LoginPage />);
@@ -152,7 +190,7 @@ describe("LoginPage", () => {
   });
 
   it("handles unexpected errors", async () => {
-    mockSignIn.mockRejectedValue(new Error("Network error"));
+    mockFetch.mockRejectedValueOnce(new Error("Network error"));
 
     const user = userEvent.setup();
     render(<LoginPage />);

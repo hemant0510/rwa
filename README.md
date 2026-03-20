@@ -42,7 +42,7 @@ All commands are available via `npm run <script>` or `make <target>`.
 
 ### Database
 
-Schema is managed via `prisma/dbinuse.prisma` (configured in `prisma.config.ts`).
+Schema is managed via `supabase/dbinuse.prisma` (configured in `prisma.config.ts`).
 
 | npm script                  | make shortcut            | Description                                 |
 | --------------------------- | ------------------------ | ------------------------------------------- |
@@ -69,7 +69,7 @@ Schema is managed via `prisma/dbinuse.prisma` (configured in `prisma.config.ts`)
 
 ```
 src/app/             # App Router — pages, layouts, API routes
-prisma/
+supabase/
   ├── dbinuse.prisma # Active schema (25 tables)
   ├── schema.prisma  # Full schema backup (34 tables, frozen)
   ├── seed.ts        # Demo data seed (societies + residents)

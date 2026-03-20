@@ -139,4 +139,30 @@ describe("BulkReminderSheet", () => {
     resolveSend({ sent: 1, failed: 0 });
     await waitFor(() => expect(toast.success).toHaveBeenCalled());
   });
+
+  it("changes template type via Select onValueChange", async () => {
+    mockSendBulkReminders.mockResolvedValue({ sent: 1, failed: 0 });
+    const user = userEvent.setup();
+    renderWithClient(<BulkReminderSheet societies={societies} />);
+    await user.click(screen.getByText("Bulk Send Reminders"));
+
+    // Open the template select
+    const trigger = screen.getByRole("combobox");
+    await user.click(trigger);
+
+    // Select "Overdue Reminder" option
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: "Overdue Reminder" })).toBeInTheDocument();
+    });
+    await user.click(screen.getByRole("option", { name: "Overdue Reminder" }));
+
+    // Select a society and send to verify the new template is used
+    const checkboxes = screen.getAllByRole("checkbox");
+    await user.click(checkboxes[0]);
+    await user.click(screen.getByText("Send (1)"));
+
+    await waitFor(() => {
+      expect(mockSendBulkReminders).toHaveBeenCalledWith(["s1"], "overdue-reminder");
+    });
+  });
 });

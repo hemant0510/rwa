@@ -5,7 +5,7 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/admin/dashboard",
 }));
 
-import { AdminSidebar } from "@/components/layout/AdminSidebar";
+import { AdminSidebar, AdminMobileSidebar } from "@/components/layout/AdminSidebar";
 
 describe("AdminSidebar", () => {
   it("renders RWA Admin heading", () => {
@@ -45,5 +45,32 @@ describe("AdminSidebar", () => {
     render(<AdminSidebar societyName="Test" queryString="?sid=soc-1&sname=Test" />);
     const dashboardLink = screen.getByText("Dashboard").closest("a");
     expect(dashboardLink?.getAttribute("href")).toContain("?sid=soc-1&sname=Test");
+  });
+});
+
+describe("AdminMobileSidebar", () => {
+  it("renders navigation inside a Sheet when open", () => {
+    render(<AdminMobileSidebar open={true} onOpenChange={vi.fn()} societyName="Eden Estate" />);
+    expect(screen.getByText("Dashboard")).toBeInTheDocument();
+    expect(screen.getByText("Eden Estate")).toBeInTheDocument();
+  });
+
+  it("does not render Sheet content when closed", () => {
+    render(<AdminMobileSidebar open={false} onOpenChange={vi.fn()} societyName="Eden Estate" />);
+    // Navigation items should not be visible when the sheet is closed
+    expect(screen.queryByText("Dashboard")).not.toBeInTheDocument();
+  });
+
+  it("passes queryString to nav links", () => {
+    render(
+      <AdminMobileSidebar
+        open={true}
+        onOpenChange={vi.fn()}
+        societyName="Test"
+        queryString="?sid=soc-1"
+      />,
+    );
+    const dashboardLink = screen.getByText("Dashboard").closest("a");
+    expect(dashboardLink?.getAttribute("href")).toContain("?sid=soc-1");
   });
 });

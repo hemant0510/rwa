@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { cn } from "@/lib/utils";
+import { cn, maskMobile } from "@/lib/utils";
 
 describe("cn", () => {
   it("merges class names", () => {
@@ -29,5 +29,36 @@ describe("cn", () => {
   it("handles empty input", () => {
     const result = cn();
     expect(result).toBe("");
+  });
+});
+
+describe("maskMobile", () => {
+  it("masks first 5 digits of a 10-digit number", () => {
+    expect(maskMobile("9876543210")).toBe("XXXXX 43210");
+  });
+
+  it("masks numbers with leading zeros", () => {
+    expect(maskMobile("0123456789")).toBe("XXXXX 56789");
+  });
+
+  it("returns non-10-digit strings unchanged", () => {
+    expect(maskMobile("98765")).toBe("98765");
+    expect(maskMobile("987654321012")).toBe("987654321012");
+  });
+
+  it("returns — for null", () => {
+    expect(maskMobile(null)).toBe("—");
+  });
+
+  it("returns — for undefined", () => {
+    expect(maskMobile(undefined)).toBe("—");
+  });
+
+  it("returns — for empty string", () => {
+    expect(maskMobile("")).toBe("—");
+  });
+
+  it("returns non-numeric strings unchanged", () => {
+    expect(maskMobile("not-a-number")).toBe("not-a-number");
   });
 });

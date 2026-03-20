@@ -71,6 +71,29 @@ describe("SendReminderDialog", () => {
     });
   });
 
+  it("changes template via Select onValueChange", async () => {
+    mockSendReminder.mockResolvedValue({ sent: 1 });
+    const user = userEvent.setup();
+    renderWithClient(<SendReminderDialog societyId="soc-1" />);
+    await user.click(screen.getByText("Send Reminder"));
+
+    // Open the template select
+    const trigger = screen.getByRole("combobox");
+    await user.click(trigger);
+
+    // Select "Overdue Reminder" option
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: "Overdue Reminder" })).toBeInTheDocument();
+    });
+    await user.click(screen.getByRole("option", { name: "Overdue Reminder" }));
+
+    await user.click(screen.getByText("Send"));
+
+    await waitFor(() => {
+      expect(mockSendReminder).toHaveBeenCalledWith("soc-1", "overdue-reminder");
+    });
+  });
+
   it("shows 'Sending...' while mutation is in progress", async () => {
     let resolveReminder!: (v: unknown) => void;
     mockSendReminder.mockReturnValue(

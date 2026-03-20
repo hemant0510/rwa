@@ -29,14 +29,23 @@ export default function LoginPage() {
   const handleLogin = async (data: LoginInput) => {
     setIsLoading(true);
     try {
-      const supabase = createClient();
-      const { error } = await supabase.auth.signInWithPassword({
-        email: data.email,
-        password: data.password,
+      // Server-side login (rate-limited)
+      const loginRes = await fetch("/api/v1/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: data.email, password: data.password }),
       });
 
-      if (error) {
-        toast.error(error.message);
+      const loginBody = (await loginRes.json()) as {
+        error?: { code?: string; message?: string };
+      };
+
+      if (!loginRes.ok) {
+        if (loginRes.status === 429) {
+          toast.error(loginBody.error?.message ?? "Too many attempts. Please try again later.");
+        } else {
+          toast.error(loginBody.error?.message ?? "Invalid credentials.");
+        }
         return;
       }
 
@@ -44,14 +53,15 @@ export default function LoginPage() {
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Determine role and redirect
-      const res = await fetch("/api/v1/auth/me");
-      if (!res.ok) {
+      const meRes = await fetch("/api/v1/auth/me");
+      if (!meRes.ok) {
         toast.error("Account not found. Please contact your admin.");
+        const supabase = createClient();
         await supabase.auth.signOut();
         return;
       }
 
-      const me = (await res.json()) as {
+      const me = (await meRes.json()) as {
         redirectTo: string | null;
         emailVerified?: boolean;
         email?: string;
@@ -60,6 +70,7 @@ export default function LoginPage() {
       // Handle unverified email
       if (me.emailVerified === false) {
         toast.error("Please verify your email before signing in.");
+        const supabase = createClient();
         await supabase.auth.signOut();
         router.push(`/check-email?email=${encodeURIComponent(me.email ?? data.email)}`);
         return;
@@ -131,6 +142,17 @@ export default function LoginPage() {
           <Link href="/register-society" className="text-primary underline">
             Register your society
           </Link>
+        </div>
+        <div className="text-muted-foreground mt-3 text-center text-xs">
+          By signing in, you agree to our{" "}
+          <Link href="/terms" className="hover:text-foreground underline">
+            Terms of Service
+          </Link>{" "}
+          and{" "}
+          <Link href="/privacy" className="hover:text-foreground underline">
+            Privacy Policy
+          </Link>
+          .
         </div>
       </CardContent>
     </Card>

@@ -39,6 +39,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useSocietyId } from "@/hooks/useSocietyId";
+import { maskMobile } from "@/lib/utils";
 import {
   assignMember,
   createDesignation,
@@ -366,7 +367,9 @@ function MembersCard({ members, designations, societyId, onChanged }: MembersCar
                         onClick={() => setSelectedUserId(r.id)}
                       >
                         <div className="font-medium">{r.name}</div>
-                        {r.mobile && <div className="text-xs opacity-70">{r.mobile}</div>}
+                        {r.mobile && (
+                          <div className="text-xs opacity-70">{maskMobile(r.mobile)}</div>
+                        )}
                       </button>
                     ))}
                   </div>
@@ -426,10 +429,12 @@ function MembersCard({ members, designations, societyId, onChanged }: MembersCar
                     <TableCell>
                       <div className="font-medium">{m.name}</div>
                       <div className="text-muted-foreground text-xs sm:hidden">
-                        {m.mobile ?? m.email}
+                        {m.mobile ? maskMobile(m.mobile) : m.email}
                       </div>
                     </TableCell>
-                    <TableCell className="hidden sm:table-cell">{m.mobile ?? "—"}</TableCell>
+                    <TableCell className="hidden sm:table-cell">
+                      {m.mobile ? maskMobile(m.mobile) : "—"}
+                    </TableCell>
                     <TableCell>
                       <Badge
                         variant="outline"

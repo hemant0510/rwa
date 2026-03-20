@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vitest";
 
-import { createExpenseSchema, reverseExpenseSchema } from "@/lib/validations/expense";
+import {
+  createExpenseSchema,
+  updateExpenseSchema,
+  reverseExpenseSchema,
+} from "@/lib/validations/expense";
 
 describe("createExpenseSchema", () => {
   const validExpense = {
@@ -56,6 +60,42 @@ describe("createExpenseSchema", () => {
       const result = createExpenseSchema.safeParse({ ...validExpense, category });
       expect(result.success).toBe(true);
     }
+  });
+});
+
+describe("updateExpenseSchema", () => {
+  it("passes with only amount provided", () => {
+    const result = updateExpenseSchema.safeParse({ amount: 1000 });
+    expect(result.success).toBe(true);
+  });
+
+  it("passes with only category provided", () => {
+    const result = updateExpenseSchema.safeParse({ category: "SECURITY" });
+    expect(result.success).toBe(true);
+  });
+
+  it("passes with only description provided", () => {
+    const result = updateExpenseSchema.safeParse({ description: "Updated description" });
+    expect(result.success).toBe(true);
+  });
+
+  it("passes with all fields provided", () => {
+    const result = updateExpenseSchema.safeParse({
+      amount: 500,
+      category: "MAINTENANCE",
+      description: "Monthly maintenance",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("fails when no fields are provided (refine constraint)", () => {
+    const result = updateExpenseSchema.safeParse({});
+    expect(result.success).toBe(false);
+  });
+
+  it("fails when amount is zero", () => {
+    const result = updateExpenseSchema.safeParse({ amount: 0 });
+    expect(result.success).toBe(false);
   });
 });
 

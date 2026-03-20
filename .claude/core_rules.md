@@ -127,16 +127,16 @@ Imports should follow this order (enforced by ESLint):
 - Test naming: `ComponentName.test.tsx` for components, `hookName.test.ts` for hooks, `util.test.ts` for utilities
 - Every API route handler must have at least one happy-path and one error-path test
 - Mock Prisma using `vitest-mock-extended` or similar — never hit a real DB in unit tests
-- For DB integration tests, use a separate test database seeded with `prisma/seed.ts` data
+- For DB integration tests, use a separate test database seeded with `supabase/seed.ts` data
 
 ## 13. Database Rules
 
-- **Master/platform data belongs in `prisma/seed-master.ts`** — this includes: SuperAdmin accounts, platform plans (`PlatformPlan`), billing options (`PlanBillingOption`), and any other platform-wide lookup/config tables
-- **`prisma/seed.ts`** is for dev/demo data only (sample societies, residents, fees) — never put platform master data here
+- **Master/platform data belongs in `supabase/seed-master.ts`** — this includes: SuperAdmin accounts, platform plans (`PlatformPlan`), billing options (`PlanBillingOption`), and any other platform-wide lookup/config tables
+- **`supabase/seed.ts`** is for dev/demo data only (sample societies, residents, fees) — never put platform master data here
 - **Never hardcode SuperAdmin credentials or IDs in application code** — they must come from `seed-master.ts` or environment variables
-- All schema changes require a Prisma migration (`npx prisma migrate dev`) — never edit the DB directly
+- All schema changes require a Prisma migration (`npm run db:migrate`) — never edit the DB directly
 - Migration files are committed alongside schema changes — never squash or delete migration history
-- `prisma/seed-master.ts` must use `upsert` (not `create`) so it is safe to re-run on any environment without duplicating records
+- `supabase/seed-master.ts` must use `upsert` (not `create`) so it is safe to re-run on any environment without duplicating records
 - When adding a new master/lookup table (e.g. categories, roles, plan types), seed data for it goes in `seed-master.ts`
 - Society-specific or resident-specific data is never seeded in `seed-master.ts` — it is created through app flows or `seed.ts`
 - Always run `npx prisma generate` after schema changes before writing application code that uses new models

@@ -1,9 +1,9 @@
-// prisma/seed-master.ts
+// supabase/seed-master.ts
 // Sets up master/platform tables only — no society or resident data.
 // This is the "factory reset" script for a fresh database.
 //
 // Usage: npm run db:seed:master
-//   or:  npx tsx prisma/seed-master.ts
+//   or:  npx tsx supabase/seed-master.ts
 
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";

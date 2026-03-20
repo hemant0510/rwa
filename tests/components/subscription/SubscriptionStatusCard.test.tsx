@@ -474,6 +474,76 @@ describe("SubscriptionStatusCard", () => {
       });
     });
 
+    it("shows 'Applying...' while mutation is in progress", async () => {
+      const user = userEvent.setup();
+      mockGetSubscription.mockResolvedValue(makeSubscription() as never);
+      let resolveApply!: (v: unknown) => void;
+      mockApplyDiscount.mockReturnValue(new Promise((resolve) => (resolveApply = resolve)));
+      renderCard();
+      await waitFor(() => screen.getByRole("button", { name: /apply discount/i }));
+      await user.click(screen.getByRole("button", { name: /apply discount/i }));
+      await waitFor(() => screen.getByText("Custom Discount %"));
+
+      const input = screen.getByPlaceholderText("e.g. 25");
+      await user.type(input, "15");
+
+      const applyBtns = screen.getAllByRole("button", { name: /apply discount/i });
+      await user.click(applyBtns[applyBtns.length - 1]);
+
+      await waitFor(() =>
+        expect(screen.getByRole("button", { name: /applying/i })).toBeInTheDocument(),
+      );
+      resolveApply({});
+    });
+
+    it("calls applyDiscount with discountId and null customPct when discount selected", async () => {
+      const user = userEvent.setup();
+      mockGetSubscription.mockResolvedValue(makeSubscription() as never);
+      mockApplyDiscount.mockResolvedValue({} as never);
+      mockGetDiscounts.mockResolvedValue([
+        {
+          id: "d-flat",
+          name: "Flat Deal",
+          discountType: "FLAT_AMOUNT",
+          discountValue: 100,
+          isActive: true,
+        } as never,
+      ]);
+      renderCard();
+
+      const applyBtns = await screen.findAllByRole("button", { name: /apply discount/i });
+      await user.click(applyBtns[0]);
+      await waitFor(() => screen.getByText("Custom Discount %"));
+
+      // Open the discount select
+      const trigger = screen.getByRole("combobox");
+      await user.click(trigger);
+      await waitFor(() =>
+        expect(screen.getByRole("option", { name: /flat deal/i })).toBeInTheDocument(),
+      );
+      await user.click(screen.getByRole("option", { name: /flat deal/i }));
+
+      const sheetApplyBtns = screen.getAllByRole("button", { name: /apply discount/i });
+      await user.click(sheetApplyBtns[sheetApplyBtns.length - 1]);
+
+      await waitFor(() => {
+        expect(mockApplyDiscount).toHaveBeenCalledWith("soc-1", {
+          discountId: "d-flat",
+          customDiscountPct: null,
+        });
+      });
+    });
+
+    it("shows unknown status with fallback styling", async () => {
+      mockGetSubscription.mockResolvedValue(
+        makeSubscription({ status: "UNKNOWN_STATUS" }) as never,
+      );
+      renderCard();
+      await waitFor(() => {
+        expect(screen.getByText("UNKNOWN_STATUS")).toBeInTheDocument();
+      });
+    });
+
     it("clears selectedDiscountId when typing custom pct", async () => {
       const user = userEvent.setup();
       mockGetSubscription.mockResolvedValue(makeSubscription() as never);

@@ -40,4 +40,14 @@ describe("useAuth", () => {
     expect(result.current.isLoading).toBe(true);
     expect(result.current.isAuthenticated).toBe(false);
   });
+
+  it("default signOut does nothing (no error)", async () => {
+    const { result } = renderHook(() => useAuth());
+    await expect(result.current.signOut()).resolves.toBeUndefined();
+  });
+
+  it("default switchSociety does nothing (no error)", async () => {
+    const { result } = renderHook(() => useAuth());
+    await expect(result.current.switchSociety("soc-1")).resolves.toBeUndefined();
+  });
 });

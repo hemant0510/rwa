@@ -1,6 +1,6 @@
 /**
  * Seed: Platform Subscription Plans
- * Run independently: npx tsx prisma/seed/plans.ts
+ * Run independently: npx tsx supabase/seed/plans.ts
  * Safe to re-run — uses upsert on slug.
  */
 

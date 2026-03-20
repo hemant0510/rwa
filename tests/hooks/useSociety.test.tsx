@@ -29,4 +29,10 @@ describe("useSociety", () => {
     expect(result.current.society).toBeNull();
     expect(result.current.isLoading).toBe(true);
   });
+
+  it("context.isLoading starts as true in default context", () => {
+    const { result } = renderHook(() => useSociety());
+    expect(result.current.isLoading).toBe(true);
+    expect(result.current.society).toBeNull();
+  });
 });

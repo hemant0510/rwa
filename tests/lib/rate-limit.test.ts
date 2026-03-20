@@ -11,7 +11,7 @@ const { getCleanupFn } = vi.hoisted(() => {
   return { getCleanupFn: () => capturedFn };
 });
 
-import { checkRateLimit } from "@/lib/rate-limit";
+import { checkRateLimit, checkRateLimitAsync } from "@/lib/rate-limit";
 
 describe("checkRateLimit", () => {
   beforeEach(() => {
@@ -69,6 +69,21 @@ describe("checkRateLimit", () => {
     const result = checkRateLimit("test-cleanup-stale", 5, 1000);
     expect(result.allowed).toBe(true);
     expect(result.remaining).toBe(4);
+  });
+
+  it("checkRateLimitAsync allows first request (async path)", async () => {
+    const result = await checkRateLimitAsync("async-test-first", 3, 60000);
+    expect(result.allowed).toBe(true);
+    expect(result.remaining).toBe(2);
+  });
+
+  it("checkRateLimitAsync blocks when limit reached", async () => {
+    const key = "async-test-blocked";
+    await checkRateLimitAsync(key, 2, 60000);
+    await checkRateLimitAsync(key, 2, 60000);
+    const result = await checkRateLimitAsync(key, 2, 60000);
+    expect(result.allowed).toBe(false);
+    expect(result.remaining).toBe(0);
   });
 
   it("cleanup deletes expired entries but keeps non-expired ones", () => {

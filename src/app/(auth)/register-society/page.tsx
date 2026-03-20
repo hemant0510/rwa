@@ -13,6 +13,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -37,6 +38,7 @@ export default function RegisterSocietyPage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [consentAccepted, setConsentAccepted] = useState(false);
 
   const form = useForm<RegisterSocietyInput>({
     resolver: zodResolver(registerSocietySchema),
@@ -73,7 +75,15 @@ export default function RegisterSocietyPage() {
   const canProceed = () => {
     if (step === 0) {
       const { name, state, city, pincode, type, societyCode } = watch();
-      return name && state && city && pincode.length === 6 && type && societyCode.length >= 4;
+      return (
+        name &&
+        state &&
+        city &&
+        pincode.length === 6 &&
+        type &&
+        societyCode.length >= 4 &&
+        consentAccepted
+      );
     }
     if (step === 1) {
       const { adminName, adminEmail, adminPassword, adminPasswordConfirm } = watch();
@@ -299,6 +309,25 @@ export default function RegisterSocietyPage() {
                     <p className="text-destructive text-sm">{errors.pincode.message}</p>
                   )}
                 </div>
+              </div>
+
+              <div className="flex items-start gap-3 pt-2">
+                <Checkbox
+                  id="consentTerms"
+                  checked={consentAccepted}
+                  onCheckedChange={(checked) => setConsentAccepted(checked === true)}
+                />
+                <Label htmlFor="consentTerms" className="cursor-pointer text-sm leading-snug">
+                  I agree to the{" "}
+                  <Link href="/terms" target="_blank" className="text-primary underline">
+                    Terms of Service
+                  </Link>{" "}
+                  and{" "}
+                  <Link href="/privacy" target="_blank" className="text-primary underline">
+                    Privacy Policy
+                  </Link>{" "}
+                  <span className="text-destructive">*</span>
+                </Label>
               </div>
             </CardContent>
           </Card>

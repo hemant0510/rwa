@@ -12,6 +12,8 @@ import {
   CheckCircle,
   CheckCircle2,
   ExternalLink,
+  Eye,
+  EyeOff,
   FileText,
   Home,
   Loader2,
@@ -59,6 +61,7 @@ import {
 } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { useSocietyId } from "@/hooks/useSocietyId";
+import { maskMobile } from "@/lib/utils";
 import {
   getResident,
   approveResident,
@@ -97,6 +100,8 @@ export default function ResidentDetailPage({ params }: { params: Promise<{ id: s
     ReturnType<typeof getApprovalPreview>
   > | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+
+  const [mobileRevealed, setMobileRevealed] = useState(false);
 
   // Edit form state
   const [editName, setEditName] = useState("");
@@ -296,7 +301,20 @@ export default function ResidentDetailPage({ params }: { params: Promise<{ id: s
               <span className="text-muted-foreground flex items-center gap-1 text-sm">
                 <Phone className="h-3 w-3" /> Mobile
               </span>
-              <span className="text-sm font-medium">{resident.mobile}</span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-mono text-sm font-medium">
+                  {mobileRevealed ? resident.mobile : maskMobile(resident.mobile)}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-5 w-5"
+                  onClick={() => setMobileRevealed((v) => !v)}
+                  aria-label={mobileRevealed ? "Hide mobile number" : "Show mobile number"}
+                >
+                  {mobileRevealed ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                </Button>
+              </div>
             </div>
             {resident.email && (
               <div className="flex items-center justify-between">

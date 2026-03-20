@@ -20,6 +20,14 @@ describe("active-society (client)", () => {
       expect(getActiveSocietyIdClient()).toBeNull();
     });
 
+    it("returns null when document is undefined (SSR environment)", () => {
+      const origDocument = global.document;
+      // @ts-expect-error — simulate SSR where document is not defined
+      delete global.document;
+      expect(getActiveSocietyIdClient()).toBeNull();
+      global.document = origDocument;
+    });
+
     it("returns society ID when cookie is set", () => {
       document.cookie = "active-society-id=soc-123; path=/";
       expect(getActiveSocietyIdClient()).toBe("soc-123");

@@ -31,8 +31,9 @@ import { useAuth } from "@/hooks/useAuth";
 import {
   downloadMigrationTemplate,
   validateMigrationFile,
-  importMigrationRecords,
+  importMigrationRecordsStream,
   type ValidateResult,
+  type ImportStreamEvent,
 } from "@/services/migration";
 
 export default function MigrationPage() {
@@ -45,6 +46,12 @@ export default function MigrationPage() {
   );
   const [result, setResult] = useState<ValidateResult | null>(null);
   const [importedCount, setImportedCount] = useState(0);
+  const [importProgress, setImportProgress] = useState<{
+    processed: number;
+    total: number;
+    imported: number;
+    failed: number;
+  } | null>(null);
 
   const handleDownloadTemplate = async () => {
     if (!societyId) return;
@@ -83,6 +90,7 @@ export default function MigrationPage() {
   const handleImport = async () => {
     if (!result || !societyId) return;
     setStep("importing");
+    setImportProgress({ processed: 0, total: result.valid, imported: 0, failed: 0 });
 
     try {
       const validRows = result.preview.filter((_, i) => {
@@ -90,12 +98,28 @@ export default function MigrationPage() {
         return !result.errors.some((e) => e.row === rowNum);
       });
 
-      const importResult = await importMigrationRecords(societyId, validRows);
-      setImportedCount(importResult.summary.imported);
+      let finalImported = 0;
+
+      await importMigrationRecordsStream(societyId, validRows, (event: ImportStreamEvent) => {
+        if (event.type === "progress") {
+          setImportProgress({
+            processed: event.processed,
+            total: event.total,
+            imported: event.imported,
+            failed: event.failed,
+          });
+        } else if (event.type === "done") {
+          finalImported = event.summary.imported;
+        }
+      });
+
+      setImportedCount(finalImported);
+      setImportProgress(null);
       setStep("done");
-      toast.success(`Successfully imported ${importResult.summary.imported} residents`);
+      toast.success(`Successfully imported ${finalImported} residents`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Import failed");
+      setImportProgress(null);
       setStep("preview");
     }
   };
@@ -245,7 +269,25 @@ export default function MigrationPage() {
           <CardContent className="flex flex-col items-center gap-4 py-12">
             <Loader2 className="text-primary h-8 w-8 animate-spin" />
             <p className="font-medium">Importing residents...</p>
-            <Progress value={40} className="w-64" />
+            {importProgress ? (
+              <>
+                <Progress
+                  value={
+                    importProgress.total > 0
+                      ? Math.round((importProgress.processed / importProgress.total) * 100)
+                      : 0
+                  }
+                  className="w-64"
+                />
+                <p className="text-muted-foreground text-sm">
+                  {importProgress.processed} of {importProgress.total} processed
+                  {importProgress.imported > 0 && ` · ${importProgress.imported} imported`}
+                  {importProgress.failed > 0 && ` · ${importProgress.failed} failed`}
+                </p>
+              </>
+            ) : (
+              <Progress value={0} className="w-64" />
+            )}
           </CardContent>
         </Card>
       )}

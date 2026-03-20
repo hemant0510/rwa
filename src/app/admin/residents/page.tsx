@@ -57,6 +57,7 @@ import {
 } from "@/components/ui/table";
 import { useSocietyId } from "@/hooks/useSocietyId";
 import { FLOOR_LEVELS } from "@/lib/constants";
+import { maskMobile } from "@/lib/utils";
 import {
   getResidents,
   approveResident,
@@ -433,9 +434,13 @@ function ResidentsPageInner() {
                       >
                         {resident.name}
                       </Link>
-                      <p className="text-muted-foreground text-xs sm:hidden">{resident.mobile}</p>
+                      <p className="text-muted-foreground text-xs sm:hidden">
+                        {maskMobile(resident.mobile)}
+                      </p>
                     </TableCell>
-                    <TableCell className="hidden sm:table-cell">{resident.mobile}</TableCell>
+                    <TableCell className="hidden sm:table-cell">
+                      {maskMobile(resident.mobile)}
+                    </TableCell>
                     <TableCell className="hidden md:table-cell">
                       {resident.ownershipType ? (
                         <Badge
