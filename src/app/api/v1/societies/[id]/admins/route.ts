@@ -127,8 +127,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           data: {
             societyId,
             authUserId: authData.user.id,
-            name: data.name,
-            email: data.email,
+            name: data.name!,
+            email: data.email!,
             mobile: data.mobile,
             role: "RWA_ADMIN",
             adminPermission: data.permission,
@@ -164,7 +164,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // Send welcome / verification email
     const requiresVerification = await isVerificationRequired(societyId);
     if (requiresVerification) {
-      await sendVerificationEmail(createdUserId, data.email, data.name);
+      await sendVerificationEmail(createdUserId, data.email!, data.name!);
     } else {
       await autoVerifyUser(createdUserId);
     }

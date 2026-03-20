@@ -42,6 +42,6 @@ describe("StatusBadge", () => {
   it("applies custom className", () => {
     const { container } = render(<StatusBadge status="PAID" className="custom-class" />);
     const badge = container.firstChild;
-    expect(badge?.className).toContain("custom-class");
+    expect((badge as Element)?.className).toContain("custom-class");
   });
 });

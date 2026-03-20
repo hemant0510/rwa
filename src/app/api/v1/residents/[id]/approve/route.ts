@@ -152,7 +152,7 @@ export async function PATCH(
       societyId: society.id,
       entityType: "User",
       entityId: result.id,
-      newValue: { rwaid, status: "ACTIVE_PENDING", proRata },
+      newValue: JSON.parse(JSON.stringify({ rwaid, status: "ACTIVE_PENDING", proRata })),
     });
 
     return NextResponse.json({

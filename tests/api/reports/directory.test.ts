@@ -39,7 +39,7 @@ const mockResidents = [
     mobile: "9876543210",
     email: "john@example.com",
     ownershipType: "OWNER",
-    units: [{ unit: { displayLabel: "A-3-301" } }],
+    userUnits: [{ unit: { displayLabel: "A-3-301" } }],
   },
 ];
 
@@ -106,7 +106,7 @@ describe("GET /api/v1/societies/[id]/reports/directory", () => {
   });
 
   it("handles resident with no unit", async () => {
-    mockPrisma.user.findMany.mockResolvedValue([{ ...mockResidents[0], units: [] }]);
+    mockPrisma.user.findMany.mockResolvedValue([{ ...mockResidents[0], userUnits: [] }]);
     const res = await GET(makeReq({ format: "excel" }), makeParams());
     expect(res.status).toBe(200);
   });

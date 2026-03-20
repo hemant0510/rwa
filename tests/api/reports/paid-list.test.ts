@@ -39,7 +39,7 @@ const mockFees = [
     user: {
       name: "John Doe",
       rwaid: "RWA-DL-EDN-1001-2025-0001",
-      units: [{ unit: { displayLabel: "A-3-301" } }],
+      userUnits: [{ unit: { displayLabel: "A-3-301" } }],
     },
     amountPaid: 2400,
     feePayments: [{ paymentDate: new Date("2025-04-10") }],
@@ -120,7 +120,7 @@ describe("GET /api/v1/societies/[id]/reports/paid-list", () => {
 
   it("handles resident with no units", async () => {
     mockPrisma.membershipFee.findMany.mockResolvedValue([
-      { ...mockFees[0], user: { ...mockFees[0].user, units: [] } },
+      { ...mockFees[0], user: { ...mockFees[0].user, userUnits: [] } },
     ]);
     const res = await GET(makeReq({ format: "excel" }), makeParams());
     expect(res.status).toBe(200);

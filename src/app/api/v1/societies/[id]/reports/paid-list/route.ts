@@ -18,7 +18,7 @@ async function getPaidData(societyId: string, sessionYear: string) {
         select: {
           name: true,
           rwaid: true,
-          units: { include: { unit: { select: { displayLabel: true } } }, take: 1 },
+          userUnits: { include: { unit: { select: { displayLabel: true } } }, take: 1 },
         },
       },
       feePayments: {
@@ -34,7 +34,7 @@ async function getPaidData(societyId: string, sessionYear: string) {
   return fees.map((f) => ({
     name: f.user.name,
     rwaid: f.user.rwaid ?? "",
-    unit: f.user.units[0]?.unit.displayLabel ?? "-",
+    unit: f.user.userUnits[0]?.unit.displayLabel ?? "-",
     amount: Number(f.amountPaid),
     paidAt: f.feePayments[0]?.paymentDate
       ? f.feePayments[0].paymentDate.toISOString().slice(0, 10)

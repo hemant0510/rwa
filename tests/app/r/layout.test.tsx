@@ -72,6 +72,7 @@ function renderLayout(userOverrides: Record<string, unknown> = {}) {
         isLoading: false,
         isAuthenticated: true,
         signOut: vi.fn(),
+        switchSociety: vi.fn(),
       }}
     >
       <ResidentLayout>

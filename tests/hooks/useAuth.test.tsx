@@ -19,10 +19,13 @@ describe("useAuth", () => {
         societyStatus: "ACTIVE",
         trialEndsAt: null,
         isTrialExpired: false,
+        multiSociety: false,
+        societies: null,
       },
       isLoading: false,
       isAuthenticated: true,
       signOut: async () => {},
+      switchSociety: async () => {},
     };
 
     const wrapper = ({ children }: { children: React.ReactNode }) => (

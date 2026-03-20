@@ -26,6 +26,8 @@ function makeAdminUser(overrides: Record<string, unknown> = {}) {
     societyStatus: "ACTIVE",
     trialEndsAt: null,
     isTrialExpired: false,
+    multiSociety: false,
+    societies: null,
     ...overrides,
   };
 }
@@ -34,7 +36,13 @@ function makeWrapper(user: ReturnType<typeof makeAdminUser> | null) {
   return function Wrapper({ children }: { children: React.ReactNode }) {
     return (
       <AuthContext.Provider
-        value={{ user, isLoading: false, isAuthenticated: true, signOut: async () => {} }}
+        value={{
+          user,
+          isLoading: false,
+          isAuthenticated: true,
+          signOut: async () => {},
+          switchSociety: async () => {},
+        }}
       >
         {children}
       </AuthContext.Provider>

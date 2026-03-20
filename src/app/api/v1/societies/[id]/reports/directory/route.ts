@@ -31,7 +31,7 @@ async function getDirectoryData(societyId: string) {
       mobile: true,
       email: true,
       ownershipType: true,
-      units: { include: { unit: { select: { displayLabel: true } } }, take: 1 },
+      userUnits: { include: { unit: { select: { displayLabel: true } } }, take: 1 },
     },
     orderBy: { name: "asc" },
   });
@@ -39,7 +39,7 @@ async function getDirectoryData(societyId: string) {
   return residents.map((r) => ({
     name: r.name,
     rwaid: r.rwaid ?? "",
-    unit: r.units[0]?.unit.displayLabel ?? "-",
+    unit: r.userUnits[0]?.unit.displayLabel ?? "-",
     mobile: r.mobile ?? "-",
     email: r.email,
     type: r.ownershipType ?? "-",

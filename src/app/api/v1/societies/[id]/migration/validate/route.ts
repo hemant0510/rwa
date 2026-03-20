@@ -11,12 +11,8 @@ const rowSchema = z.object({
   fullName: z.string().min(2, "Min 2 characters").max(100, "Max 100 characters"),
   email: z.string().email("Invalid email"),
   mobile: z.string().regex(/^[6-9]\d{9}$/, "Must be a valid 10-digit Indian mobile number"),
-  ownershipType: z.enum(["OWNER", "TENANT"], {
-    errorMap: () => ({ message: "Must be OWNER or TENANT" }),
-  }),
-  feeStatus: z.enum(["PAID", "PENDING"], {
-    errorMap: () => ({ message: "Must be PAID or PENDING" }),
-  }),
+  ownershipType: z.enum(["OWNER", "TENANT"], { error: "Must be OWNER or TENANT" }),
+  feeStatus: z.enum(["PAID", "PENDING"], { error: "Must be PAID or PENDING" }),
 });
 
 export interface ValidationError {

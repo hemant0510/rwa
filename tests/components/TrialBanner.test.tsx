@@ -14,6 +14,7 @@ function renderWithAuth(user: Record<string, unknown> | null) {
         isLoading: false,
         isAuthenticated: !!user,
         signOut: async () => {},
+        switchSociety: async () => {},
       }}
     >
       <TrialBanner />

@@ -27,6 +27,7 @@ const mockSupabaseAdmin = vi.hoisted(() => ({
   auth: {
     admin: {
       createUser: vi.fn(),
+      deleteUser: vi.fn(),
     },
   },
 }));

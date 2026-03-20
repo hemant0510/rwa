@@ -10,6 +10,8 @@ import { setActiveSocietyId, clearActiveSocietyId } from "@/lib/active-society";
 import { createClient } from "@/lib/supabase/client";
 import type { AdminPermission, UserRole } from "@/types/user";
 
+import type { AuthChangeEvent, AuthResponse, Session } from "@supabase/supabase-js";
+
 interface AuthUser {
   id: string;
   name: string;
@@ -63,7 +65,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const supabase = createClient();
 
     // Initial auth check
-    supabase.auth.getUser().then(({ data: { user: authUser } }) => {
+    void supabase.auth.getUser().then((result: AuthResponse) => {
+      const authUser = result.data.user;
       if (authUser) {
         fetchMe().finally(() => setIsLoading(false));
       } else {
@@ -74,7 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen for auth state changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
       if (session?.user) {
         fetchMe();
       } else {
