@@ -77,8 +77,10 @@ export default function LoginPage() {
       }
 
       toast.success("Login successful!");
-      router.push(me.redirectTo ?? "/login");
-      router.refresh();
+      // Hard navigation ensures AuthProvider remounts and reads fresh Supabase
+      // session cookies — soft navigation (router.push) leaves AuthProvider
+      // mounted with stale user=null from the server-side sign-in flow.
+      window.location.href = me.redirectTo ?? "/login";
     } catch (err) {
       console.error("Login error:", err);
       toast.error("Login failed. Please try again.");
