@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { internalError } from "@/lib/api-helpers";
+import { internalError, errorResponse } from "@/lib/api-helpers";
 import { PASSWORD_RESET_COOLDOWN_SECONDS, APP_URL } from "@/lib/constants";
 import { sendEmail } from "@/lib/email";
 import { getPasswordResetEmailHtml } from "@/lib/email-templates/password-reset";
 import { prisma } from "@/lib/prisma";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { generatePasswordResetToken } from "@/lib/tokens";
 import { forgotPasswordSchema } from "@/lib/validations/auth";
 
@@ -24,6 +25,16 @@ export async function POST(request: NextRequest) {
     }
 
     const { email } = parsed.data;
+
+    // Rate limit: 3 requests per email per hour
+    const rl = checkRateLimit(`forgot-password:${email.toLowerCase()}`, 3, 60 * 60 * 1000);
+    if (!rl.allowed) {
+      return errorResponse({
+        code: "RATE_LIMIT_EXCEEDED",
+        message: SUCCESS_MESSAGE, // keep same message to avoid leaking info
+        status: 429,
+      });
+    }
 
     // Look up user by email (don't leak whether account exists)
     const user = await prisma.user.findFirst({

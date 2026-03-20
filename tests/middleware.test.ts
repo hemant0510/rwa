@@ -14,11 +14,17 @@ vi.mock("@/lib/supabase/middleware", () => ({
 // Import after mock is set up
 const { middleware } = await import("@/middleware");
 
-function makeRequest(pathname: string): NextRequest {
+function makeRequest(pathname: string, cookieOverrides: Record<string, string> = {}): NextRequest {
   return {
     nextUrl: new URL(`http://localhost${pathname}`),
     url: `http://localhost${pathname}`,
-    cookies: { getAll: () => [] },
+    cookies: {
+      getAll: () => Object.entries(cookieOverrides).map(([name, value]) => ({ name, value })),
+      get: (name: string) => {
+        const val = cookieOverrides[name];
+        return val !== undefined ? { name, value: val } : undefined;
+      },
+    },
   } as unknown as NextRequest;
 }
 
@@ -192,6 +198,70 @@ describe("middleware", () => {
 
     // /api/v1/residents is not a public prefix and not protected → session refresh
     expect(mockUpdateSession).toHaveBeenCalledOnce();
+    expect(res).toBe(supabaseResponse);
+  });
+
+  // ─── Session inactivity timeout ───────────────────────────────────────────
+
+  it("redirects to /login?reason=session_expired when activity cookie is expired", async () => {
+    const supabaseResponse = makeSupabaseResponse();
+    mockUpdateSession.mockResolvedValue({
+      user: { id: "user-1", email: "admin@eden.com" },
+      supabaseResponse,
+    });
+
+    // Simulate a cookie that was last set 9 hours ago (> 8hr timeout)
+    const nineHoursAgo = String(Date.now() - 9 * 60 * 60 * 1000);
+    const req = makeRequest("/admin/dashboard", { "admin-last-activity": nineHoursAgo });
+    const res = await middleware(req);
+
+    expect(res.status).toBe(307);
+    const location = res.headers.get("location") ?? "";
+    expect(location).toContain("/login");
+    expect(location).toContain("reason=session_expired");
+  });
+
+  it("allows through when activity cookie is fresh (under 8 hours)", async () => {
+    const supabaseResponse = makeSupabaseResponse();
+    mockUpdateSession.mockResolvedValue({
+      user: { id: "user-1", email: "admin@eden.com" },
+      supabaseResponse,
+    });
+
+    // Cookie set 1 hour ago — within the 8-hour window
+    const oneHourAgo = String(Date.now() - 60 * 60 * 1000);
+    const req = makeRequest("/admin/dashboard", { "admin-last-activity": oneHourAgo });
+    const res = await middleware(req);
+
+    expect(res.status).toBe(200);
+  });
+
+  it("allows first admin request with no activity cookie (no timeout check)", async () => {
+    const supabaseResponse = makeSupabaseResponse();
+    mockUpdateSession.mockResolvedValue({
+      user: { id: "user-1", email: "admin@eden.com" },
+      supabaseResponse,
+    });
+
+    const req = makeRequest("/admin/dashboard"); // no cookie
+    const res = await middleware(req);
+
+    expect(res.status).toBe(200);
+  });
+
+  it("does not apply session timeout to /sa routes (only /admin)", async () => {
+    const supabaseResponse = makeSupabaseResponse();
+    mockUpdateSession.mockResolvedValue({
+      user: { id: "sa-1", email: "super@admin.com" },
+      supabaseResponse,
+    });
+
+    const nineHoursAgo = String(Date.now() - 9 * 60 * 60 * 1000);
+    const req = makeRequest("/sa/societies", { "admin-last-activity": nineHoursAgo });
+    const res = await middleware(req);
+
+    // /sa routes are NOT subject to activity timeout
+    expect(res.status).toBe(200);
     expect(res).toBe(supabaseResponse);
   });
 });

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { internalError, notFoundError, parseBody } from "@/lib/api-helpers";
+import { logAudit } from "@/lib/audit";
 import { generateReceiptNo } from "@/lib/fee-calculator";
 import { getCurrentUser } from "@/lib/get-current-user";
 import { prisma, type TransactionClient } from "@/lib/prisma";
@@ -104,6 +105,17 @@ export async function POST(
       });
 
       return reversal;
+    });
+
+    // Non-blocking audit log
+    void logAudit({
+      actionType: "PAYMENT_REVERSED",
+      userId: recordedBy,
+      societyId,
+      entityType: "FeePayment",
+      entityId: paymentId,
+      oldValue: { receiptNo: payment.receiptNo, amount: reversedAmount },
+      newValue: { reason: data.reason, reversalReceiptNo, newFeeStatus },
     });
 
     return NextResponse.json({

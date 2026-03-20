@@ -2,8 +2,7 @@ import { NextRequest } from "next/server";
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// vi.hoisted creates the mock object before any imports run,
-// so vi.mock("@/lib/prisma") can safely reference it.
+// vi.hoisted creates mock objects before any imports run.
 const mockPrisma = vi.hoisted(() => ({
   user: {
     findMany: vi.fn(),
@@ -11,7 +10,12 @@ const mockPrisma = vi.hoisted(() => ({
   },
 }));
 
+const mockGetFullAccessAdmin = vi.hoisted(() => vi.fn());
+
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
+vi.mock("@/lib/get-current-user", () => ({
+  getFullAccessAdmin: mockGetFullAccessAdmin,
+}));
 
 import { GET } from "@/app/api/v1/residents/route";
 
@@ -36,11 +40,32 @@ const mockResident = {
   membershipFees: [],
 };
 
+const mockAdmin = {
+  userId: "admin-1",
+  authUserId: "auth-admin-1",
+  societyId: "soc-1",
+  role: "RWA_ADMIN" as const,
+  adminPermission: "FULL_ACCESS" as const,
+};
+
 describe("GET /api/v1/residents", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetFullAccessAdmin.mockResolvedValue(mockAdmin);
     mockPrisma.user.findMany.mockResolvedValue([mockResident]);
     mockPrisma.user.count.mockResolvedValue(1);
+  });
+
+  it("returns 401 when not authenticated", async () => {
+    mockGetFullAccessAdmin.mockResolvedValue(null);
+    const res = await GET(makeReq({ societyId: "soc-1" }));
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 403 when admin belongs to a different society", async () => {
+    mockGetFullAccessAdmin.mockResolvedValue({ ...mockAdmin, societyId: "other-society" });
+    const res = await GET(makeReq({ societyId: "soc-1" }));
+    expect(res.status).toBe(403);
   });
 
   it("returns 400 when societyId is missing", async () => {

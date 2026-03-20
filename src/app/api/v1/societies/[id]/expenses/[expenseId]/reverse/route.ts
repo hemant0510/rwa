@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { parseBody, notFoundError, internalError, unauthorizedError } from "@/lib/api-helpers";
+import { logAudit } from "@/lib/audit";
 import { getCurrentUser } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
 import { reverseExpenseSchema } from "@/lib/validations/expense";
@@ -53,6 +54,17 @@ export async function POST(
         },
       }),
     ]);
+
+    // Non-blocking audit log
+    void logAudit({
+      actionType: "EXPENSE_REVERSED",
+      userId: currentUser.userId,
+      societyId,
+      entityType: "Expense",
+      entityId: expenseId,
+      oldValue: { amount: Number(expense.amount), category: expense.category },
+      newValue: { reason: data.reason },
+    });
 
     return NextResponse.json({ message: "Expense reversed" });
   } catch {

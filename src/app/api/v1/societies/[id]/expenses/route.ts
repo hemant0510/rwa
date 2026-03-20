@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { parseBody, internalError } from "@/lib/api-helpers";
+import { parseBody, internalError, unauthorizedError } from "@/lib/api-helpers";
+import { logAudit } from "@/lib/audit";
+import { getCurrentUser } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
 import { createExpenseSchema } from "@/lib/validations/expense";
 
@@ -44,21 +46,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id: societyId } = await params;
+
+    const admin = await getCurrentUser("RWA_ADMIN");
+    if (!admin) return unauthorizedError("Admin authentication required");
+
     const { data, error } = await parseBody(request, createExpenseSchema);
     if (error) return error;
     if (!data) return internalError();
-
-    // Get an admin for this society (TODO: use actual authenticated user)
-    const admin = await prisma.user.findFirst({
-      where: { societyId, role: "RWA_ADMIN" },
-    });
-
-    if (!admin) {
-      return NextResponse.json(
-        { error: { code: "NO_ADMIN", message: "No admin found for this society" } },
-        { status: 400 },
-      );
-    }
 
     const expense = await prisma.expense.create({
       data: {
@@ -67,9 +61,19 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         amount: data.amount,
         category: data.category,
         description: data.description,
-        loggedBy: admin.id,
+        loggedBy: admin.userId,
         correctionWindowEnds: new Date(Date.now() + 24 * 60 * 60 * 1000),
       },
+    });
+
+    // Non-blocking audit log
+    void logAudit({
+      actionType: "EXPENSE_CREATED",
+      userId: admin.userId,
+      societyId,
+      entityType: "Expense",
+      entityId: expense.id,
+      newValue: { category: data.category, amount: data.amount, description: data.description },
     });
 
     return NextResponse.json(expense, { status: 201 });

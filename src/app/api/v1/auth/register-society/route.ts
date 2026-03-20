@@ -1,15 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { parseBody, internalError } from "@/lib/api-helpers";
+import { parseBody, internalError, errorResponse } from "@/lib/api-helpers";
 import { TRIAL_PERIOD_DAYS, DEFAULT_JOINING_FEE, DEFAULT_ANNUAL_FEE } from "@/lib/constants";
 import { generateSocietyId } from "@/lib/fee-calculator";
 import { prisma, type TransactionClient } from "@/lib/prisma";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { registerSocietySchema } from "@/lib/validations/register-society";
 import { isVerificationRequired, sendVerificationEmail, autoVerifyUser } from "@/lib/verification";
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limit: 5 registrations per IP per hour
+    const ip =
+      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+      request.headers.get("x-real-ip") ??
+      "unknown";
+    const rl = checkRateLimit(`register-society:${ip}`, 5, 60 * 60 * 1000);
+    if (!rl.allowed) {
+      return errorResponse({
+        code: "RATE_LIMIT_EXCEEDED",
+        message: "Too many registration attempts. Please try again later.",
+        status: 429,
+      });
+    }
+
     const { data, error } = await parseBody(request, registerSocietySchema);
     if (error) return error;
     if (!data) return internalError();

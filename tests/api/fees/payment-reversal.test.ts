@@ -16,9 +16,11 @@ const mockPrisma = vi.hoisted(() => {
 });
 
 const mockGetCurrentUser = vi.hoisted(() => vi.fn());
+const mockLogAudit = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 vi.mock("@/lib/get-current-user", () => ({ getCurrentUser: mockGetCurrentUser }));
+vi.mock("@/lib/audit", () => ({ logAudit: mockLogAudit }));
 
 import { POST } from "@/app/api/v1/societies/[id]/fees/[feeId]/payments/[paymentId]/reverse/route";
 
@@ -209,6 +211,23 @@ describe("POST /api/v1/societies/[id]/fees/[feeId]/payments/[paymentId]/reverse"
     expect(mockPrisma.user.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ status: "ACTIVE_PAID" }) }),
     );
+  });
+
+  it("fires audit log with PAYMENT_REVERSED after success", async () => {
+    await POST(makeReq(validBody), makeParams());
+    expect(mockLogAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionType: "PAYMENT_REVERSED",
+        entityType: "FeePayment",
+        entityId: "pay-1",
+      }),
+    );
+  });
+
+  it("does not fire audit log on failure", async () => {
+    mockPrisma.feePayment.findUnique.mockRejectedValue(new Error("DB error"));
+    await POST(makeReq(validBody), makeParams());
+    expect(mockLogAudit).not.toHaveBeenCalled();
   });
 
   it("returns 500 on database error", async () => {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { internalError } from "@/lib/api-helpers";
+import { internalError, forbiddenError, unauthorizedError } from "@/lib/api-helpers";
+import { getFullAccessAdmin } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
@@ -22,6 +23,11 @@ export async function GET(request: NextRequest) {
         { status: 400 },
       );
     }
+
+    // Auth guard: must be a FULL_ACCESS admin belonging to this society
+    const admin = await getFullAccessAdmin();
+    if (!admin) return unauthorizedError("Admin authentication required");
+    if (admin.societyId !== societyId) return forbiddenError("Access denied to this society");
 
     const where: Record<string, unknown> = {
       societyId,

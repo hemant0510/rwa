@@ -4,10 +4,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 import { mockPrisma } from "../../__mocks__/prisma";
 
-const { mockIsEmailConfigured, mockSendVerificationEmail } = vi.hoisted(() => ({
-  mockIsEmailConfigured: vi.fn(),
-  mockSendVerificationEmail: vi.fn(),
-}));
+const { mockIsEmailConfigured, mockSendVerificationEmail, mockGetFullAccessAdmin } = vi.hoisted(
+  () => ({
+    mockIsEmailConfigured: vi.fn(),
+    mockSendVerificationEmail: vi.fn(),
+    mockGetFullAccessAdmin: vi.fn(),
+  }),
+);
 
 vi.mock("@/lib/email", () => ({
   isEmailConfigured: mockIsEmailConfigured,
@@ -15,6 +18,10 @@ vi.mock("@/lib/email", () => ({
 
 vi.mock("@/lib/verification", () => ({
   sendVerificationEmail: mockSendVerificationEmail,
+}));
+
+vi.mock("@/lib/get-current-user", () => ({
+  getFullAccessAdmin: mockGetFullAccessAdmin,
 }));
 
 import { POST } from "@/app/api/v1/residents/[id]/send-verification/route";
@@ -33,11 +40,26 @@ const mockResident = {
   role: "RESIDENT",
 };
 
+const mockAdmin = {
+  userId: "admin-1",
+  authUserId: "auth-admin-1",
+  societyId: "soc-1",
+  role: "RWA_ADMIN" as const,
+  adminPermission: "FULL_ACCESS" as const,
+};
+
 describe("POST /api/v1/residents/[id]/send-verification", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetFullAccessAdmin.mockResolvedValue(mockAdmin);
     mockIsEmailConfigured.mockReturnValue(true);
     mockSendVerificationEmail.mockResolvedValue(undefined);
+  });
+
+  it("returns 401 when not authenticated", async () => {
+    mockGetFullAccessAdmin.mockResolvedValue(null);
+    const res = await POST(makeReq("r1"), { params: Promise.resolve({ id: "r1" }) });
+    expect(res.status).toBe(401);
   });
 
   it("returns 503 when email is not configured", async () => {

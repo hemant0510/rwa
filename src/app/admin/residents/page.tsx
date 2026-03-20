@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -89,23 +90,48 @@ function getPageNumbers(current: number, total: number): (number | "...")[] {
   return [1, "...", current - 1, current, current + 1, "...", total];
 }
 
+// Wrap with Suspense so useSearchParams() works correctly in Next.js App Router
 export default function ResidentsPage() {
+  return (
+    <Suspense fallback={<TableSkeleton rows={5} />}>
+      <ResidentsPageInner />
+    </Suspense>
+  );
+}
+
+function ResidentsPageInner() {
   const { societyId, societyCode } = useSocietyId();
   const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
 
-  // Filters
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [emailVerifiedFilter, setEmailVerifiedFilter] = useState("all");
-  const [ownershipFilter, setOwnershipFilter] = useState("all");
-  const [yearFilter, setYearFilter] = useState("all");
-  const [docFilter, setDocFilter] = useState("all");
+  // --- URL-driven filter state ---
+  const search = searchParams.get("search") ?? "";
+  const statusFilter = searchParams.get("status") ?? "all";
+  const emailVerifiedFilter = searchParams.get("verified") ?? "all";
+  const ownershipFilter = searchParams.get("ownership") ?? "all";
+  const yearFilter = searchParams.get("year") ?? "all";
+  const docFilter = searchParams.get("doc") ?? "all";
+  const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
+  const limit = parseInt(searchParams.get("limit") ?? "20", 10);
 
-  // Pagination
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(20);
+  /** Update one or more URL params, optionally resetting page to 1. */
+  function updateParams(updates: Record<string, string | null>, resetPage = false) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (resetPage) params.delete("page");
+    for (const [key, value] of Object.entries(updates)) {
+      if (!value || value === "all") {
+        params.delete(key);
+      } else {
+        params.set(key, value);
+      }
+    }
+    // Use replace so filter changes don't pollute browser history
+    router.replace(`${pathname}?${params.toString()}`);
+  }
 
-  // Dialogs
+  // --- Ephemeral UI state (dialogs, forms) — stays in useState ---
   const [rejectDialog, setRejectDialog] = useState<{ open: boolean; id: string }>({
     open: false,
     id: "",
@@ -272,10 +298,6 @@ export default function ResidentsPage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
-  function resetPage() {
-    setPage(1);
-  }
-
   const totalPages = data ? Math.ceil(data.total / limit) : 0;
   const pageNumbers = totalPages > 0 ? getPageNumbers(page, totalPages) : [];
 
@@ -301,21 +323,12 @@ export default function ResidentsPage() {
           <Input
             placeholder="Search by name, mobile, email, or RWAID..."
             value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              resetPage();
-            }}
+            onChange={(e) => updateParams({ search: e.target.value || null }, true)}
             className="pl-9"
           />
         </div>
 
-        <Select
-          value={statusFilter}
-          onValueChange={(v) => {
-            setStatusFilter(v);
-            resetPage();
-          }}
-        >
+        <Select value={statusFilter} onValueChange={(v) => updateParams({ status: v }, true)}>
           <SelectTrigger className="w-[170px]">
             <SelectValue placeholder="All Statuses" />
           </SelectTrigger>
@@ -331,10 +344,7 @@ export default function ResidentsPage() {
 
         <Select
           value={emailVerifiedFilter}
-          onValueChange={(v) => {
-            setEmailVerifiedFilter(v);
-            resetPage();
-          }}
+          onValueChange={(v) => updateParams({ verified: v }, true)}
         >
           <SelectTrigger className="w-[160px]">
             <SelectValue placeholder="Email Verified" />
@@ -346,13 +356,7 @@ export default function ResidentsPage() {
           </SelectContent>
         </Select>
 
-        <Select
-          value={ownershipFilter}
-          onValueChange={(v) => {
-            setOwnershipFilter(v);
-            resetPage();
-          }}
-        >
+        <Select value={ownershipFilter} onValueChange={(v) => updateParams({ ownership: v }, true)}>
           <SelectTrigger className="w-[140px]">
             <SelectValue placeholder="Ownership" />
           </SelectTrigger>
@@ -363,13 +367,7 @@ export default function ResidentsPage() {
           </SelectContent>
         </Select>
 
-        <Select
-          value={yearFilter}
-          onValueChange={(v) => {
-            setYearFilter(v);
-            resetPage();
-          }}
-        >
+        <Select value={yearFilter} onValueChange={(v) => updateParams({ year: v }, true)}>
           <SelectTrigger className="w-[130px]">
             <SelectValue placeholder="RWA Year" />
           </SelectTrigger>
@@ -383,13 +381,7 @@ export default function ResidentsPage() {
           </SelectContent>
         </Select>
 
-        <Select
-          value={docFilter}
-          onValueChange={(v) => {
-            setDocFilter(v);
-            resetPage();
-          }}
-        >
+        <Select value={docFilter} onValueChange={(v) => updateParams({ doc: v }, true)}>
           <SelectTrigger className="w-[155px]">
             <SelectValue placeholder="Documents" />
           </SelectTrigger>
@@ -568,10 +560,7 @@ export default function ResidentsPage() {
                 <span className="text-muted-foreground">Show</span>
                 <Select
                   value={String(limit)}
-                  onValueChange={(v) => {
-                    setLimit(Number(v));
-                    resetPage();
-                  }}
+                  onValueChange={(v) => updateParams({ limit: v }, true)}
                 >
                   <SelectTrigger className="h-8 w-16">
                     <SelectValue />
@@ -591,7 +580,7 @@ export default function ResidentsPage() {
                     size="sm"
                     className="h-8 w-8 p-0"
                     disabled={page === 1}
-                    onClick={() => setPage((p) => p - 1)}
+                    onClick={() => updateParams({ page: String(page - 1) })}
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
@@ -607,7 +596,7 @@ export default function ResidentsPage() {
                         variant={p === page ? "default" : "outline"}
                         size="sm"
                         className="h-8 w-8 p-0"
-                        onClick={() => setPage(p)}
+                        onClick={() => updateParams({ page: String(p) })}
                       >
                         {p}
                       </Button>
@@ -619,7 +608,7 @@ export default function ResidentsPage() {
                     size="sm"
                     className="h-8 w-8 p-0"
                     disabled={page >= totalPages}
-                    onClick={() => setPage((p) => p + 1)}
+                    onClick={() => updateParams({ page: String(page + 1) })}
                   >
                     <ChevronRight className="h-4 w-4" />
                   </Button>

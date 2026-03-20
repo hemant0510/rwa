@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { internalError } from "@/lib/api-helpers";
+import { internalError, unauthorizedError } from "@/lib/api-helpers";
 import { isEmailConfigured } from "@/lib/email";
+import { getFullAccessAdmin } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
 import { sendVerificationEmail } from "@/lib/verification";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
+
+    // Auth guard
+    const admin = await getFullAccessAdmin();
+    if (!admin) return unauthorizedError("Admin authentication required");
 
     if (!isEmailConfigured()) {
       return NextResponse.json(

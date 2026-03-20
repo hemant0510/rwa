@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { z } from "zod";
 
-import { parseBody, internalError } from "@/lib/api-helpers";
+import { parseBody, internalError, unauthorizedError } from "@/lib/api-helpers";
+import { logAudit } from "@/lib/audit";
+import { getCurrentUser } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
 
 const broadcastSchema = z.object({
@@ -33,20 +35,13 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id: societyId } = await params;
+
+    const admin = await getCurrentUser("RWA_ADMIN");
+    if (!admin) return unauthorizedError("Admin authentication required");
+
     const { data, error } = await parseBody(request, broadcastSchema);
     if (error) return error;
     if (!data) return internalError();
-
-    // Get admin
-    const admin = await prisma.user.findFirst({
-      where: { societyId, role: "RWA_ADMIN" },
-    });
-    if (!admin) {
-      return NextResponse.json(
-        { error: { code: "NO_ADMIN", message: "No admin found" } },
-        { status: 400 },
-      );
-    }
 
     // Count recipients based on filter
     const recipientWhere: Record<string, unknown> = { societyId, role: "RESIDENT" };
@@ -73,7 +68,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const broadcast = await prisma.broadcast.create({
       data: {
         societyId,
-        sentBy: admin.id,
+        sentBy: admin.userId,
         message: data.message,
         recipientFilter: data.recipientFilter,
         recipientCount,
@@ -81,6 +76,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     });
 
     // TODO: Queue WhatsApp messages for each recipient (Phase 5)
+
+    // Non-blocking audit log
+    void logAudit({
+      actionType: "BROADCAST_SENT",
+      userId: admin.userId,
+      societyId,
+      entityType: "Broadcast",
+      entityId: broadcast.id,
+      newValue: { recipientFilter: data.recipientFilter, recipientCount },
+    });
 
     return NextResponse.json(broadcast, { status: 201 });
   } catch {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { parseBody, notFoundError, internalError, unauthorizedError } from "@/lib/api-helpers";
+import { logAudit } from "@/lib/audit";
 import { generateReceiptNo } from "@/lib/fee-calculator";
 import { getCurrentUser } from "@/lib/get-current-user";
 import { prisma, type TransactionClient } from "@/lib/prisma";
@@ -80,6 +81,16 @@ export async function POST(
     });
 
     // TODO: Send WhatsApp payment receipt (Phase 5)
+
+    // Non-blocking audit log
+    void logAudit({
+      actionType: "PAYMENT_RECORDED",
+      userId: admin.userId,
+      societyId,
+      entityType: "FeePayment",
+      entityId: result.id,
+      newValue: { receiptNo, amount: data.amount, paymentMode: data.paymentMode, newStatus },
+    });
 
     return NextResponse.json(
       {

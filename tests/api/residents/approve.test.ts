@@ -20,7 +20,12 @@ const mockPrisma = vi.hoisted(() => {
   return prisma;
 });
 
+const mockGetFullAccessAdmin = vi.hoisted(() => vi.fn());
+const mockLogAudit = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
+vi.mock("@/lib/get-current-user", () => ({ getFullAccessAdmin: mockGetFullAccessAdmin }));
+vi.mock("@/lib/audit", () => ({ logAudit: mockLogAudit }));
 
 import { GET, PATCH } from "@/app/api/v1/residents/[id]/approve/route";
 
@@ -108,9 +113,18 @@ describe("GET /api/v1/residents/[id]/approve — pro-rata preview", () => {
   });
 });
 
+const mockAdmin = {
+  userId: "admin-1",
+  authUserId: "auth-admin-1",
+  societyId: "soc-1",
+  role: "RWA_ADMIN" as const,
+  adminPermission: "FULL_ACCESS" as const,
+};
+
 describe("PATCH /api/v1/residents/[id]/approve", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetFullAccessAdmin.mockResolvedValue(mockAdmin);
     mockPrisma.user.findUnique.mockResolvedValue(mockPendingUser);
     mockPrisma.user.count.mockResolvedValue(4);
     mockPrisma.user.update.mockResolvedValue({ ...mockPendingUser, status: "ACTIVE_PENDING" });
@@ -118,6 +132,12 @@ describe("PATCH /api/v1/residents/[id]/approve", () => {
     mockPrisma.$transaction.mockImplementation((cb: (tx: typeof mockPrisma) => Promise<unknown>) =>
       cb(mockPrisma),
     );
+  });
+
+  it("returns 401 when not authenticated", async () => {
+    mockGetFullAccessAdmin.mockResolvedValue(null);
+    const res = await PATCH(makePatchReq("r1"), makeParams("r1"));
+    expect(res.status).toBe(401);
   });
 
   it("returns 404 when resident not found", async () => {
@@ -181,5 +201,23 @@ describe("PATCH /api/v1/residents/[id]/approve", () => {
     mockPrisma.user.findUnique.mockRejectedValue(new Error("DB error"));
     const res = await PATCH(makePatchReq("r1"), makeParams("r1"));
     expect(res.status).toBe(500);
+  });
+
+  it("fires audit log with RESIDENT_APPROVED after successful approval", async () => {
+    await PATCH(makePatchReq("r1"), makeParams("r1"));
+    expect(mockLogAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionType: "RESIDENT_APPROVED",
+        userId: "admin-1",
+        entityType: "User",
+        entityId: "r1",
+      }),
+    );
+  });
+
+  it("does not fire audit log on failure", async () => {
+    mockPrisma.user.findUnique.mockRejectedValue(new Error("DB error"));
+    await PATCH(makePatchReq("r1"), makeParams("r1"));
+    expect(mockLogAudit).not.toHaveBeenCalled();
   });
 });

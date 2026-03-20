@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { notFoundError, internalError } from "@/lib/api-helpers";
+import { notFoundError, internalError, unauthorizedError } from "@/lib/api-helpers";
+import { logAudit } from "@/lib/audit";
 import { generateRWAID, calculateProRata, getSessionYear } from "@/lib/fee-calculator";
+import { getFullAccessAdmin } from "@/lib/get-current-user";
 import { prisma, type TransactionClient } from "@/lib/prisma";
 
 // GET /api/v1/residents/[id]/approve
@@ -49,6 +51,9 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
+
+    const admin = await getFullAccessAdmin();
+    if (!admin) return unauthorizedError("Admin authentication required");
 
     const user = await prisma.user.findUnique({
       where: { id },
@@ -139,6 +144,16 @@ export async function PATCH(
     });
 
     // TODO: Send WhatsApp approval notification (Phase 5)
+
+    // Non-blocking audit log
+    void logAudit({
+      actionType: "RESIDENT_APPROVED",
+      userId: admin.userId,
+      societyId: society.id,
+      entityType: "User",
+      entityId: result.id,
+      newValue: { rwaid, status: "ACTIVE_PENDING", proRata },
+    });
 
     return NextResponse.json({
       id: result.id,

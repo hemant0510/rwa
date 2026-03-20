@@ -15,6 +15,15 @@ const PROTECTED_PREFIXES = ["/admin", "/sa", "/r"] as const;
  */
 const PUBLIC_PREFIXES = ["/api/v1/auth", "/api/cron"] as const;
 
+/**
+ * Admin session inactivity timeout (8 hours).
+ * Mirrors ADMIN_SESSION_TIMEOUT_MS from src/lib/constants.ts.
+ * Defined inline here to avoid importing Prisma-dependent modules
+ * into the Edge-runtime middleware bundle.
+ */
+const ADMIN_SESSION_TIMEOUT_MS = 8 * 60 * 60 * 1000;
+const ACTIVITY_COOKIE = "admin-last-activity";
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -40,6 +49,31 @@ export async function middleware(request: NextRequest) {
     const redirectUrl = new URL(loginPath, request.url);
     redirectUrl.searchParams.set("redirectTo", pathname);
     return NextResponse.redirect(redirectUrl);
+  }
+
+  // Admin-specific inactivity timeout
+  if (pathname.startsWith("/admin")) {
+    const lastActivityStr = request.cookies.get(ACTIVITY_COOKIE)?.value;
+
+    if (lastActivityStr) {
+      const lastActivity = parseInt(lastActivityStr, 10);
+      if (!isNaN(lastActivity) && Date.now() - lastActivity > ADMIN_SESSION_TIMEOUT_MS) {
+        // Session expired due to inactivity — redirect to login
+        const loginUrl = new URL("/login", request.url);
+        loginUrl.searchParams.set("reason", "session_expired");
+        const response = NextResponse.redirect(loginUrl);
+        response.cookies.delete(ACTIVITY_COOKIE);
+        return response;
+      }
+    }
+
+    // Refresh the activity timestamp on every admin request
+    supabaseResponse.cookies.set(ACTIVITY_COOKIE, String(Date.now()), {
+      httpOnly: true,
+      sameSite: "lax",
+      maxAge: Math.floor(ADMIN_SESSION_TIMEOUT_MS / 1000),
+      path: "/",
+    });
   }
 
   return supabaseResponse;
