@@ -18,8 +18,18 @@ const PUBLIC_API_PREFIX = [
   "/api/v1/residents/register",
   "/api/v1/health",
   "/api/v1/societies/",
+  "/api/cron",
 ];
 const PUBLIC_PAGE_PREFIX = ["/register/", "/rwaid/"];
+
+/**
+ * Admin session inactivity timeout (8 hours).
+ * Mirrors ADMIN_SESSION_TIMEOUT_MS from src/lib/constants.ts.
+ * Defined inline here to avoid importing Prisma-dependent modules
+ * into the Edge-runtime proxy bundle.
+ */
+const ADMIN_SESSION_TIMEOUT_MS = 8 * 60 * 60 * 1000;
+const ACTIVITY_COOKIE = "admin-last-activity";
 
 function isPublicPage(pathname: string): boolean {
   if (PUBLIC_ROUTES.includes(pathname)) return true;
@@ -41,7 +51,7 @@ export async function proxy(request: NextRequest) {
   const { user, supabaseResponse } = await updateSession(request);
 
   // API routes — return 401 JSON for protected APIs (never redirect)
-  if (pathname.startsWith("/api/v1/")) {
+  if (pathname.startsWith("/api/")) {
     if (!user && !isPublicApi(pathname)) {
       return NextResponse.json(
         { error: { code: "UNAUTHORIZED", message: "Not authenticated" } },
@@ -60,6 +70,29 @@ export async function proxy(request: NextRequest) {
   if (!user) {
     const loginUrl = pathname.startsWith("/sa") ? "/super-admin-login" : "/login";
     return NextResponse.redirect(new URL(loginUrl, request.url));
+  }
+
+  // Admin-specific inactivity timeout
+  if (pathname.startsWith("/admin")) {
+    const lastActivityStr = request.cookies.get(ACTIVITY_COOKIE)?.value;
+
+    if (lastActivityStr) {
+      const lastActivity = parseInt(lastActivityStr, 10);
+      if (!isNaN(lastActivity) && Date.now() - lastActivity > ADMIN_SESSION_TIMEOUT_MS) {
+        const loginUrl = new URL("/login", request.url);
+        loginUrl.searchParams.set("reason", "session_expired");
+        const response = NextResponse.redirect(loginUrl);
+        response.cookies.delete(ACTIVITY_COOKIE);
+        return response;
+      }
+    }
+
+    supabaseResponse.cookies.set(ACTIVITY_COOKIE, String(Date.now()), {
+      httpOnly: true,
+      sameSite: "lax",
+      maxAge: Math.floor(ADMIN_SESSION_TIMEOUT_MS / 1000),
+      path: "/",
+    });
   }
 
   // Add security headers

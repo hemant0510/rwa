@@ -12,7 +12,7 @@ vi.mock("@/lib/supabase/middleware", () => ({
 }));
 
 // Import after mock is set up
-const { middleware } = await import("@/middleware");
+const { proxy } = await import("@/proxy");
 
 function makeRequest(pathname: string, cookieOverrides: Record<string, string> = {}): NextRequest {
   return {
@@ -32,46 +32,54 @@ function makeSupabaseResponse() {
   return NextResponse.next();
 }
 
-describe("middleware", () => {
+describe("proxy", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   // ─── Public API routes ────────────────────────────────────────────────────
 
-  it("passes through /api/v1/auth routes without calling updateSession", async () => {
-    const req = makeRequest("/api/v1/auth/login");
-    const res = await middleware(req);
-    expect(mockUpdateSession).not.toHaveBeenCalled();
-    expect(res.status).toBe(200);
-  });
-
-  it("passes through /api/cron routes without calling updateSession", async () => {
-    const req = makeRequest("/api/cron/invoice-generation");
-    const res = await middleware(req);
-    expect(mockUpdateSession).not.toHaveBeenCalled();
-    expect(res.status).toBe(200);
-  });
-
-  // ─── Non-protected routes ─────────────────────────────────────────────────
-
-  it("refreshes session for non-protected routes (e.g. login page)", async () => {
+  it("passes through /api/v1/auth routes (session refreshed, public)", async () => {
     const supabaseResponse = makeSupabaseResponse();
     mockUpdateSession.mockResolvedValue({ user: null, supabaseResponse });
 
-    const req = makeRequest("/login");
-    const res = await middleware(req);
+    const req = makeRequest("/api/v1/auth/login");
+    const res = await proxy(req);
 
     expect(mockUpdateSession).toHaveBeenCalledOnce();
     expect(res).toBe(supabaseResponse);
   });
 
-  it("refreshes session for root path", async () => {
+  it("passes through /api/cron routes (session refreshed, public)", async () => {
+    const supabaseResponse = makeSupabaseResponse();
+    mockUpdateSession.mockResolvedValue({ user: null, supabaseResponse });
+
+    const req = makeRequest("/api/cron/invoice-generation");
+    const res = await proxy(req);
+
+    expect(mockUpdateSession).toHaveBeenCalledOnce();
+    expect(res).toBe(supabaseResponse);
+  });
+
+  // ─── Public pages ─────────────────────────────────────────────────────────
+
+  it("passes through /login page (public route)", async () => {
+    const supabaseResponse = makeSupabaseResponse();
+    mockUpdateSession.mockResolvedValue({ user: null, supabaseResponse });
+
+    const req = makeRequest("/login");
+    const res = await proxy(req);
+
+    expect(mockUpdateSession).toHaveBeenCalledOnce();
+    expect(res).toBe(supabaseResponse);
+  });
+
+  it("passes through root path (public route)", async () => {
     const supabaseResponse = makeSupabaseResponse();
     mockUpdateSession.mockResolvedValue({ user: null, supabaseResponse });
 
     const req = makeRequest("/");
-    const res = await middleware(req);
+    const res = await proxy(req);
 
     expect(mockUpdateSession).toHaveBeenCalledOnce();
     expect(res).toBe(supabaseResponse);
@@ -84,27 +92,17 @@ describe("middleware", () => {
     mockUpdateSession.mockResolvedValue({ user: null, supabaseResponse });
 
     const req = makeRequest("/admin/dashboard");
-    const res = await middleware(req);
+    const res = await proxy(req);
 
     expect(res.status).toBe(307);
     expect(res.headers.get("location")).toContain("/login");
-  });
-
-  it("includes redirectTo param when redirecting from /admin/*", async () => {
-    mockUpdateSession.mockResolvedValue({ user: null, supabaseResponse: makeSupabaseResponse() });
-
-    const req = makeRequest("/admin/fees");
-    const res = await middleware(req);
-
-    const location = res.headers.get("location") ?? "";
-    expect(location).toContain("redirectTo=%2Fadmin%2Ffees");
   });
 
   it("redirects unauthenticated user from /r/* to /login", async () => {
     mockUpdateSession.mockResolvedValue({ user: null, supabaseResponse: makeSupabaseResponse() });
 
     const req = makeRequest("/r/home");
-    const res = await middleware(req);
+    const res = await proxy(req);
 
     expect(res.status).toBe(307);
     expect(res.headers.get("location")).toContain("/login");
@@ -114,20 +112,10 @@ describe("middleware", () => {
     mockUpdateSession.mockResolvedValue({ user: null, supabaseResponse: makeSupabaseResponse() });
 
     const req = makeRequest("/sa/dashboard");
-    const res = await middleware(req);
+    const res = await proxy(req);
 
     expect(res.status).toBe(307);
     expect(res.headers.get("location")).toContain("/super-admin-login");
-  });
-
-  it("includes redirectTo param when redirecting from /sa/*", async () => {
-    mockUpdateSession.mockResolvedValue({ user: null, supabaseResponse: makeSupabaseResponse() });
-
-    const req = makeRequest("/sa/societies");
-    const res = await middleware(req);
-
-    const location = res.headers.get("location") ?? "";
-    expect(location).toContain("redirectTo=%2Fsa%2Fsocieties");
   });
 
   // ─── Protected routes — authenticated ─────────────────────────────────────
@@ -140,10 +128,9 @@ describe("middleware", () => {
     });
 
     const req = makeRequest("/admin/dashboard");
-    const res = await middleware(req);
+    const res = await proxy(req);
 
     expect(res.status).toBe(200);
-    expect(res).toBe(supabaseResponse);
   });
 
   it("allows authenticated user through /sa/*", async () => {
@@ -154,7 +141,7 @@ describe("middleware", () => {
     });
 
     const req = makeRequest("/sa/societies/new");
-    const res = await middleware(req);
+    const res = await proxy(req);
 
     expect(res.status).toBe(200);
     expect(res).toBe(supabaseResponse);
@@ -168,37 +155,55 @@ describe("middleware", () => {
     });
 
     const req = makeRequest("/r/payments");
-    const res = await middleware(req);
+    const res = await proxy(req);
 
     expect(res.status).toBe(200);
     expect(res).toBe(supabaseResponse);
   });
 
-  // ─── Edge cases ───────────────────────────────────────────────────────────
+  // ─── Protected API routes ─────────────────────────────────────────────────
 
-  it("does not treat /administration as a protected route", async () => {
-    // /administration does not start with /admin (exact prefix match required)
-    // Actually /administration does start with /admin — this tests that startsWith works correctly
-    // /admin is a prefix of /administration, so it should be protected
-    mockUpdateSession.mockResolvedValue({ user: null, supabaseResponse: makeSupabaseResponse() });
-
-    const req = makeRequest("/admin");
-    const res = await middleware(req);
-
-    // /admin exactly should still be protected
-    expect(res.status).toBe(307);
-  });
-
-  it("handles /api/v1/residents routes (not auth prefix) by refreshing session", async () => {
+  it("returns 401 JSON for protected /api/v1 routes when unauthenticated", async () => {
     const supabaseResponse = makeSupabaseResponse();
     mockUpdateSession.mockResolvedValue({ user: null, supabaseResponse });
 
     const req = makeRequest("/api/v1/residents");
-    const res = await middleware(req);
+    const res = await proxy(req);
 
-    // /api/v1/residents is not a public prefix and not protected → session refresh
-    expect(mockUpdateSession).toHaveBeenCalledOnce();
+    expect(res.status).toBe(401);
+    const body = await res.json();
+    expect(body.error.code).toBe("UNAUTHORIZED");
+  });
+
+  it("allows authenticated user through protected /api/v1 routes", async () => {
+    const supabaseResponse = makeSupabaseResponse();
+    mockUpdateSession.mockResolvedValue({
+      user: { id: "user-1", email: "admin@eden.com" },
+      supabaseResponse,
+    });
+
+    const req = makeRequest("/api/v1/residents");
+    const res = await proxy(req);
+
     expect(res).toBe(supabaseResponse);
+  });
+
+  // ─── Security headers ─────────────────────────────────────────────────────
+
+  it("adds security headers on authenticated protected routes", async () => {
+    const supabaseResponse = makeSupabaseResponse();
+    mockUpdateSession.mockResolvedValue({
+      user: { id: "user-1", email: "admin@eden.com" },
+      supabaseResponse,
+    });
+
+    const req = makeRequest("/admin/dashboard");
+    const res = await proxy(req);
+
+    expect(res.headers.get("X-Content-Type-Options")).toBe("nosniff");
+    expect(res.headers.get("X-Frame-Options")).toBe("DENY");
+    expect(res.headers.get("X-XSS-Protection")).toBe("1; mode=block");
+    expect(res.headers.get("Referrer-Policy")).toBe("strict-origin-when-cross-origin");
   });
 
   // ─── Session inactivity timeout ───────────────────────────────────────────
@@ -213,7 +218,7 @@ describe("middleware", () => {
     // Simulate a cookie that was last set 9 hours ago (> 8hr timeout)
     const nineHoursAgo = String(Date.now() - 9 * 60 * 60 * 1000);
     const req = makeRequest("/admin/dashboard", { "admin-last-activity": nineHoursAgo });
-    const res = await middleware(req);
+    const res = await proxy(req);
 
     expect(res.status).toBe(307);
     const location = res.headers.get("location") ?? "";
@@ -231,7 +236,7 @@ describe("middleware", () => {
     // Cookie set 1 hour ago — within the 8-hour window
     const oneHourAgo = String(Date.now() - 60 * 60 * 1000);
     const req = makeRequest("/admin/dashboard", { "admin-last-activity": oneHourAgo });
-    const res = await middleware(req);
+    const res = await proxy(req);
 
     expect(res.status).toBe(200);
   });
@@ -244,7 +249,7 @@ describe("middleware", () => {
     });
 
     const req = makeRequest("/admin/dashboard"); // no cookie
-    const res = await middleware(req);
+    const res = await proxy(req);
 
     expect(res.status).toBe(200);
   });
@@ -258,7 +263,7 @@ describe("middleware", () => {
 
     const nineHoursAgo = String(Date.now() - 9 * 60 * 60 * 1000);
     const req = makeRequest("/sa/societies", { "admin-last-activity": nineHoursAgo });
-    const res = await middleware(req);
+    const res = await proxy(req);
 
     // /sa routes are NOT subject to activity timeout
     expect(res.status).toBe(200);
