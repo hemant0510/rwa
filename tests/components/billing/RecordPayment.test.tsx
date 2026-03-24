@@ -163,11 +163,10 @@ describe("RecordSubscriptionPaymentDialog", () => {
     );
     await user.click(screen.getByRole("button", { name: /Monthly/ }));
 
-    // Manually override the amount
+    // Append digits to override the amount (499 → 4993)
     const amountInput = screen.getByRole("spinbutton");
-    await user.clear(amountInput);
-    await user.type(amountInput, "300");
-    expect(amountInput).toHaveValue(300);
+    await user.type(amountInput, "3");
+    expect(amountInput).toHaveValue(4993);
 
     // Switch cycle → amount should reset to Annual price
     await user.click(screen.getByRole("button", { name: /Annual/ }));
