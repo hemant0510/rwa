@@ -7,12 +7,21 @@ import { useRouter } from "next/navigation";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ArrowRight, Building2, Loader2 } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  BadgeCheck,
+  Building2,
+  Check,
+  CheckCircle2,
+  CreditCard,
+  Loader2,
+  Users,
+} from "lucide-react";
 import { useForm, type FieldErrors } from "react-hook-form";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,13 +41,265 @@ import {
 import { checkSocietyCode } from "@/services/societies";
 import { SOCIETY_TYPE_LABELS, type SocietyType } from "@/types/society";
 
-const STEPS = ["Society Info", "Admin Account"];
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface PlanBillingOption {
+  id: string;
+  billingCycle: string;
+  price: number;
+}
+
+interface Plan {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  planType: string;
+  residentLimit: number | null;
+  pricePerUnit: number | null;
+  featuresJson: Record<string, boolean>;
+  badgeText: string | null;
+  billingOptions: PlanBillingOption[];
+}
+
+// ─── Feature labels ───────────────────────────────────────────────────────────
+
+const FEATURE_LABELS: Record<string, string> = {
+  resident_management: "Resident Management",
+  fee_collection: "Fee Collection",
+  expense_tracking: "Expense Tracking",
+  basic_reports: "Basic Reports",
+  advanced_reports: "Advanced Reports",
+  multi_admin: "Multi Admin",
+  whatsapp: "WhatsApp Notifications",
+  elections: "Elections & Voting",
+  ai_insights: "AI Insights",
+  api_access: "API Access",
+};
+
+// ─── Steps config ─────────────────────────────────────────────────────────────
+
+const STEPS = [
+  { label: "Society Info", icon: Building2 },
+  { label: "Choose Plan", icon: CreditCard },
+  { label: "Admin Account", icon: Users },
+];
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function getMonthlyPrice(plan: Plan): number | null {
+  const monthly = plan.billingOptions.find((o) => o.billingCycle === "MONTHLY");
+  if (monthly) return monthly.price;
+  const first = plan.billingOptions[0];
+  return first ? first.price : null;
+}
+
+async function fetchPublicPlans(): Promise<Plan[]> {
+  const res = await fetch("/api/v1/auth/plans");
+  if (!res.ok) return [];
+  // successResponse returns the array directly (no { data: [...] } wrapper)
+  const body = (await res.json()) as Plan[];
+  return Array.isArray(body) ? body : [];
+}
+
+// ─── Left branding panel ──────────────────────────────────────────────────────
+
+function BrandingPanel() {
+  return (
+    <div className="relative hidden flex-col justify-between overflow-hidden bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 p-10 text-white lg:flex lg:w-5/12">
+      {/* Background decoration */}
+      <div className="absolute -top-20 -right-20 h-64 w-64 rounded-full bg-white/5" />
+      <div className="absolute -bottom-16 -left-16 h-56 w-56 rounded-full bg-white/5" />
+      <div className="absolute top-1/2 right-8 h-32 w-32 -translate-y-1/2 rounded-full bg-white/5" />
+
+      {/* Logo */}
+      <div className="relative z-10">
+        <div className="mb-2 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
+            <Building2 className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <p className="text-lg leading-none font-bold">RWA Connect</p>
+            <p className="text-xs text-emerald-100">Society Management Platform</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Headline */}
+      <div className="relative z-10 space-y-6">
+        <div>
+          <h2 className="text-3xl leading-tight font-bold">Manage your society smarter</h2>
+          <p className="mt-2 text-base text-emerald-100">
+            Everything you need to run your residential society — in one place.
+          </p>
+        </div>
+
+        <ul className="space-y-3">
+          {[
+            "Fee collection & payment tracking",
+            "Resident directory & unit management",
+            "Expense ledger & financial reports",
+            "WhatsApp notifications (Pro+)",
+            "Elections & governing body",
+          ].map((item) => (
+            <li key={item} className="flex items-center gap-2.5 text-sm">
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-200" />
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
+
+        {/* Trial badge */}
+        <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 backdrop-blur-sm">
+          <BadgeCheck className="h-4 w-4 text-emerald-200" />
+          <span className="text-sm font-medium">14-day free trial · No credit card required</span>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="relative z-10">
+        <p className="text-xs text-emerald-200">
+          Trusted by RWAs across India &mdash; From small apartments to large gated communities.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Step indicator ───────────────────────────────────────────────────────────
+
+function StepIndicator({ step }: { step: number }) {
+  return (
+    <div className="mb-8 flex items-center justify-center">
+      {STEPS.map((s, i) => {
+        const Icon = s.icon;
+        const done = i < step;
+        const active = i === step;
+        return (
+          <div key={s.label} className="flex items-center">
+            <div className="flex flex-col items-center gap-1">
+              <div
+                className={`flex h-9 w-9 items-center justify-center rounded-full transition-all ${
+                  done
+                    ? "bg-emerald-600 text-white"
+                    : active
+                      ? "border-2 border-emerald-600 bg-emerald-50 text-emerald-600"
+                      : "border-2 border-gray-200 bg-white text-gray-400"
+                }`}
+              >
+                {done ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
+              </div>
+              <span
+                className={`text-[11px] font-medium whitespace-nowrap ${
+                  active ? "text-emerald-600" : done ? "text-emerald-600" : "text-gray-400"
+                }`}
+              >
+                {s.label}
+              </span>
+            </div>
+            {i < STEPS.length - 1 && (
+              <div
+                className={`mx-2 mb-4 h-0.5 w-12 transition-all sm:w-20 ${
+                  i < step ? "bg-emerald-600" : "bg-gray-200"
+                }`}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Plan card ────────────────────────────────────────────────────────────────
+
+function PlanCard({
+  plan,
+  selected,
+  onSelect,
+}: {
+  plan: Plan;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const monthlyPrice = getMonthlyPrice(plan);
+  const features = Object.entries(plan.featuresJson)
+    .filter(([, val]) => val === true)
+    .map(([key]) => FEATURE_LABELS[key] ?? key);
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`relative flex w-full cursor-pointer flex-col rounded-xl border-2 p-4 text-left transition-all ${
+        selected
+          ? "border-emerald-600 bg-emerald-50 shadow-md"
+          : "border-gray-200 bg-white hover:border-emerald-300 hover:shadow-sm"
+      }`}
+    >
+      {/* Badge */}
+      {plan.badgeText && (
+        <span className="absolute -top-2.5 left-4 rounded-full bg-emerald-600 px-3 py-0.5 text-xs font-semibold text-white">
+          {plan.badgeText}
+        </span>
+      )}
+
+      {/* Selected indicator */}
+      {selected && (
+        <div className="absolute top-3 right-3 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600">
+          <Check className="h-3 w-3 text-white" />
+        </div>
+      )}
+
+      {/* Plan name + price */}
+      <div className="mb-3">
+        <p className="text-sm font-bold text-gray-900">{plan.name}</p>
+        {plan.description && (
+          <p className="mt-0.5 line-clamp-2 text-xs text-gray-500">{plan.description}</p>
+        )}
+        <div className="mt-2">
+          {monthlyPrice !== null ? (
+            <span className="text-sm font-semibold text-emerald-700">
+              ₹{monthlyPrice.toLocaleString("en-IN")}
+              <span className="text-xs font-normal text-gray-400">/mo</span>
+            </span>
+          ) : plan.pricePerUnit ? (
+            <span className="text-sm font-semibold text-emerald-700">
+              ₹{plan.pricePerUnit}
+              <span className="text-xs font-normal text-gray-400">/unit/mo</span>
+            </span>
+          ) : null}
+        </div>
+        {plan.residentLimit && (
+          <p className="mt-0.5 text-xs text-gray-400">Up to {plan.residentLimit} residents</p>
+        )}
+        {!plan.residentLimit && <p className="mt-0.5 text-xs text-gray-400">Unlimited residents</p>}
+      </div>
+
+      {/* Features */}
+      <ul className="mt-auto space-y-1">
+        {features.slice(0, 4).map((f) => (
+          <li key={f} className="flex items-center gap-1.5 text-xs text-gray-600">
+            <Check className="h-3 w-3 shrink-0 text-emerald-500" />
+            {f}
+          </li>
+        ))}
+        {features.length > 4 && (
+          <li className="text-xs text-gray-400">+{features.length - 4} more</li>
+        )}
+      </ul>
+    </button>
+  );
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function RegisterSocietyPage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [consentAccepted, setConsentAccepted] = useState(false);
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
 
   const form = useForm<RegisterSocietyInput>({
     resolver: zodResolver(registerSocietySchema),
@@ -49,6 +310,8 @@ export default function RegisterSocietyPage() {
       pincode: "",
       type: "INDEPENDENT_SECTOR",
       societyCode: "",
+      registrationNo: "",
+      registrationDate: "",
       adminName: "",
       adminEmail: "",
       adminMobile: "",
@@ -66,10 +329,16 @@ export default function RegisterSocietyPage() {
   } = form;
 
   const code = watch("societyCode");
-  const { data: codeCheck } = useQuery({
+  const { data: codeCheck, isFetching: codeChecking } = useQuery({
     queryKey: ["society-code-check", code],
     queryFn: () => checkSocietyCode(code),
     enabled: code.length >= 4,
+  });
+
+  const { data: plans = [], isLoading: plansLoading } = useQuery({
+    queryKey: ["public-plans"],
+    queryFn: fetchPublicPlans,
+    staleTime: 5 * 60 * 1000,
   });
 
   const canProceed = () => {
@@ -86,6 +355,10 @@ export default function RegisterSocietyPage() {
       );
     }
     if (step === 1) {
+      // Plan step — can always proceed (plan is optional)
+      return true;
+    }
+    if (step === 2) {
       const { adminName, adminEmail, adminPassword, adminPasswordConfirm } = watch();
       return (
         adminName &&
@@ -101,10 +374,11 @@ export default function RegisterSocietyPage() {
   const onSubmit = async (data: RegisterSocietyInput) => {
     setIsLoading(true);
     try {
+      const payload = { ...data, selectedPlanId: selectedPlanId ?? undefined };
       const res = await fetch("/api/v1/auth/register-society", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       });
 
       const body = (await res.json()) as {
@@ -117,7 +391,6 @@ export default function RegisterSocietyPage() {
         return;
       }
 
-      // If email verification is required, redirect to check-email page
       if (body.requiresVerification) {
         toast.success("Society registered! Please verify your email.");
         router.push(`/check-email?email=${encodeURIComponent(data.adminEmail)}`);
@@ -126,7 +399,6 @@ export default function RegisterSocietyPage() {
 
       toast.success("Society registered! Signing you in...");
 
-      // Auto sign-in (verification not required)
       const supabase = createClient();
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: data.adminEmail,
@@ -150,231 +422,338 @@ export default function RegisterSocietyPage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-lg space-y-6">
-      <div className="text-center">
-        <div className="bg-primary/10 mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full">
-          <Building2 className="text-primary h-6 w-6" />
-        </div>
-        <h1 className="text-2xl font-bold">Register Your Society</h1>
-        <p className="text-muted-foreground text-sm">Start with a free 14-day trial</p>
-      </div>
+    // Escape the auth layout's max-w-md container
+    <div className="fixed inset-0 z-50 flex overflow-auto bg-white">
+      <BrandingPanel />
 
-      <div className="flex items-center justify-center gap-2">
-        {STEPS.map((s, i) => (
-          <div key={s} className="flex items-center gap-2">
-            <div
-              className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-medium ${
-                i < step
-                  ? "bg-primary text-primary-foreground"
-                  : i === step
-                    ? "border-primary text-primary border-2"
-                    : "bg-muted text-muted-foreground border"
-              }`}
-            >
-              {i + 1}
-            </div>
-            <span className={`text-sm ${i === step ? "font-medium" : "text-muted-foreground"}`}>
-              {s}
-            </span>
-            {i < STEPS.length - 1 && <div className="bg-border mx-2 h-px w-8" />}
+      {/* Right: form */}
+      <div className="flex w-full flex-col lg:w-7/12">
+        {/* Mobile header */}
+        <div className="flex items-center gap-3 border-b px-6 py-4 lg:hidden">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600">
+            <Building2 className="h-4 w-4 text-white" />
           </div>
-        ))}
-      </div>
+          <div>
+            <p className="text-sm leading-none font-bold text-gray-900">RWA Connect</p>
+            <p className="text-xs text-gray-500">14-day free trial</p>
+          </div>
+        </div>
 
-      <form
-        onSubmit={handleSubmit(onSubmit, (fieldErrors: FieldErrors<RegisterSocietyInput>) => {
-          const step0Fields = ["name", "state", "city", "pincode", "type", "societyCode"];
-          const errorKeys = Object.keys(fieldErrors);
-          const firstError = Object.values(fieldErrors)[0];
-          if (errorKeys.some((k) => step0Fields.includes(k)) && step !== 0) {
-            toast.error(`Step 1 error: ${firstError?.message}`);
-            setStep(0);
-          } else if (firstError?.message) {
-            toast.error(firstError.message);
-          }
-        })}
-      >
-        {step === 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Society Information</CardTitle>
-              <CardDescription>Basic details about your society</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="name">
-                    Society Name <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="name"
-                    placeholder="Eden Estate RWA"
-                    aria-invalid={!!errors.name}
-                    {...register("name")}
-                  />
-                  {errors.name && <p className="text-destructive text-sm">{errors.name.message}</p>}
+        <div className="flex flex-1 flex-col overflow-y-auto px-6 py-8 sm:px-10 lg:px-12">
+          {/* Heading */}
+          <div className="mb-6 text-center">
+            <h1 className="text-2xl font-bold text-gray-900">Register Your Society</h1>
+            <p className="mt-1 text-sm text-gray-500">
+              Step {step + 1} of {STEPS.length} &mdash; {STEPS[step]?.label}
+            </p>
+          </div>
+
+          <StepIndicator step={step} />
+
+          <form
+            onSubmit={handleSubmit(onSubmit, (fieldErrors: FieldErrors<RegisterSocietyInput>) => {
+              const step0Fields = ["name", "state", "city", "pincode", "type", "societyCode"];
+              const errorKeys = Object.keys(fieldErrors);
+              const firstError = Object.values(fieldErrors)[0];
+              if (errorKeys.some((k) => step0Fields.includes(k)) && step !== 0) {
+                toast.error(`Step 1 error: ${String(firstError?.message ?? "")}`);
+                setStep(0);
+              } else if (firstError?.message) {
+                toast.error(String(firstError.message));
+              }
+            })}
+            className="flex flex-1 flex-col"
+          >
+            {/* ── Step 0: Society Info ─────────────────────────────────── */}
+            {step === 0 && (
+              <div className="space-y-5">
+                {/* Name + Code */}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="name">
+                      Society Name <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="name"
+                      placeholder="Eden Estate RWA"
+                      aria-invalid={!!errors.name}
+                      {...register("name")}
+                    />
+                    {errors.name && <p className="text-xs text-red-500">{errors.name.message}</p>}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="societyCode">
+                      Society Code <span className="text-red-500">*</span>
+                      <span className="ml-1 text-xs font-normal text-gray-400">(platform ID)</span>
+                    </Label>
+                    <Input
+                      id="societyCode"
+                      placeholder="EDEN01"
+                      aria-invalid={!!errors.societyCode}
+                      {...register("societyCode", {
+                        onChange: (e) => {
+                          e.target.value = (e.target.value as string).toUpperCase();
+                        },
+                      })}
+                      className="uppercase"
+                    />
+                    {code.length > 0 && code.length < 4 && (
+                      <p className="text-xs text-amber-600">Minimum 4 characters required</p>
+                    )}
+                    {code.length >= 4 &&
+                      (codeChecking ? (
+                        <p className="text-xs text-gray-400">Checking availability…</p>
+                      ) : codeCheck?.available ? (
+                        <p className="text-xs text-emerald-600">✓ Code is available</p>
+                      ) : codeCheck?.available === false ? (
+                        <p className="text-xs text-red-500">✗ Code already taken</p>
+                      ) : null)}
+                    {errors.societyCode && (
+                      <p className="text-xs text-red-500">{errors.societyCode.message}</p>
+                    )}
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="societyCode">
-                    Society Code <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="societyCode"
-                    placeholder="EDEN01"
-                    aria-invalid={!!errors.societyCode}
-                    {...register("societyCode", {
-                      onChange: (e) => {
-                        e.target.value = e.target.value.toUpperCase();
-                      },
-                    })}
-                    className="uppercase"
-                  />
-                  {code.length >= 4 && (
-                    <p
-                      className={`text-sm ${codeCheck?.available ? "text-green-600" : "text-destructive"}`}
-                    >
-                      {codeCheck?.available ? "Code is available" : "Code already taken"}
-                    </p>
-                  )}
-                  {errors.societyCode && (
-                    <p className="text-destructive text-sm">{errors.societyCode.message}</p>
-                  )}
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>
-                  Society Type <span className="text-destructive">*</span>
-                </Label>
-                <Select
-                  value={watch("type")}
-                  onValueChange={(v) => setValue("type", v as SocietyType)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(SOCIETY_TYPE_LABELS).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="space-y-2">
+
+                {/* Type */}
+                <div className="space-y-1.5">
                   <Label>
-                    State <span className="text-destructive">*</span>
+                    Society Type <span className="text-red-500">*</span>
                   </Label>
-                  <Select value={watch("state")} onValueChange={(v) => setValue("state", v)}>
-                    <SelectTrigger aria-invalid={!!errors.state}>
-                      <SelectValue placeholder="Select state" />
+                  <Select
+                    value={watch("type")}
+                    onValueChange={(v) => setValue("type", v as SocietyType)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {Object.entries(INDIAN_STATES).map(([stateCode, name]) => (
-                        <SelectItem key={stateCode} value={stateCode}>
-                          {name}
+                      {Object.entries(SOCIETY_TYPE_LABELS).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  {errors.state && (
-                    <p className="text-destructive text-sm">{errors.state.message}</p>
-                  )}
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="city">
-                    City <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="city"
-                    placeholder="Gurugram"
-                    aria-invalid={!!errors.city}
-                    {...register("city")}
-                  />
-                  {errors.city && <p className="text-destructive text-sm">{errors.city.message}</p>}
+
+                {/* State + City + Pincode */}
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="space-y-1.5">
+                    <Label>
+                      State <span className="text-red-500">*</span>
+                    </Label>
+                    <Select value={watch("state")} onValueChange={(v) => setValue("state", v)}>
+                      <SelectTrigger aria-invalid={!!errors.state}>
+                        <SelectValue placeholder="Select" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(INDIAN_STATES).map(([stateCode, name]) => (
+                          <SelectItem key={stateCode} value={stateCode}>
+                            {name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {errors.state && <p className="text-xs text-red-500">{errors.state.message}</p>}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="city">
+                      City <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="city"
+                      placeholder="Gurugram"
+                      aria-invalid={!!errors.city}
+                      {...register("city")}
+                    />
+                    {errors.city && <p className="text-xs text-red-500">{errors.city.message}</p>}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="pincode">
+                      Pincode <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="pincode"
+                      placeholder="122001"
+                      maxLength={6}
+                      aria-invalid={!!errors.pincode}
+                      {...register("pincode")}
+                    />
+                    {errors.pincode && (
+                      <p className="text-xs text-red-500">{errors.pincode.message}</p>
+                    )}
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="pincode">
-                    Pincode <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="pincode"
-                    placeholder="122001"
-                    maxLength={6}
-                    aria-invalid={!!errors.pincode}
-                    {...register("pincode")}
+
+                {/* Govt Registration No + Date */}
+                <div className="space-y-4 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4">
+                  <div className="flex items-center gap-2">
+                    <BadgeCheck className="h-4 w-4 text-gray-400" />
+                    <p className="text-xs font-medium tracking-wide text-gray-500 uppercase">
+                      Govt. Registration (Optional)
+                    </p>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="registrationNo" className="text-gray-600">
+                        Official Reg. Number
+                      </Label>
+                      <Input
+                        id="registrationNo"
+                        placeholder="e.g. DL/RWA/2019/0042"
+                        {...register("registrationNo")}
+                      />
+                      <p className="text-xs text-gray-400">
+                        Issued by Registrar of Societies / local authority
+                      </p>
+                      {errors.registrationNo && (
+                        <p className="text-xs text-red-500">{errors.registrationNo.message}</p>
+                      )}
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="registrationDate" className="text-gray-600">
+                        Date of Registration
+                      </Label>
+                      <Input
+                        id="registrationDate"
+                        type="date"
+                        max={new Date().toISOString().split("T")[0]}
+                        {...register("registrationDate")}
+                      />
+                      <p className="text-xs text-gray-400">
+                        Official date on your registration certificate
+                      </p>
+                      {errors.registrationDate && (
+                        <p className="text-xs text-red-500">{errors.registrationDate.message}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* T&C */}
+                <div className="flex items-start gap-3 rounded-lg border border-gray-100 bg-gray-50 p-3">
+                  <Checkbox
+                    id="consentTerms"
+                    checked={consentAccepted}
+                    onCheckedChange={(checked) => setConsentAccepted(checked === true)}
+                    className="mt-0.5"
                   />
-                  {errors.pincode && (
-                    <p className="text-destructive text-sm">{errors.pincode.message}</p>
-                  )}
+                  <Label
+                    htmlFor="consentTerms"
+                    className="cursor-pointer text-sm leading-snug text-gray-600"
+                  >
+                    I agree to the{" "}
+                    <Link href="/terms" target="_blank" className="text-emerald-600 underline">
+                      Terms of Service
+                    </Link>{" "}
+                    and{" "}
+                    <Link href="/privacy" target="_blank" className="text-emerald-600 underline">
+                      Privacy Policy
+                    </Link>
+                    <span className="text-red-500"> *</span>
+                  </Label>
                 </div>
               </div>
+            )}
 
-              <div className="flex items-start gap-3 pt-2">
-                <Checkbox
-                  id="consentTerms"
-                  checked={consentAccepted}
-                  onCheckedChange={(checked) => setConsentAccepted(checked === true)}
-                />
-                <Label htmlFor="consentTerms" className="cursor-pointer text-sm leading-snug">
-                  I agree to the{" "}
-                  <Link href="/terms" target="_blank" className="text-primary underline">
-                    Terms of Service
-                  </Link>{" "}
-                  and{" "}
-                  <Link href="/privacy" target="_blank" className="text-primary underline">
-                    Privacy Policy
-                  </Link>{" "}
-                  <span className="text-destructive">*</span>
-                </Label>
+            {/* ── Step 1: Choose Plan ──────────────────────────────────── */}
+            {step === 1 && (
+              <div className="space-y-5">
+                {/* Trial info banner */}
+                <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                  <BadgeCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
+                  <div>
+                    <p className="text-sm font-semibold text-emerald-800">
+                      You get 14 days free on any plan
+                    </p>
+                    <p className="mt-0.5 text-xs text-emerald-700">
+                      Choose a plan now or decide later. No payment required until your trial ends.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Plan grid */}
+                {plansLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
+                  </div>
+                ) : plans.length === 0 ? (
+                  <p className="py-8 text-center text-sm text-gray-400">
+                    No plans available right now. You can choose a plan after sign-up.
+                  </p>
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {plans.map((plan) => (
+                      <PlanCard
+                        key={plan.id}
+                        plan={plan}
+                        selected={selectedPlanId === plan.id}
+                        onSelect={() =>
+                          setSelectedPlanId(selectedPlanId === plan.id ? null : plan.id)
+                        }
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {/* Skip note */}
+                <p className="text-center text-xs text-gray-400">
+                  Not sure yet?{" "}
+                  <button
+                    type="button"
+                    className="cursor-pointer font-medium text-emerald-600 hover:text-emerald-700"
+                    onClick={() => {
+                      setSelectedPlanId(null);
+                      setStep(2);
+                    }}
+                  >
+                    Skip for now
+                  </button>{" "}
+                  — you can upgrade anytime from the dashboard.
+                </p>
               </div>
-            </CardContent>
-          </Card>
-        )}
+            )}
 
-        {step === 1 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Admin Account</CardTitle>
-              <CardDescription>Your details as the primary admin</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="adminName">
-                    Full Name <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="adminName"
-                    placeholder="Hemant Kumar"
-                    aria-invalid={!!errors.adminName}
-                    {...register("adminName")}
-                  />
-                  {errors.adminName && (
-                    <p className="text-destructive text-sm">{errors.adminName.message}</p>
-                  )}
+            {/* ── Step 2: Admin Account ────────────────────────────────── */}
+            {step === 2 && (
+              <div className="space-y-5">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="adminName">
+                      Full Name <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="adminName"
+                      placeholder="Hemant Kumar"
+                      aria-invalid={!!errors.adminName}
+                      {...register("adminName")}
+                    />
+                    {errors.adminName && (
+                      <p className="text-xs text-red-500">{errors.adminName.message}</p>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="adminEmail">
+                      Email <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="adminEmail"
+                      type="email"
+                      placeholder="admin@example.com"
+                      autoComplete="off"
+                      aria-invalid={!!errors.adminEmail}
+                      {...register("adminEmail")}
+                    />
+                    {errors.adminEmail && (
+                      <p className="text-xs text-red-500">{errors.adminEmail.message}</p>
+                    )}
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="adminEmail">
-                    Email <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="adminEmail"
-                    type="email"
-                    placeholder="admin@example.com"
-                    autoComplete="off"
-                    aria-invalid={!!errors.adminEmail}
-                    {...register("adminEmail")}
-                  />
-                  {errors.adminEmail && (
-                    <p className="text-destructive text-sm">{errors.adminEmail.message}</p>
-                  )}
-                </div>
-                <div className="space-y-2">
+
+                <div className="space-y-1.5">
                   <Label htmlFor="adminMobile">Mobile (Optional)</Label>
                   <div className="flex gap-2">
-                    <span className="bg-muted text-muted-foreground flex items-center rounded-md border px-3 text-sm">
+                    <span className="flex items-center rounded-md border bg-gray-50 px-3 text-sm text-gray-500">
                       +91
                     </span>
                     <Input
@@ -386,79 +765,112 @@ export default function RegisterSocietyPage() {
                     />
                   </div>
                   {errors.adminMobile && (
-                    <p className="text-destructive text-sm">{errors.adminMobile.message}</p>
+                    <p className="text-xs text-red-500">{errors.adminMobile.message}</p>
                   )}
                 </div>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="adminPassword">
-                    Password <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="adminPassword"
-                    type="password"
-                    placeholder="Min 8 characters"
-                    autoComplete="new-password"
-                    aria-invalid={!!errors.adminPassword}
-                    {...register("adminPassword")}
-                  />
-                  {errors.adminPassword && (
-                    <p className="text-destructive text-sm">{errors.adminPassword.message}</p>
-                  )}
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="adminPassword">
+                      Password <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="adminPassword"
+                      type="password"
+                      placeholder="Min 8 characters"
+                      autoComplete="new-password"
+                      aria-invalid={!!errors.adminPassword}
+                      {...register("adminPassword")}
+                    />
+                    {errors.adminPassword && (
+                      <p className="text-xs text-red-500">{errors.adminPassword.message}</p>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="adminPasswordConfirm">
+                      Confirm Password <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="adminPasswordConfirm"
+                      type="password"
+                      autoComplete="new-password"
+                      aria-invalid={!!errors.adminPasswordConfirm}
+                      {...register("adminPasswordConfirm")}
+                    />
+                    {errors.adminPasswordConfirm && (
+                      <p className="text-xs text-red-500">{errors.adminPasswordConfirm.message}</p>
+                    )}
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="adminPasswordConfirm">
-                    Confirm Password <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="adminPasswordConfirm"
-                    type="password"
-                    autoComplete="new-password"
-                    aria-invalid={!!errors.adminPasswordConfirm}
-                    {...register("adminPasswordConfirm")}
-                  />
-                  {errors.adminPasswordConfirm && (
-                    <p className="text-destructive text-sm">
-                      {errors.adminPasswordConfirm.message}
+
+                {/* Selected plan summary */}
+                {selectedPlanId && plans.length > 0 && (
+                  <div className="flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+                    <p className="text-sm text-emerald-800">
+                      Plan selected:{" "}
+                      <strong>{plans.find((p) => p.id === selectedPlanId)?.name}</strong>
+                      <span className="ml-1 text-emerald-600">(after trial)</span>
                     </p>
-                  )}
-                </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPlanId(null)}
+                      className="ml-auto text-xs text-emerald-600 underline"
+                    >
+                      Change
+                    </button>
+                  </div>
+                )}
               </div>
-            </CardContent>
-          </Card>
-        )}
+            )}
 
-        <div className="mt-6 flex justify-between">
-          <Button
-            type="button"
-            variant="outline"
-            disabled={step === 0}
-            onClick={() => setStep((s) => s - 1)}
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
-          </Button>
-          {step < STEPS.length - 1 ? (
-            <Button type="button" disabled={!canProceed()} onClick={() => setStep((s) => s + 1)}>
-              Next
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          ) : (
-            <Button type="submit" disabled={isLoading || !canProceed()}>
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Register Society
-            </Button>
-          )}
+            {/* Navigation */}
+            <div className="mt-8 flex items-center justify-between">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={step === 0}
+                onClick={() => setStep((s) => s - 1)}
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back
+              </Button>
+
+              {step < STEPS.length - 1 ? (
+                <Button
+                  type="button"
+                  disabled={!canProceed()}
+                  className="bg-emerald-600 hover:bg-emerald-700"
+                  onClick={() => setStep((s) => s + 1)}
+                >
+                  Next
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              ) : (
+                <Button
+                  type="submit"
+                  disabled={isLoading || !canProceed()}
+                  className="bg-emerald-600 hover:bg-emerald-700"
+                >
+                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Register Society
+                </Button>
+              )}
+            </div>
+          </form>
+
+          {/* Sign in link */}
+          <p className="mt-6 text-center text-sm text-gray-500">
+            Already have an account?{" "}
+            <Link
+              href="/login"
+              className="font-medium text-emerald-600 underline underline-offset-2"
+            >
+              Sign in
+            </Link>
+          </p>
         </div>
-      </form>
-
-      <p className="text-muted-foreground text-center text-sm">
-        Already have an account?{" "}
-        <Link href="/login" className="text-primary underline">
-          Sign in
-        </Link>
-      </p>
+      </div>
     </div>
   );
 }

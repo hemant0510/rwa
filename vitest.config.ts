@@ -12,6 +12,10 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
+    environmentMatchGlobs: [
+      // API route tests run in Node — no DOM needed
+      ["tests/api/**", "node"],
+    ],
     include: ["tests/**/*.test.{ts,tsx}"],
     setupFiles: ["tests/setup.ts"],
     coverage: {

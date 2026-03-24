@@ -237,6 +237,7 @@ model Society {
   societyCode           String             @unique @map("society_code") @db.VarChar(8)
   name                  String             @db.VarChar(200)
   registrationNo        String?            @map("registration_no") @db.VarChar(50)
+  registrationDate      DateTime?          @map("registration_date") @db.Date
   state                 String             @db.VarChar(2)
   city                  String             @db.VarChar(50)
   cityCode              String             @map("city_code") @db.VarChar(3)

@@ -91,4 +91,80 @@ describe("registerSocietySchema", () => {
       expect(result.success).toBe(true);
     }
   });
+
+  // ─── New optional fields ────────────────────────────────────────────────────
+
+  it("accepts optional registrationNo", () => {
+    const result = registerSocietySchema.safeParse({
+      ...validInput,
+      registrationNo: "DL/RWA/2019/0042",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("fails when registrationNo exceeds 50 chars", () => {
+    const result = registerSocietySchema.safeParse({
+      ...validInput,
+      registrationNo: "X".repeat(51),
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts optional registrationDate in YYYY-MM-DD format", () => {
+    const result = registerSocietySchema.safeParse({
+      ...validInput,
+      registrationDate: "2019-04-15",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("fails with registrationDate in wrong format", () => {
+    const result = registerSocietySchema.safeParse({
+      ...validInput,
+      registrationDate: "15-04-2019",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("fails with registrationDate as plain text", () => {
+    const result = registerSocietySchema.safeParse({
+      ...validInput,
+      registrationDate: "not-a-date",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts empty string for registrationDate (form default when left blank)", () => {
+    const result = registerSocietySchema.safeParse({
+      ...validInput,
+      registrationDate: "",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts optional selectedPlanId as valid UUID", () => {
+    const result = registerSocietySchema.safeParse({
+      ...validInput,
+      selectedPlanId: "550e8400-e29b-41d4-a716-446655440000",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("fails with selectedPlanId that is not a UUID", () => {
+    const result = registerSocietySchema.safeParse({
+      ...validInput,
+      selectedPlanId: "not-a-uuid",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("passes without any optional fields", () => {
+    const result = registerSocietySchema.safeParse(validInput);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.registrationNo).toBeUndefined();
+      expect(result.data.registrationDate).toBeUndefined();
+      expect(result.data.selectedPlanId).toBeUndefined();
+    }
+  });
 });

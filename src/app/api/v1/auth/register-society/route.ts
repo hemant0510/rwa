@@ -40,6 +40,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate selectedPlanId if provided
+    if (data.selectedPlanId) {
+      const plan = await prisma.platformPlan.findUnique({
+        where: { id: data.selectedPlanId, isActive: true, isPublic: true },
+      });
+      if (!plan) {
+        return errorResponse({
+          code: "INVALID_PLAN",
+          message: "Selected plan is not available.",
+          status: 400,
+        });
+      }
+    }
+
     // Create Supabase Auth user
     const supabaseAdmin = createAdminClient();
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
@@ -93,6 +107,9 @@ export async function POST(request: NextRequest) {
             annualFee: DEFAULT_ANNUAL_FEE,
             status: "TRIAL",
             trialEndsAt,
+            // Official government registration details (entered by the user)
+            registrationNo: data.registrationNo ?? null,
+            registrationDate: data.registrationDate ? new Date(data.registrationDate) : null,
           },
         });
 
@@ -119,6 +136,20 @@ export async function POST(request: NextRequest) {
             permission: "FULL_ACCESS",
             termStart: now,
             termEnd,
+          },
+        });
+
+        // Create trial subscription record, pre-linking the chosen plan if provided
+        await tx.societySubscription.create({
+          data: {
+            societyId: society.id,
+            planId: data.selectedPlanId ?? null,
+            status: "TRIAL",
+            trialStartsAt: now,
+            trialEndsAt,
+            notes: data.selectedPlanId
+              ? "Plan pre-selected during self-registration"
+              : "Trial started without plan selection",
           },
         });
 
