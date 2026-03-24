@@ -146,4 +146,14 @@ describe("GET /api/v1/auth/plans", () => {
 
     expect(res.status).toBe(500);
   });
+
+  it("serializes pricePerUnit as number when plan uses per-unit pricing", async () => {
+    const flexPlan = { ...MOCK_PLANS[0], id: "flex", pricePerUnit: 3, billingOptions: [] };
+    mockPrisma.platformPlan.findMany.mockResolvedValue([flexPlan]);
+
+    const res = await GET();
+    const body = (await res.json()) as Array<{ pricePerUnit: number | null }>;
+
+    expect(body[0].pricePerUnit).toBe(3);
+  });
 });

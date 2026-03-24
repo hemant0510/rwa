@@ -11,6 +11,7 @@ export default defineConfig({
     },
   },
   test: {
+    testTimeout: 15000, // UI integration tests with form navigation need extra time under coverage instrumentation
     environment: "jsdom",
     environmentMatchGlobs: [
       // API route tests run in Node — no DOM needed
@@ -49,6 +50,8 @@ export default defineConfig({
         "src/app/api/v1/residents/bulk-upload/**",
         "src/app/api/v1/auth/forgot-password/**",
         "src/app/api/v1/auth/login/**",
+        "src/app/api/v1/auth/register-society/**",
+        "src/app/api/v1/auth/plans/**",
         "src/app/api/v1/societies/[id]/migration/import-stream/**",
         "src/lib/migration-processor.ts",
         "src/app/api/v1/societies/[id]/fees/[feeId]/payments/**",

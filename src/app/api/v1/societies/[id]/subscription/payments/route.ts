@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { parseBody, internalError, notFoundError, successResponse } from "@/lib/api-helpers";
+import { addBillingCycle } from "@/lib/billing";
 import {
   ensureOpenInvoice,
   getLatestSubscription,
@@ -49,17 +50,63 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
 
     const subscription = await getLatestSubscription(societyId);
-    if (!subscription || !subscription.billingOption)
-      return notFoundError("No active subscription found");
+    if (!subscription) return notFoundError("No active subscription found");
 
-    const baseAmount = Number(subscription.billingOption.price);
-    const finalAmount = Number(subscription.finalPrice ?? subscription.billingOption.price);
+    // Resolve billing option: use the SA-selected option, fall back to subscription's current option
+    let billingOption = subscription.billingOption;
+    let cycleChanged = false;
+
+    if (data.billingOptionId && data.billingOptionId !== subscription.billingOptionId) {
+      // SA explicitly selected a (possibly different) billing option
+      const selectedOption = await prisma.planBillingOption.findUnique({
+        where: { id: data.billingOptionId },
+      });
+      if (!selectedOption || selectedOption.planId !== subscription.planId) {
+        return NextResponse.json(
+          {
+            error: {
+              code: "INVALID_BILLING_OPTION",
+              message: "Billing option not valid for this plan",
+            },
+          },
+          { status: 400 },
+        );
+      }
+      billingOption = selectedOption;
+      cycleChanged = true;
+    } else if (!billingOption && data.billingOptionId) {
+      // Subscription has no billing option yet (TRIAL) — use the one SA passed
+      const selectedOption = await prisma.planBillingOption.findUnique({
+        where: { id: data.billingOptionId },
+      });
+      if (!selectedOption || selectedOption.planId !== subscription.planId) {
+        return NextResponse.json(
+          {
+            error: {
+              code: "INVALID_BILLING_OPTION",
+              message: "Billing option not valid for this plan",
+            },
+          },
+          { status: 400 },
+        );
+      }
+      billingOption = selectedOption;
+      cycleChanged = true;
+    }
+
+    if (!billingOption) return notFoundError("No billing option found — select a billing cycle");
+
+    const baseAmount = Number(billingOption.price);
+    // Preserve existing discount when same cycle; full price when switching cycle
+    const finalAmount = cycleChanged
+      ? baseAmount
+      : Number(subscription.finalPrice ?? billingOption.price);
     const discountAmount = Math.max(0, baseAmount - finalAmount);
 
     const invoice = await ensureOpenInvoice({
       societyId,
       subscriptionId: subscription.id,
-      billingCycle: subscription.billingOption.billingCycle,
+      billingCycle: billingOption.billingCycle,
       planName: subscription.plan?.name ?? "Trial Plan",
       baseAmount,
       discountAmount,
@@ -112,17 +159,26 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       });
 
       if (status === "PAID") {
+        // Extend from current period end (if in future) or from today
+        const extendFrom =
+          subscription.currentPeriodEnd && subscription.currentPeriodEnd > new Date()
+            ? subscription.currentPeriodEnd
+            : new Date();
+        const newPeriodEnd = addBillingCycle(extendFrom, billingOption.billingCycle);
+        const newPeriodStart = subscription.currentPeriodStart ?? paymentDate;
+
         await tx.societySubscription.update({
           where: { id: subscription.id },
           data: {
             status: "ACTIVE",
-            currentPeriodStart: subscription.currentPeriodStart ?? paymentDate,
-            currentPeriodEnd: subscription.currentPeriodEnd ?? null,
+            billingOptionId: billingOption.id,
+            currentPeriodStart: newPeriodStart,
+            currentPeriodEnd: newPeriodEnd,
           },
         });
         await tx.society.update({
           where: { id: societyId },
-          data: { status: "ACTIVE", subscriptionExpiresAt: subscription.currentPeriodEnd ?? null },
+          data: { status: "ACTIVE", subscriptionExpiresAt: newPeriodEnd },
         });
       }
 

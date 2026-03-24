@@ -129,6 +129,28 @@ describe("POST /api/v1/auth/register-society", () => {
     expect(body.error.code).toBe("RATE_LIMIT_EXCEEDED");
   });
 
+  // ── IP header fallbacks ─────────────────────────────────────────────────────
+
+  it("accepts request with x-real-ip header (no x-forwarded-for)", async () => {
+    const req = new NextRequest("http://localhost/api/v1/auth/register-society", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-real-ip": "10.0.0.1" },
+      body: JSON.stringify(VALID_BODY),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(201);
+  });
+
+  it("accepts request with no IP headers (falls back to 'unknown')", async () => {
+    const req = new NextRequest("http://localhost/api/v1/auth/register-society", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(VALID_BODY),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(201);
+  });
+
   // ── Society code uniqueness ─────────────────────────────────────────────────
 
   it("returns 409 when society code is already taken", async () => {

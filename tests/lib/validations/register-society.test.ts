@@ -78,6 +78,11 @@ describe("registerSocietySchema", () => {
     expect(result.success).toBe(false);
   });
 
+  it("accepts empty string for adminMobile (form default when left blank)", () => {
+    const result = registerSocietySchema.safeParse({ ...validInput, adminMobile: "" });
+    expect(result.success).toBe(true);
+  });
+
   it("accepts all valid society types", () => {
     const types = [
       "APARTMENT_COMPLEX",

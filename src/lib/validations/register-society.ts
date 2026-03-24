@@ -36,6 +36,7 @@ export const registerSocietySchema = z
     adminMobile: z
       .string()
       .regex(/^[6-9]\d{9}$/, "Invalid Indian mobile number")
+      .or(z.literal(""))
       .optional(),
     adminPassword: z.string().min(8, "Password must be at least 8 characters"),
     adminPasswordConfirm: z.string().min(8, "Password must be at least 8 characters"),

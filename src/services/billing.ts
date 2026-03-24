@@ -33,6 +33,7 @@ export async function recordSubscriptionPayment(
     paymentDate: string;
     notes?: string;
     sendEmail?: boolean;
+    billingOptionId?: string;
   },
 ) {
   const res = await fetch(`${BASE}/societies/${societyId}/subscription/payments`, {
@@ -45,6 +46,23 @@ export async function recordSubscriptionPayment(
     throw new Error(err?.error?.message ?? "Failed to record subscription payment");
   }
   return res.json();
+}
+
+export async function getSubscription(societyId: string) {
+  const res = await fetch(`${BASE}/societies/${societyId}/subscription`);
+  if (!res.ok) throw new Error("Failed to fetch subscription");
+  return res.json() as Promise<{
+    id: string;
+    status: string;
+    currentPeriodEnd: string | null;
+    finalPrice: number | null;
+    plan: {
+      id: string;
+      name: string;
+      billingOptions: Array<{ id: string; billingCycle: string; price: number }>;
+    } | null;
+    billingOption: { id: string; billingCycle: string; price: number } | null;
+  }>;
 }
 
 export async function getSubscriptionPayments(societyId: string) {

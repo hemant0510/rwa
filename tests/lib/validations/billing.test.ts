@@ -139,6 +139,30 @@ describe("recordSubscriptionPaymentSchema", () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it("accepts optional billingOptionId as UUID", () => {
+    const result = recordSubscriptionPaymentSchema.safeParse({
+      ...validCash,
+      billingOptionId: "550e8400-e29b-41d4-a716-446655440000",
+    });
+    expect(result.success).toBe(true);
+    if (result.success)
+      expect(result.data.billingOptionId).toBe("550e8400-e29b-41d4-a716-446655440000");
+  });
+
+  it("fails with billingOptionId that is not a UUID", () => {
+    const result = recordSubscriptionPaymentSchema.safeParse({
+      ...validCash,
+      billingOptionId: "not-a-uuid",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("passes without billingOptionId", () => {
+    const result = recordSubscriptionPaymentSchema.safeParse(validCash);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.billingOptionId).toBeUndefined();
+  });
 });
 
 // ──────────────────────────────────────────

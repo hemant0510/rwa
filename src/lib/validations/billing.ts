@@ -10,6 +10,7 @@ export const recordSubscriptionPaymentSchema = z
     paymentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format"),
     notes: z.string().max(500).optional(),
     sendEmail: z.boolean().optional().default(false),
+    billingOptionId: z.string().uuid().optional(),
   })
   .refine(
     (data) => {

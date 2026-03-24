@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 import {
   getBillingDashboard,
+  getSubscription,
   getSubscriptionList,
   getExpiringSubscriptions,
   recordSubscriptionPayment,
@@ -104,6 +105,37 @@ describe("billing service", () => {
     });
   });
 
+  // ── Get Subscription ──
+  describe("getSubscription", () => {
+    const mockSub = {
+      id: "sub-1",
+      status: "TRIAL",
+      currentPeriodEnd: null,
+      finalPrice: null,
+      plan: {
+        id: "plan-1",
+        name: "Basic",
+        billingOptions: [
+          { id: "opt-1", billingCycle: "MONTHLY", price: 499 },
+          { id: "opt-2", billingCycle: "ANNUAL", price: 4990 },
+        ],
+      },
+      billingOption: null,
+    };
+
+    it("fetches subscription for society", async () => {
+      mockFetch.mockResolvedValue(okJson(mockSub));
+      const result = await getSubscription("soc-1");
+      expect(mockFetch).toHaveBeenCalledWith("/api/v1/societies/soc-1/subscription");
+      expect(result).toEqual(mockSub);
+    });
+
+    it("throws on failure", async () => {
+      mockFetch.mockResolvedValue(errNoBody());
+      await expect(getSubscription("soc-1")).rejects.toThrow("Failed to fetch subscription");
+    });
+  });
+
   // ── Record Payment ──
   describe("recordSubscriptionPayment", () => {
     const payload = {
@@ -135,6 +167,16 @@ describe("billing service", () => {
       await expect(recordSubscriptionPayment("soc-1", payload)).rejects.toThrow(
         "Failed to record subscription payment",
       );
+    });
+
+    it("includes billingOptionId in request body when provided", async () => {
+      mockFetch.mockResolvedValue(okJson({ id: "p1" }));
+      await recordSubscriptionPayment("soc-1", {
+        ...payload,
+        billingOptionId: "550e8400-e29b-41d4-a716-446655440000",
+      });
+      const body = JSON.parse((mockFetch.mock.calls[0][1] as RequestInit).body as string);
+      expect(body.billingOptionId).toBe("550e8400-e29b-41d4-a716-446655440000");
     });
   });
 
