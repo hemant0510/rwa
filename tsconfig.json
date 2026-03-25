@@ -30,5 +30,11 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules", "supabase/seed.ts", "supabase/seed-master.ts", "prisma.config.ts"]
+  "exclude": [
+    "node_modules",
+    "supabase/seed.ts",
+    "supabase/seed-master.ts",
+    "prisma.config.ts",
+    "vitest.config.ts"
+  ]
 }
