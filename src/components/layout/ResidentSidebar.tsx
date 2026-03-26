@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { CreditCard, Home, Receipt, User } from "lucide-react";
+import { CalendarDays, CreditCard, Home, Receipt, User } from "lucide-react";
 
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
@@ -12,6 +12,7 @@ const navItems = [
   { href: "/r/home", label: "Home", icon: Home },
   { href: "/r/payments", label: "Payments", icon: CreditCard },
   { href: "/r/expenses", label: "Expenses", icon: Receipt },
+  { href: "/r/events", label: "Events", icon: CalendarDays },
   { href: "/r/profile", label: "Profile", icon: User },
 ];
 

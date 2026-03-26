@@ -289,13 +289,32 @@ export async function settleEvent(societyId: string, eventId: string, data: Sett
 
 // ── Resident: Events ──
 
+export interface ResidentRegistration {
+  id: string;
+  status: string;
+  memberCount: number;
+  payment?: { amount: number } | null;
+}
+
+export interface ResidentCommunityEvent extends CommunityEvent {
+  myRegistration: ResidentRegistration | null;
+}
+
+export interface ResidentEventFinance {
+  totalCollected: number;
+  totalExpenses: number;
+  netAmount: number;
+  disposition: string | null;
+  expenses: Array<{ description: string; amount: number }>;
+}
+
 export async function getResidentEvents(params?: { upcoming?: boolean; all?: boolean }) {
   const searchParams = new URLSearchParams();
   if (params?.upcoming) searchParams.set("upcoming", "true");
   if (params?.all) searchParams.set("all", "true");
   const res = await fetch(`${API_BASE}/residents/me/events?${searchParams}`);
   if (!res.ok) throw new Error("Failed to fetch events");
-  return res.json() as Promise<{ data: CommunityEvent[] }>;
+  return res.json() as Promise<{ data: ResidentCommunityEvent[] }>;
 }
 
 export async function registerForEvent(eventId: string, data: RegisterEventInput) {
@@ -325,5 +344,5 @@ export async function cancelRegistration(eventId: string) {
 export async function getResidentEventFinances(eventId: string) {
   const res = await fetch(`${API_BASE}/residents/me/events/${eventId}/finances`);
   if (!res.ok) throw new Error("Failed to fetch event finances");
-  return res.json() as Promise<EventFinanceSummary>;
+  return res.json() as Promise<ResidentEventFinance>;
 }
