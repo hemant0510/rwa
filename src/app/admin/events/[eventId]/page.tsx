@@ -1527,7 +1527,9 @@ export default function EventDetailPage() {
                 <Input
                   type="number"
                   min={0}
-                  {...editForm.register("feeAmount", { valueAsNumber: true })}
+                  {...editForm.register("feeAmount", {
+                    setValueAs: (v) => (v === "" || v == null ? null : parseFloat(String(v))),
+                  })}
                 />
               </div>
               <div className="space-y-2">
@@ -1535,7 +1537,9 @@ export default function EventDetailPage() {
                 <Input
                   type="number"
                   min={0}
-                  {...editForm.register("estimatedBudget", { valueAsNumber: true })}
+                  {...editForm.register("estimatedBudget", {
+                    setValueAs: (v) => (v === "" || v == null ? null : parseFloat(String(v))),
+                  })}
                 />
               </div>
             </div>
@@ -1545,7 +1549,9 @@ export default function EventDetailPage() {
                 <Input
                   type="number"
                   min={1}
-                  {...editForm.register("minParticipants", { valueAsNumber: true })}
+                  {...editForm.register("minParticipants", {
+                    setValueAs: (v) => (v === "" || v == null ? null : parseInt(String(v), 10)),
+                  })}
                 />
               </div>
               <div className="space-y-2">
@@ -1553,7 +1559,9 @@ export default function EventDetailPage() {
                 <Input
                   type="number"
                   min={1}
-                  {...editForm.register("maxParticipants", { valueAsNumber: true })}
+                  {...editForm.register("maxParticipants", {
+                    setValueAs: (v) => (v === "" || v == null ? null : parseInt(String(v), 10)),
+                  })}
                 />
               </div>
             </div>
@@ -1572,7 +1580,11 @@ export default function EventDetailPage() {
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={updateMutation.isPending}>
+              <Button
+                type="button"
+                disabled={updateMutation.isPending}
+                onClick={editForm.handleSubmit((data) => updateMutation.mutate(data))}
+              >
                 {updateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Save Changes
               </Button>

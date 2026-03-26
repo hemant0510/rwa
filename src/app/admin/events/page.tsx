@@ -165,7 +165,11 @@ function EventsPageInner() {
       title: "",
       description: "",
       location: "",
-      eventDate: "",
+      eventDate: (() => {
+        const d = new Date();
+        d.setDate(d.getDate() + 7);
+        return d.toISOString().slice(0, 16);
+      })(),
       registrationDeadline: "",
     },
   });
@@ -576,7 +580,9 @@ function EventsPageInner() {
                 type="number"
                 min={1}
                 placeholder="Leave blank for unlimited"
-                {...createForm.register("maxParticipants", { valueAsNumber: true })}
+                {...createForm.register("maxParticipants", {
+                  setValueAs: (v) => (v === "" || v == null ? null : parseInt(String(v), 10)),
+                })}
               />
             </div>
 
@@ -591,7 +597,11 @@ function EventsPageInner() {
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={createMutation.isPending}>
+              <Button
+                type="button"
+                disabled={createMutation.isPending}
+                onClick={createForm.handleSubmit((data) => createMutation.mutate(data))}
+              >
                 {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Create Event
               </Button>
