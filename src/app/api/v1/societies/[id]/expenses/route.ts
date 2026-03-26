@@ -18,6 +18,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     const where: Record<string, unknown> = { societyId };
     if (category) where.category = category;
+    const scope = searchParams.get("scope");
+    if (scope === "general") where.eventId = null;
+    else if (scope === "event") where.eventId = { not: null };
     if (from || to) {
       where.date = {};
       if (from) (where.date as Record<string, unknown>).gte = new Date(from);
@@ -32,6 +35,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         take: limit,
         include: {
           logger: { select: { name: true } },
+          event: { select: { title: true } },
         },
       }),
       prisma.expense.count({ where }),

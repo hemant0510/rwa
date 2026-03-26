@@ -21,6 +21,8 @@ export interface Expense {
   correctionWindowEnds: string | null;
   loggedBy: string;
   logger: { name: string };
+  eventId: string | null;
+  event: { title: string } | null;
   createdAt: string;
 }
 
@@ -38,7 +40,14 @@ export interface ExpenseSummary {
 
 export async function getExpenses(
   societyId: string,
-  params?: { category?: string; from?: string; to?: string; page?: number; limit?: number },
+  params?: {
+    category?: string;
+    from?: string;
+    to?: string;
+    page?: number;
+    limit?: number;
+    scope?: string;
+  },
 ) {
   const searchParams = new URLSearchParams();
   if (params?.category) searchParams.set("category", params.category);
@@ -46,6 +55,7 @@ export async function getExpenses(
   if (params?.to) searchParams.set("to", params.to);
   if (params?.page) searchParams.set("page", String(params.page));
   if (params?.limit) searchParams.set("limit", String(params.limit));
+  if (params?.scope) searchParams.set("scope", params.scope);
   const res = await fetch(`${API_BASE}/societies/${societyId}/expenses?${searchParams}`);
   if (!res.ok) throw new Error("Failed to fetch expenses");
   return res.json() as Promise<{ data: Expense[]; total: number; page: number; limit: number }>;

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import {
+  Calendar,
   CreditCard,
   Crown,
   FileText,
@@ -23,6 +24,7 @@ const navItems = [
   { href: "/admin/residents", label: "Residents", icon: Users },
   { href: "/admin/fees", label: "Fees", icon: CreditCard },
   { href: "/admin/expenses", label: "Expenses", icon: Receipt },
+  { href: "/admin/events", label: "Events", icon: Calendar },
   { href: "/admin/reports", label: "Reports", icon: FileText },
   { href: "/admin/broadcast", label: "Broadcast", icon: MessageSquare },
   { href: "/admin/governing-body", label: "Governing Body", icon: Crown },

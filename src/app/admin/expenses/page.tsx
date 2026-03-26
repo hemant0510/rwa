@@ -135,6 +135,7 @@ export default function ExpensesPage() {
 
   // Filters
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [scopeFilter, setScopeFilter] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
@@ -155,11 +156,12 @@ export default function ExpensesPage() {
     queryKey: [
       "expenses",
       societyId,
-      { category: categoryFilter, from: dateFrom, to: dateTo, page },
+      { category: categoryFilter, scope: scopeFilter, from: dateFrom, to: dateTo, page },
     ],
     queryFn: () =>
       getExpenses(societyId, {
         category: categoryFilter === "all" ? undefined : categoryFilter,
+        scope: scopeFilter === "all" ? undefined : scopeFilter,
         from: dateFrom || undefined,
         to: dateTo || undefined,
         page,
@@ -380,6 +382,22 @@ export default function ExpensesPage() {
             ))}
           </SelectContent>
         </Select>
+        <Select
+          value={scopeFilter}
+          onValueChange={(v) => {
+            setScopeFilter(v);
+            setPage(1);
+          }}
+        >
+          <SelectTrigger className="w-[160px]">
+            <SelectValue placeholder="All Expenses" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Expenses</SelectItem>
+            <SelectItem value="general">General Only</SelectItem>
+            <SelectItem value="event">Event Only</SelectItem>
+          </SelectContent>
+        </Select>
         <div className="flex items-center gap-2">
           <Label className="text-muted-foreground text-sm">From</Label>
           <Input
@@ -459,10 +477,16 @@ export default function ExpensesPage() {
                         ).toLowerCase()}
                       </Badge>
                     </TableCell>
-                    <TableCell
-                      className={`hidden max-w-[200px] truncate md:table-cell ${cellClass}`}
-                    >
-                      {expense.description}
+                    <TableCell className={`hidden max-w-[200px] md:table-cell ${cellClass}`}>
+                      <span className="truncate">{expense.description}</span>
+                      {expense.event && (
+                        <Badge
+                          variant="outline"
+                          className="ml-2 gap-1 border-purple-200 bg-purple-50 text-xs text-purple-700"
+                        >
+                          {expense.event.title}
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell
                       className={`font-medium ${isReversed ? "text-red-500 line-through" : Number(expense.amount) < 0 ? "text-red-600" : ""}`}
