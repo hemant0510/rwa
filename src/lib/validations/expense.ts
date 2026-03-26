@@ -18,6 +18,7 @@ export const createExpenseSchema = z.object({
   category: z.enum(EXPENSE_CATEGORY_ENUM),
   description: z.string().min(3, "Description is required").max(500),
   receiptUrl: z.string().url().optional().nullable(),
+  eventId: z.string().uuid().optional().nullable(),
 });
 
 export type CreateExpenseInput = z.infer<typeof createExpenseSchema>;

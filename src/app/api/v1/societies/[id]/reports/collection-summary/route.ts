@@ -22,8 +22,9 @@ async function getCollectionData(societyId: string, sessionYear: string) {
       _sum: { amountDue: true },
       _count: true,
     }),
+    // Exclude event-linked expenses — event finances are self-contained
     prisma.expense.aggregate({
-      where: { societyId, status: "ACTIVE" },
+      where: { societyId, status: "ACTIVE", eventId: null },
       _sum: { amount: true },
     }),
   ]);

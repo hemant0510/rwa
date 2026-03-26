@@ -7,16 +7,19 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   try {
     const { id: societyId } = await params;
 
+    // Exclude event-linked expenses from society balance — event finances are self-contained
+    const generalExpenseFilter = { societyId, status: "ACTIVE" as const, eventId: null };
+
     const [categoryBreakdown, totalExpenses, totalCollected] = await Promise.all([
       prisma.expense.groupBy({
         by: ["category"],
-        where: { societyId, status: "ACTIVE" },
+        where: generalExpenseFilter,
         _sum: { amount: true },
         _count: true,
         orderBy: { _sum: { amount: "desc" } },
       }),
       prisma.expense.aggregate({
-        where: { societyId, status: "ACTIVE" },
+        where: generalExpenseFilter,
         _sum: { amount: true },
       }),
       prisma.membershipFee.aggregate({

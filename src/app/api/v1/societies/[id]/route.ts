@@ -47,9 +47,9 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     // Get total collected
     const totalCollected = feeStats.reduce((sum, s) => sum + Number(s._sum.amountPaid || 0), 0);
 
-    // Get expense balance
+    // Get expense balance (exclude event-linked expenses — event finances are self-contained)
     const expenseTotal = await prisma.expense.aggregate({
-      where: { societyId: id, status: "ACTIVE" },
+      where: { societyId: id, status: "ACTIVE", eventId: null },
       _sum: { amount: true },
     });
 

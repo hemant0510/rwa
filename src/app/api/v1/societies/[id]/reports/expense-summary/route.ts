@@ -13,10 +13,12 @@ import { ExpenseSummaryDocument } from "../report-document";
 async function getExpenseData(societyId: string, sessionYear: string, startMonth: number) {
   const { start, end } = getSessionDates(sessionYear, startMonth);
 
+  // Exclude event-linked expenses — they are tracked under each event's financial summary
   const expenses = await prisma.expense.findMany({
     where: {
       societyId,
       status: "ACTIVE",
+      eventId: null,
       date: { gte: start, lte: end },
     },
     orderBy: { date: "asc" },

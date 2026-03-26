@@ -26,10 +26,10 @@ function makeRequest(hasFile = true) {
     const file = new File(["xlsx"], "test.xlsx");
     formData.append("file", file);
   }
-  return new NextRequest("http://localhost/api/v1/societies/soc-1/migration/validate", {
-    method: "POST",
-    body: formData,
-  });
+  return {
+    formData: vi.fn().mockResolvedValue(formData),
+    url: "http://localhost/api/v1/societies/soc-1/migration/validate",
+  } as unknown as NextRequest;
 }
 
 function makeParams(id = "soc-1") {

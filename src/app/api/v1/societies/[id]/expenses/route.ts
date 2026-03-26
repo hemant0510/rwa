@@ -54,6 +54,28 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (error) return error;
     if (!data) return internalError();
 
+    // If eventId provided, validate the event belongs to this society and is PUBLISHED or COMPLETED
+    if (data.eventId) {
+      const event = await prisma.communityEvent.findUnique({ where: { id: data.eventId } });
+      if (!event || event.societyId !== societyId) {
+        return NextResponse.json(
+          { error: { code: "INVALID_EVENT", message: "Event not found in this society" } },
+          { status: 400 },
+        );
+      }
+      if (event.status !== "PUBLISHED" && event.status !== "COMPLETED") {
+        return NextResponse.json(
+          {
+            error: {
+              code: "INVALID_EVENT_STATUS",
+              message: "Can only link expenses to PUBLISHED or COMPLETED events",
+            },
+          },
+          { status: 400 },
+        );
+      }
+    }
+
     const expense = await prisma.expense.create({
       data: {
         societyId,
@@ -62,6 +84,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         category: data.category,
         description: data.description,
         loggedBy: admin.userId,
+        eventId: data.eventId ?? null,
         correctionWindowEnds: new Date(Date.now() + 24 * 60 * 60 * 1000),
       },
     });

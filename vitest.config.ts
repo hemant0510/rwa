@@ -53,6 +53,8 @@ export default defineConfig({
         "src/app/api/v1/societies/[id]/fees/[feeId]/payments/**",
         "src/app/api/cron/fee-status-activate/**",
         "src/app/api/cron/fee-overdue-check/**",
+        "src/app/api/v1/societies/[id]/events/**",
+        "src/app/api/v1/residents/me/events/**",
       ],
       exclude: [
         "src/lib/prisma.ts",
@@ -60,6 +62,7 @@ export default defineConfig({
         "src/lib/whatsapp.ts",
         "src/lib/email-templates/**",
         "src/app/r/loading.tsx",
+        "src/app/api/v1/societies/[id]/migration/import-stream/**",
       ],
       thresholds: {
         lines: 95,

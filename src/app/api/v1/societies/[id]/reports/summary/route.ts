@@ -42,8 +42,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           where: { societyId, sessionYear, status: { in: ["PENDING", "OVERDUE"] } },
           _sum: { amountDue: true },
         }),
+        // Exclude event-linked expenses — event finances are self-contained
         prisma.expense.aggregate({
-          where: { societyId, status: "ACTIVE" },
+          where: { societyId, status: "ACTIVE", eventId: null },
           _sum: { amount: true },
         }),
       ]);
