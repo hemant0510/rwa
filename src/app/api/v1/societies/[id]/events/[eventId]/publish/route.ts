@@ -4,6 +4,7 @@ import { internalError, notFoundError, unauthorizedError } from "@/lib/api-helpe
 import { logAudit } from "@/lib/audit";
 import { getCurrentUser } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
+import { sendEventPublished } from "@/lib/whatsapp";
 
 export async function POST(
   request: NextRequest,
@@ -40,7 +41,45 @@ export async function POST(
       newValue: { title: event.title },
     });
 
-    // TODO: Send WhatsApp notification to all active residents with consent (Phase 6)
+    // Fan-out: notify all active residents with WhatsApp consent
+    void prisma.user
+      .findMany({
+        where: {
+          societyId,
+          role: "RESIDENT",
+          status: {
+            in: [
+              "ACTIVE_PAID",
+              "ACTIVE_PENDING",
+              "ACTIVE_OVERDUE",
+              "ACTIVE_PARTIAL",
+              "ACTIVE_EXEMPTED",
+            ],
+          },
+          mobile: { not: null },
+          consentWhatsapp: true,
+        },
+        select: { name: true, mobile: true },
+      })
+      .then((residents) => {
+        const eventDate = new Date(event.eventDate).toLocaleDateString("en-IN", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        });
+        const location = event.location ?? "TBD";
+        const feeInfo =
+          event.feeModel === "FREE"
+            ? "Free Event"
+            : event.feeAmount != null
+              ? `₹${Number(event.feeAmount).toLocaleString("en-IN")}`
+              : "Pricing TBD";
+        for (const r of residents) {
+          if (r.mobile) {
+            void sendEventPublished(r.mobile, r.name, event.title, eventDate, location, feeInfo);
+          }
+        }
+      });
 
     return NextResponse.json(updated);
   } catch {

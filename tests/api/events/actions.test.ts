@@ -17,6 +17,7 @@ const mockPrisma = vi.hoisted(() => ({
     findMany: vi.fn(),
     aggregate: vi.fn(),
   },
+  user: { findMany: vi.fn() },
   expense: { aggregate: vi.fn() },
   eventPayment: { aggregate: vi.fn() },
   society: { findUnique: vi.fn() },
@@ -25,10 +26,21 @@ const mockPrisma = vi.hoisted(() => ({
 
 const mockGetCurrentUser = vi.hoisted(() => vi.fn());
 const mockLogAudit = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+const { mockSendEventPublished, mockSendEventPaymentTriggered, mockSendEventCancelled } =
+  vi.hoisted(() => ({
+    mockSendEventPublished: vi.fn().mockResolvedValue({ success: true }),
+    mockSendEventPaymentTriggered: vi.fn().mockResolvedValue({ success: true }),
+    mockSendEventCancelled: vi.fn().mockResolvedValue({ success: true }),
+  }));
 
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 vi.mock("@/lib/get-current-user", () => ({ getCurrentUser: mockGetCurrentUser }));
 vi.mock("@/lib/audit", () => ({ logAudit: mockLogAudit }));
+vi.mock("@/lib/whatsapp", () => ({
+  sendEventPublished: mockSendEventPublished,
+  sendEventPaymentTriggered: mockSendEventPaymentTriggered,
+  sendEventCancelled: mockSendEventCancelled,
+}));
 
 import { POST as cancelPOST } from "@/app/api/v1/societies/[id]/events/[eventId]/cancel/route";
 import { POST as completePOST } from "@/app/api/v1/societies/[id]/events/[eventId]/complete/route";
@@ -108,6 +120,7 @@ describe("POST /api/v1/societies/[id]/events/[eventId]/publish", () => {
     mockGetCurrentUser.mockResolvedValue(mockAdmin);
     mockPrisma.communityEvent.findUnique.mockResolvedValue(mockDraftEvent);
     mockPrisma.communityEvent.update.mockResolvedValue(updatedPublished);
+    mockPrisma.user.findMany.mockResolvedValue([]);
   });
 
   it("returns 401 when not authenticated", async () => {
@@ -206,6 +219,87 @@ describe("POST /api/v1/societies/[id]/events/[eventId]/publish", () => {
     const res = await publishPOST(makeRequest(), makeParams());
     expect(res.status).toBe(500);
   });
+
+  it("fans out sendEventPublished to all consenting residents", async () => {
+    mockPrisma.user.findMany.mockResolvedValue([
+      { name: "Resident One", mobile: "9876543210" },
+      { name: "Resident Two", mobile: "9876543211" },
+    ]);
+    await publishPOST(makeRequest(), makeParams());
+    await Promise.resolve();
+    expect(mockSendEventPublished).toHaveBeenCalledTimes(2);
+    expect(mockSendEventPublished).toHaveBeenCalledWith(
+      "9876543210",
+      "Resident One",
+      "Holi Festival",
+      expect.any(String),
+      "Community Hall",
+      "Free Event",
+    );
+  });
+
+  it("does not call sendEventPublished when no residents are returned", async () => {
+    mockPrisma.user.findMany.mockResolvedValue([]);
+    await publishPOST(makeRequest(), makeParams());
+    await Promise.resolve();
+    expect(mockSendEventPublished).not.toHaveBeenCalled();
+  });
+
+  it("uses formatted price as feeInfo for FIXED event with feeAmount set", async () => {
+    mockPrisma.communityEvent.findUnique.mockResolvedValue({
+      ...mockDraftEvent,
+      feeModel: "FIXED",
+      feeAmount: 500,
+    });
+    mockPrisma.user.findMany.mockResolvedValue([{ name: "Resident", mobile: "9876543210" }]);
+    await publishPOST(makeRequest(), makeParams());
+    await Promise.resolve();
+    expect(mockSendEventPublished).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      "₹500",
+    );
+  });
+
+  it("uses 'Pricing TBD' as feeInfo for FLEXIBLE event without feeAmount", async () => {
+    mockPrisma.communityEvent.findUnique.mockResolvedValue({
+      ...mockDraftEvent,
+      feeModel: "FLEXIBLE",
+      feeAmount: null,
+    });
+    mockPrisma.user.findMany.mockResolvedValue([{ name: "Resident", mobile: "9876543210" }]);
+    await publishPOST(makeRequest(), makeParams());
+    await Promise.resolve();
+    expect(mockSendEventPublished).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      "Pricing TBD",
+    );
+  });
+
+  it("uses 'TBD' as location when event location is null", async () => {
+    mockPrisma.communityEvent.findUnique.mockResolvedValue({
+      ...mockDraftEvent,
+      location: null,
+    });
+    mockPrisma.user.findMany.mockResolvedValue([{ name: "Resident", mobile: "9876543210" }]);
+    await publishPOST(makeRequest(), makeParams());
+    await Promise.resolve();
+    expect(mockSendEventPublished).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      "TBD",
+      expect.any(String),
+    );
+  });
 });
 
 // ── POST /trigger-payment ─────────────────────────────────────────────────────
@@ -228,6 +322,7 @@ describe("POST /api/v1/societies/[id]/events/[eventId]/trigger-payment", () => {
     );
     mockPrisma.communityEvent.update.mockResolvedValue(triggeredEvent);
     mockPrisma.eventRegistration.updateMany.mockResolvedValue({ count: 3 });
+    mockPrisma.eventRegistration.findMany.mockResolvedValue([]);
   });
 
   it("returns 401 when not authenticated", async () => {
@@ -396,6 +491,61 @@ describe("POST /api/v1/societies/[id]/events/[eventId]/trigger-payment", () => {
     const res = await triggerPaymentPOST(makeRequest({ feeAmount: 150 }), makeParams());
     expect(res.status).toBe(500);
   });
+
+  it("fans out sendEventPaymentTriggered to PENDING registrants with consent", async () => {
+    mockPrisma.eventRegistration.findMany.mockResolvedValue([
+      { user: { name: "Resident A", mobile: "9876543210", consentWhatsapp: true }, memberCount: 2 },
+      { user: { name: "Resident B", mobile: "9876543211", consentWhatsapp: true }, memberCount: 1 },
+    ]);
+    await triggerPaymentPOST(makeRequest({ feeAmount: 150 }), makeParams());
+    await Promise.resolve();
+    expect(mockSendEventPaymentTriggered).toHaveBeenCalledTimes(2);
+    expect(mockSendEventPaymentTriggered).toHaveBeenCalledWith(
+      "9876543210",
+      "Resident A",
+      "Holi Festival",
+      "₹150",
+      "₹300",
+    );
+    expect(mockSendEventPaymentTriggered).toHaveBeenCalledWith(
+      "9876543211",
+      "Resident B",
+      "Holi Festival",
+      "₹150",
+      "₹150",
+    );
+  });
+
+  it("calculates totalDue per registrant as feeAmount × memberCount", async () => {
+    mockPrisma.eventRegistration.findMany.mockResolvedValue([
+      { user: { name: "Family", mobile: "9876543210", consentWhatsapp: true }, memberCount: 4 },
+    ]);
+    await triggerPaymentPOST(makeRequest({ feeAmount: 200 }), makeParams());
+    await Promise.resolve();
+    expect(mockSendEventPaymentTriggered).toHaveBeenCalledWith(
+      "9876543210",
+      "Family",
+      "Holi Festival",
+      "₹200",
+      "₹800",
+    );
+  });
+
+  it("skips payment trigger notification for registrants without mobile or consent", async () => {
+    mockPrisma.eventRegistration.findMany.mockResolvedValue([
+      {
+        user: { name: "No Mobile", mobile: null, consentWhatsapp: true },
+        memberCount: 1,
+      },
+      {
+        user: { name: "No Consent", mobile: "9876543212", consentWhatsapp: false },
+        memberCount: 1,
+      },
+    ]);
+    await triggerPaymentPOST(makeRequest({ feeAmount: 150 }), makeParams());
+    await Promise.resolve();
+    expect(mockSendEventPaymentTriggered).not.toHaveBeenCalled();
+  });
 });
 
 // ── POST /cancel ──────────────────────────────────────────────────────────────
@@ -417,6 +567,7 @@ describe("POST /api/v1/societies/[id]/events/[eventId]/cancel", () => {
     );
     mockPrisma.communityEvent.update.mockResolvedValue(cancelledEvent);
     mockPrisma.eventRegistration.updateMany.mockResolvedValue({ count: 5 });
+    mockPrisma.eventRegistration.findMany.mockResolvedValue([]);
   });
 
   it("returns 401 when not authenticated", async () => {
@@ -549,6 +700,45 @@ describe("POST /api/v1/societies/[id]/events/[eventId]/cancel", () => {
     mockPrisma.$transaction.mockRejectedValue(new Error("TX crash"));
     const res = await cancelPOST(makeRequest({ reason: "Venue unavailable" }), makeParams());
     expect(res.status).toBe(500);
+  });
+
+  it("fans out sendEventCancelled to recently-cancelled registrants with consent", async () => {
+    mockPrisma.eventRegistration.findMany.mockResolvedValue([
+      { user: { name: "Resident A", mobile: "9876543210", consentWhatsapp: true } },
+      { user: { name: "Resident B", mobile: "9876543211", consentWhatsapp: true } },
+    ]);
+    await cancelPOST(makeRequest({ reason: "Venue unavailable" }), makeParams());
+    await Promise.resolve();
+    expect(mockSendEventCancelled).toHaveBeenCalledTimes(2);
+    expect(mockSendEventCancelled).toHaveBeenCalledWith(
+      "9876543210",
+      "Resident A",
+      "Holi Festival",
+      "Venue unavailable",
+    );
+    expect(mockSendEventCancelled).toHaveBeenCalledWith(
+      "9876543211",
+      "Resident B",
+      "Holi Festival",
+      "Venue unavailable",
+    );
+  });
+
+  it("does not call sendEventCancelled when no registrants are returned", async () => {
+    mockPrisma.eventRegistration.findMany.mockResolvedValue([]);
+    await cancelPOST(makeRequest({ reason: "Venue unavailable" }), makeParams());
+    await Promise.resolve();
+    expect(mockSendEventCancelled).not.toHaveBeenCalled();
+  });
+
+  it("skips cancel notification for registrants without mobile or consent", async () => {
+    mockPrisma.eventRegistration.findMany.mockResolvedValue([
+      { user: { name: "No Mobile", mobile: null, consentWhatsapp: true } },
+      { user: { name: "No Consent", mobile: "9876543212", consentWhatsapp: false } },
+    ]);
+    await cancelPOST(makeRequest({ reason: "Venue unavailable" }), makeParams());
+    await Promise.resolve();
+    expect(mockSendEventCancelled).not.toHaveBeenCalled();
   });
 });
 

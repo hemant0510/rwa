@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
 import type { TransactionClient } from "@/lib/prisma";
 import { cancelEventSchema } from "@/lib/validations/event";
+import { sendEventCancelled } from "@/lib/whatsapp";
 
 export async function POST(
   request: NextRequest,
@@ -65,7 +66,21 @@ export async function POST(
       newValue: { reason: data.reason },
     });
 
-    // TODO: Send WhatsApp notification to all registered residents (Phase 6)
+    // Fan-out: notify registrants who were just cancelled
+    void prisma.eventRegistration
+      .findMany({
+        where: { eventId, cancelledAt: now },
+        include: {
+          user: { select: { name: true, mobile: true, consentWhatsapp: true } },
+        },
+      })
+      .then((registrations) => {
+        for (const reg of registrations) {
+          if (reg.user.mobile && reg.user.consentWhatsapp) {
+            void sendEventCancelled(reg.user.mobile, reg.user.name, event.title, data.reason);
+          }
+        }
+      });
 
     return NextResponse.json(updated);
   } catch {

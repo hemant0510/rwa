@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
 import type { TransactionClient } from "@/lib/prisma";
 import { triggerPaymentSchema } from "@/lib/validations/event";
+import { sendEventPaymentTriggered } from "@/lib/whatsapp";
 
 export async function POST(
   request: NextRequest,
@@ -96,7 +97,29 @@ export async function POST(
       newValue: { feeAmount: data.feeAmount, transitionedCount: result.transitionedCount },
     });
 
-    // TODO: Send WhatsApp notification to all interested residents with the price (Phase 6)
+    // Fan-out: notify PENDING registrants (just transitioned from INTERESTED) with price & total
+    void prisma.eventRegistration
+      .findMany({
+        where: { eventId, status: "PENDING" },
+        include: {
+          user: { select: { name: true, mobile: true, consentWhatsapp: true } },
+        },
+      })
+      .then((registrations) => {
+        const pricePerUnit = `₹${Number(data.feeAmount).toLocaleString("en-IN")}`;
+        for (const reg of registrations) {
+          if (reg.user.mobile && reg.user.consentWhatsapp) {
+            const totalDue = `₹${(Number(data.feeAmount) * reg.memberCount).toLocaleString("en-IN")}`;
+            void sendEventPaymentTriggered(
+              reg.user.mobile,
+              reg.user.name,
+              event.title,
+              pricePerUnit,
+              totalDue,
+            );
+          }
+        }
+      });
 
     return NextResponse.json({ ...result.updated, transitionedCount: result.transitionedCount });
   } catch {

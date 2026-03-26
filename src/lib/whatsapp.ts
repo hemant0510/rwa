@@ -130,3 +130,48 @@ export async function sendFeeReminder(
 export async function sendBroadcastMessage(mobile: string, message: string) {
   return sendTemplateMessage(mobile, "broadcast_message", [{ name: "1", value: message }]);
 }
+
+export async function sendEventPublished(
+  mobile: string,
+  residentName: string,
+  eventTitle: string,
+  eventDate: string,
+  location: string,
+  feeInfo: string,
+) {
+  return sendTemplateMessage(mobile, "event_published", [
+    { name: "1", value: residentName },
+    { name: "2", value: eventTitle },
+    { name: "3", value: eventDate },
+    { name: "4", value: location },
+    { name: "5", value: feeInfo },
+  ]);
+}
+
+export async function sendEventPaymentTriggered(
+  mobile: string,
+  residentName: string,
+  eventTitle: string,
+  pricePerUnit: string,
+  totalDue: string,
+) {
+  return sendTemplateMessage(mobile, "event_payment_triggered", [
+    { name: "1", value: residentName },
+    { name: "2", value: eventTitle },
+    { name: "3", value: pricePerUnit },
+    { name: "4", value: totalDue },
+  ]);
+}
+
+export async function sendEventCancelled(
+  mobile: string,
+  residentName: string,
+  eventTitle: string,
+  reason: string,
+) {
+  return sendTemplateMessage(mobile, "event_cancelled", [
+    { name: "1", value: residentName },
+    { name: "2", value: eventTitle },
+    { name: "3", value: reason },
+  ]);
+}
