@@ -296,6 +296,48 @@ describe("PATCH /api/v1/societies/[id]/events/[eventId] — update event", () =>
     );
   });
 
+  it("updates all optional fields in a single PATCH call", async () => {
+    mockPrisma.communityEvent.findUnique.mockResolvedValue({
+      ...mockDraftEvent,
+      feeModel: "FIXED",
+    });
+    const allFields = {
+      title: "New Title",
+      description: "New desc",
+      category: "SPORTS",
+      feeModel: "FIXED",
+      eventDate: "2026-12-25T10:00:00Z",
+      location: "Club House",
+      registrationDeadline: "2026-12-20T10:00:00Z",
+      feeAmount: 500,
+      estimatedBudget: 10000,
+      minParticipants: 10,
+      maxParticipants: 50,
+      suggestedAmount: 200,
+    };
+    await PATCH(makePatchRequest(allFields), makeParams());
+    const updateCall = mockPrisma.communityEvent.update.mock.calls[0][0];
+    expect(updateCall.data.title).toBe("New Title");
+    expect(updateCall.data.description).toBe("New desc");
+    expect(updateCall.data.category).toBe("SPORTS");
+    expect(updateCall.data.feeAmount).toBe(500);
+    expect(updateCall.data.estimatedBudget).toBe(10000);
+    expect(updateCall.data.minParticipants).toBe(10);
+    expect(updateCall.data.maxParticipants).toBe(50);
+    expect(updateCall.data.suggestedAmount).toBe(200);
+    expect(updateCall.data.location).toBe("Club House");
+  });
+
+  it("sets registrationDeadline to null when passed as null", async () => {
+    mockPrisma.communityEvent.findUnique.mockResolvedValue({
+      ...mockDraftEvent,
+      feeModel: "FIXED",
+    });
+    await PATCH(makePatchRequest({ registrationDeadline: null }), makeParams());
+    const updateCall = mockPrisma.communityEvent.update.mock.calls[0][0];
+    expect(updateCall.data.registrationDeadline).toBeNull();
+  });
+
   it("fires audit log EVENT_UPDATED after successful update", async () => {
     await PATCH(makePatchRequest({ title: "Updated" }), makeParams());
     expect(mockLogAudit).toHaveBeenCalledWith(
