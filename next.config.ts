@@ -28,6 +28,7 @@ const securityHeaders = [
       "img-src 'self' data: blob: https:",
       "font-src 'self'",
       `connect-src 'self' ${process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://*.supabase.co"} wss://*.supabase.co ${SENTRY_INGEST}`,
+      "frame-src 'self' blob:",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
@@ -39,7 +40,17 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        // Apply to all routes
+        // Document proxy API — allow embedding in same-origin iframes
+        source: "/api/v1/societies/:id/petitions/:petitionId/document",
+        headers: securityHeaders
+          .filter((h) => h.key !== "X-Frame-Options" && h.key !== "Content-Security-Policy")
+          .concat([
+            { key: "X-Frame-Options", value: "SAMEORIGIN" },
+            { key: "Content-Security-Policy", value: "frame-ancestors 'self'" },
+          ]),
+      },
+      {
+        // All other routes
         source: "/(.*)",
         headers: securityHeaders,
       },

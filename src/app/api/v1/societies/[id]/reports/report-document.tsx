@@ -308,6 +308,87 @@ export function ExpenseSummaryDocument({
   );
 }
 
+interface PetitionReportDocProps {
+  societyName: string;
+  generatedAt: string;
+  petition: {
+    title: string;
+    description: string | null;
+    type: string;
+    targetAuthority: string | null;
+    submittedAt: Date | null;
+  };
+  signatories: { name: string; unit: string; method: string; signedAt: Date }[];
+}
+
+export function PetitionReportDocument({
+  societyName,
+  generatedAt,
+  petition,
+  signatories,
+}: PetitionReportDocProps) {
+  const fmtDate = (d: Date) =>
+    d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+
+  return (
+    <Document>
+      <Page size="A4" style={reportStyles.page}>
+        <ReportHeader
+          societyName={societyName}
+          title={`Petition Report — ${petition.title}`}
+          generatedAt={generatedAt}
+        />
+        <View style={{ marginBottom: 10 }}>
+          <View style={reportStyles.summaryRow}>
+            <Text style={reportStyles.summaryLabel}>Type</Text>
+            <Text style={reportStyles.summaryValue}>
+              {petition.type.charAt(0) + petition.type.slice(1).toLowerCase()}
+            </Text>
+          </View>
+          {petition.targetAuthority ? (
+            <View style={reportStyles.summaryRow}>
+              <Text style={reportStyles.summaryLabel}>Target Authority</Text>
+              <Text style={reportStyles.summaryValue}>{petition.targetAuthority}</Text>
+            </View>
+          ) : null}
+          {petition.submittedAt ? (
+            <View style={reportStyles.summaryRow}>
+              <Text style={reportStyles.summaryLabel}>Submitted On</Text>
+              <Text style={reportStyles.summaryValue}>{fmtDate(petition.submittedAt)}</Text>
+            </View>
+          ) : null}
+          <View style={reportStyles.summaryRow}>
+            <Text style={reportStyles.summaryLabel}>Total Signatures</Text>
+            <Text style={reportStyles.summaryValue}>{signatories.length}</Text>
+          </View>
+        </View>
+        {petition.description ? (
+          <View style={{ marginBottom: 10 }}>
+            <Text style={[reportStyles.th, { marginBottom: 4 }]}>Description</Text>
+            <Text style={[reportStyles.td, { lineHeight: 1.5 }]}>{petition.description}</Text>
+            <View style={reportStyles.divider} />
+          </View>
+        ) : null}
+        <ReportTable
+          columns={[
+            { header: "Name", flex: 2 },
+            { header: "Unit", flex: 1 },
+            { header: "Method", flex: 1 },
+            { header: "Date Signed", flex: 1.5 },
+          ]}
+          rows={signatories.map((s) => [
+            s.name,
+            s.unit,
+            s.method.charAt(0) + s.method.slice(1).toLowerCase(),
+            fmtDate(s.signedAt),
+          ])}
+        />
+        <ReportFooter page={1} />
+      </Page>
+    </Document>
+  );
+}
+
 interface CollectionSummaryDocProps {
   societyName: string;
   sessionYear: string;

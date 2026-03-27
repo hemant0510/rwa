@@ -4,7 +4,7 @@ import { internalError, notFoundError, unauthorizedError } from "@/lib/api-helpe
 import { logAudit } from "@/lib/audit";
 import { getCurrentUser } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 type RouteParams = { params: Promise<{ id: string; petitionId: string; signatureId: string }> };
 
@@ -30,7 +30,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return notFoundError("Signature not found");
     }
 
-    const supabase = await createClient();
+    const supabase = createAdminClient();
     await supabase.storage.from("petition-signatures").remove([signature.signatureUrl]);
 
     await prisma.petitionSignature.delete({ where: { id: signatureId } });

@@ -4,7 +4,8 @@ import { internalError, notFoundError, parseBody, unauthorizedError } from "@/li
 import { logAudit } from "@/lib/audit";
 import { getCurrentUser } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { ensureBucket } from "@/lib/supabase/ensure-bucket";
 import { signPetitionSchema } from "@/lib/validations/petition";
 
 type RouteParams = { params: Promise<{ petitionId: string }> };
@@ -47,10 +48,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const buffer = Buffer.from(base64Data, "base64");
 
     const path = `${resident.societyId}/${petitionId}/${resident.userId}.png`;
-    const supabase = await createClient();
-    await supabase.storage
+    const supabase = createAdminClient();
+    await ensureBucket(supabase, "petition-signatures");
+    const { error: uploadError } = await supabase.storage
       .from("petition-signatures")
       .upload(path, buffer, { contentType: "image/png", upsert: true });
+
+    if (uploadError) {
+      return internalError(`Failed to upload signature: ${uploadError.message}`);
+    }
 
     const signature = await prisma.petitionSignature.create({
       data: {
@@ -102,7 +108,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     if (!signature) return notFoundError("Signature not found");
 
-    const supabase = await createClient();
+    const supabase = createAdminClient();
     await supabase.storage.from("petition-signatures").remove([signature.signatureUrl]);
 
     await prisma.petitionSignature.delete({ where: { id: signature.id } });

@@ -4,7 +4,7 @@ import { internalError, notFoundError, parseBody, unauthorizedError } from "@/li
 import { logAudit } from "@/lib/audit";
 import { getCurrentUser } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { updatePetitionSchema } from "@/lib/validations/petition";
 
 type RouteParams = { params: Promise<{ id: string; petitionId: string }> };
@@ -23,7 +23,20 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     if (!petition || petition.societyId !== societyId) return notFoundError("Petition not found");
 
-    return NextResponse.json(petition);
+    let documentSignedUrl: string | null = null;
+    if (petition.documentUrl) {
+      const supabase = createAdminClient();
+      const { data } = await supabase.storage
+        .from("petition-docs")
+        .createSignedUrl(petition.documentUrl, 60 * 60); // 1 hour
+      documentSignedUrl = data?.signedUrl ?? null;
+    }
+
+    return NextResponse.json({
+      ...petition,
+      signatureCount: petition._count.signatures,
+      documentSignedUrl,
+    });
   } catch {
     return internalError("Failed to fetch petition");
   }
@@ -98,7 +111,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     if (petition.documentUrl) {
-      const supabase = await createClient();
+      const supabase = createAdminClient();
       await supabase.storage.from("petition-docs").remove([petition.documentUrl]);
     }
 

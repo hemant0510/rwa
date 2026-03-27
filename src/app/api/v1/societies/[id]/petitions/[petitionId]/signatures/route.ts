@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { internalError, notFoundError } from "@/lib/api-helpers";
 import { prisma } from "@/lib/prisma";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 type RouteParams = { params: Promise<{ id: string; petitionId: string }> };
 
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       prisma.petitionSignature.count({ where: { petitionId } }),
     ]);
 
-    const supabase = await createClient();
+    const supabase = createAdminClient();
 
     const data = await Promise.all(
       signatures.map(async (sig) => {

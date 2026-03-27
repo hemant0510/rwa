@@ -264,7 +264,7 @@ describe("ResidentPetitionsPage", () => {
     });
   });
 
-  it("shows PDF iframe when documentSignedUrl is present", async () => {
+  it("shows View Document link when documentSignedUrl is present", async () => {
     mockGetResidentPetitions.mockResolvedValue({ data: [mockPetition] });
     mockGetResidentPetition.mockResolvedValue(mockPetitionDetail);
     const user = userEvent.setup();
@@ -272,13 +272,13 @@ describe("ResidentPetitionsPage", () => {
     await waitFor(() => screen.getByText("Fix Water Supply"));
     await user.click(screen.getByText("Fix Water Supply"));
     await waitFor(() => {
-      const iframe = document.querySelector("iframe");
-      expect(iframe).toBeTruthy();
-      expect(iframe?.getAttribute("src")).toBe("https://signed.url/doc.pdf");
+      const link = screen.getByRole("link", { name: /view document/i });
+      expect(link).toBeInTheDocument();
+      expect(link.getAttribute("href")).toBe("https://signed.url/doc.pdf");
     });
   });
 
-  it("shows Download PDF link when no documentSignedUrl but documentUrl exists", async () => {
+  it("shows no document link when documentSignedUrl is null", async () => {
     mockGetResidentPetitions.mockResolvedValue({ data: [mockPetition] });
     mockGetResidentPetition.mockResolvedValue({
       ...mockPetitionDetail,
@@ -290,8 +290,10 @@ describe("ResidentPetitionsPage", () => {
     await waitFor(() => screen.getByText("Fix Water Supply"));
     await user.click(screen.getByText("Fix Water Supply"));
     await waitFor(() => {
-      expect(screen.getByText("Download PDF")).toBeInTheDocument();
+      // Sheet is open and content is loaded
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
     });
+    expect(screen.queryByRole("link", { name: /view document/i })).not.toBeInTheDocument();
   });
 
   // ── Action area — unsigned PUBLISHED ────────────────────────────────────────

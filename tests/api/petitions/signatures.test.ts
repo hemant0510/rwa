@@ -19,9 +19,13 @@ const mockPrisma = vi.hoisted(() => ({
     create: vi.fn(),
     delete: vi.fn(),
   },
+  society: {
+    findUnique: vi.fn(),
+  },
 }));
 const mockGetCurrentUser = vi.hoisted(() => vi.fn());
 const mockLogAudit = vi.hoisted(() => vi.fn());
+const mockRenderToStream = vi.hoisted(() => vi.fn());
 const mockSupabaseStorage = vi.hoisted(() => ({
   from: vi.fn().mockReturnValue({
     remove: vi.fn().mockResolvedValue({}),
@@ -30,13 +34,21 @@ const mockSupabaseStorage = vi.hoisted(() => ({
   }),
 }));
 const mockCreateClient = vi.hoisted(() =>
-  vi.fn().mockResolvedValue({ storage: mockSupabaseStorage }),
+  vi.fn().mockReturnValue({ storage: mockSupabaseStorage }),
 );
 
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 vi.mock("@/lib/get-current-user", () => ({ getCurrentUser: mockGetCurrentUser }));
 vi.mock("@/lib/audit", () => ({ logAudit: mockLogAudit }));
-vi.mock("@/lib/supabase/server", () => ({ createClient: mockCreateClient }));
+vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: mockCreateClient }));
+vi.mock("@react-pdf/renderer", () => ({
+  default: { renderToStream: (...args: unknown[]) => mockRenderToStream(...args) },
+  Document: ({ children }: { children: unknown }) => children,
+  Page: ({ children }: { children: unknown }) => children,
+  Text: ({ children }: { children: unknown }) => children,
+  View: ({ children }: { children: unknown }) => children,
+  StyleSheet: { create: (styles: Record<string, unknown>) => styles },
+}));
 
 import { GET as GET_SIGNATURES } from "@/app/api/v1/societies/[id]/petitions/[petitionId]/signatures/route";
 // eslint-disable-next-line import/order
@@ -367,7 +379,7 @@ describe("DELETE /api/v1/societies/[id]/petitions/[petitionId]/signatures/[signa
 });
 
 // ---------------------------------------------------------------------------
-// GET /societies/[id]/petitions/[petitionId]/report — petition report
+// GET /societies/[id]/petitions/[petitionId]/report — petition PDF report
 // ---------------------------------------------------------------------------
 
 describe("GET /api/v1/societies/[id]/petitions/[petitionId]/report", () => {
@@ -394,13 +406,30 @@ describe("GET /api/v1/societies/[id]/petitions/[petitionId]/report", () => {
     },
   ];
 
+  function makeStream() {
+    return {
+      [Symbol.asyncIterator]: async function* () {
+        yield Buffer.from("PDF content");
+      },
+    };
+  }
+
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetCurrentUser.mockResolvedValue(mockAdmin);
     mockPrisma.petition.findUnique.mockResolvedValue({
       ...mockPublishedPetition,
       _count: { signatures: 2 },
     });
+    mockPrisma.society.findUnique.mockResolvedValue({ name: "Eden Estate" });
     mockPrisma.petitionSignature.findMany.mockResolvedValue(signaturesForReport);
+    mockRenderToStream.mockResolvedValue(makeStream());
+  });
+
+  it("returns 401 when not authenticated as admin", async () => {
+    mockGetCurrentUser.mockResolvedValue(null);
+    const res = await GET_REPORT(makeGetRequest(), makeSignaturesParams());
+    expect(res.status).toBe(401);
   });
 
   it("returns 404 when petition does not exist", async () => {
@@ -419,6 +448,12 @@ describe("GET /api/v1/societies/[id]/petitions/[petitionId]/report", () => {
     expect(res.status).toBe(404);
   });
 
+  it("returns 404 when society is not found", async () => {
+    mockPrisma.society.findUnique.mockResolvedValue(null);
+    const res = await GET_REPORT(makeGetRequest(), makeSignaturesParams());
+    expect(res.status).toBe(404);
+  });
+
   it("returns 400 with NO_SIGNATURES when petition has zero signatures", async () => {
     mockPrisma.petition.findUnique.mockResolvedValue({
       ...mockPublishedPetition,
@@ -430,36 +465,56 @@ describe("GET /api/v1/societies/[id]/petitions/[petitionId]/report", () => {
     expect(body.error.code).toBe("NO_SIGNATURES");
   });
 
-  it("returns petition data with signatories list", async () => {
+  it("returns 200 with application/pdf content-type on success", async () => {
     const res = await GET_REPORT(makeGetRequest(), makeSignaturesParams());
     expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.petition).toMatchObject({
-      title: "Fix the playground",
-      type: "PETITION",
-      targetAuthority: "Municipal Corporation",
-    });
-    expect(body.totalSignatures).toBe(2);
-    expect(body.signatories).toHaveLength(2);
+    expect(res.headers.get("Content-Type")).toBe("application/pdf");
   });
 
-  it("maps signatories with name, unit, method, signedAt, and signatureUrl", async () => {
+  it("returns Content-Disposition attachment with pdf filename", async () => {
     const res = await GET_REPORT(makeGetRequest(), makeSignaturesParams());
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    const first = body.signatories[0];
-    expect(first.name).toBe("Resident One");
-    expect(first.unit).toBe("A-101");
-    expect(first.method).toBe("DRAWN");
-    expect(first.signatureUrl).toBe("soc-1/pet-1/user-1.png");
+    const disposition = res.headers.get("Content-Disposition") ?? "";
+    expect(disposition).toContain("attachment");
+    expect(disposition).toContain(".pdf");
   });
 
-  it("uses em-dash for unit when userUnits is empty", async () => {
+  it("sanitizes petition title into the filename", async () => {
     const res = await GET_REPORT(makeGetRequest(), makeSignaturesParams());
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    const second = body.signatories[1];
-    expect(second.unit).toBe("—");
+    const disposition = res.headers.get("Content-Disposition") ?? "";
+    // "Fix the playground" → "fix-the-playground"
+    expect(disposition).toContain("fix-the-playground");
+  });
+
+  it("calls renderToStream exactly once on success", async () => {
+    await GET_REPORT(makeGetRequest(), makeSignaturesParams());
+    expect(mockRenderToStream).toHaveBeenCalledOnce();
+  });
+
+  it("fetches petition signatures for the correct petitionId", async () => {
+    await GET_REPORT(makeGetRequest(), makeSignaturesParams("soc-1", "pet-1"));
+    expect(mockPrisma.petitionSignature.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { petitionId: "pet-1" } }),
+    );
+  });
+
+  it("includes user name and unit in signature include query", async () => {
+    await GET_REPORT(makeGetRequest(), makeSignaturesParams());
+    expect(mockPrisma.petitionSignature.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: expect.objectContaining({
+          user: expect.objectContaining({
+            select: expect.objectContaining({ name: true }),
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("orders signatories by signedAt ascending", async () => {
+    await GET_REPORT(makeGetRequest(), makeSignaturesParams());
+    expect(mockPrisma.petitionSignature.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { signedAt: "asc" } }),
+    );
   });
 
   it("queries petition with select of relevant fields only", async () => {
@@ -477,15 +532,40 @@ describe("GET /api/v1/societies/[id]/petitions/[petitionId]/report", () => {
     );
   });
 
-  it("orders signatories by signedAt ascending", async () => {
-    await GET_REPORT(makeGetRequest(), makeSignaturesParams());
-    expect(mockPrisma.petitionSignature.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ orderBy: { signedAt: "asc" } }),
-    );
+  it("generates PDF when targetAuthority and description are null but submittedAt is set", async () => {
+    mockPrisma.petition.findUnique.mockResolvedValue({
+      ...mockPublishedPetition,
+      targetAuthority: null,
+      description: null,
+      submittedAt: new Date("2026-03-01"),
+      _count: { signatures: 2 },
+    });
+    const res = await GET_REPORT(makeGetRequest(), makeSignaturesParams());
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toBe("application/pdf");
+    expect(mockRenderToStream).toHaveBeenCalledOnce();
+  });
+
+  it("handles string chunks from the PDF stream", async () => {
+    mockRenderToStream.mockResolvedValue({
+      [Symbol.asyncIterator]: async function* () {
+        yield "string chunk";
+        yield Buffer.from(" buffer chunk");
+      },
+    });
+    const res = await GET_REPORT(makeGetRequest(), makeSignaturesParams());
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toBe("application/pdf");
   });
 
   it("returns 500 on database error", async () => {
     mockPrisma.petition.findUnique.mockRejectedValue(new Error("DB crash"));
+    const res = await GET_REPORT(makeGetRequest(), makeSignaturesParams());
+    expect(res.status).toBe(500);
+  });
+
+  it("returns 500 when renderToStream throws", async () => {
+    mockRenderToStream.mockRejectedValue(new Error("PDF generation failed"));
     const res = await GET_REPORT(makeGetRequest(), makeSignaturesParams());
     expect(res.status).toBe(500);
   });

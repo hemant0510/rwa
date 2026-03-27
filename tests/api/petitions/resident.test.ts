@@ -30,13 +30,16 @@ const mockSupabaseStorage = vi.hoisted(() => ({
   }),
 }));
 const mockCreateClient = vi.hoisted(() =>
-  vi.fn().mockResolvedValue({ storage: mockSupabaseStorage }),
+  vi.fn().mockReturnValue({ storage: mockSupabaseStorage }),
 );
 
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 vi.mock("@/lib/get-current-user", () => ({ getCurrentUser: mockGetCurrentUser }));
 vi.mock("@/lib/audit", () => ({ logAudit: mockLogAudit }));
-vi.mock("@/lib/supabase/server", () => ({ createClient: mockCreateClient }));
+vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: mockCreateClient }));
+vi.mock("@/lib/supabase/ensure-bucket", () => ({
+  ensureBucket: vi.fn().mockResolvedValue(undefined),
+}));
 
 import { GET as GET_DETAIL } from "@/app/api/v1/residents/me/petitions/[petitionId]/route";
 import {

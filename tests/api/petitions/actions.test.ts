@@ -30,7 +30,7 @@ const mockSupabaseStorage = vi.hoisted(() => ({
   }),
 }));
 const mockCreateClient = vi.hoisted(() =>
-  vi.fn().mockResolvedValue({ storage: mockSupabaseStorage }),
+  vi.fn().mockReturnValue({ storage: mockSupabaseStorage }),
 );
 // Controllable parseBody spy — only used to exercise dead-code internal guard branch
 const mockParseBody = vi.hoisted(() =>
@@ -40,7 +40,7 @@ const mockParseBody = vi.hoisted(() =>
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 vi.mock("@/lib/get-current-user", () => ({ getCurrentUser: mockGetCurrentUser }));
 vi.mock("@/lib/audit", () => ({ logAudit: mockLogAudit }));
-vi.mock("@/lib/supabase/server", () => ({ createClient: mockCreateClient }));
+vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: mockCreateClient }));
 vi.mock("@/lib/api-helpers", async (importOriginal) => {
   const real = await importOriginal<typeof import("@/lib/api-helpers")>();
   return {

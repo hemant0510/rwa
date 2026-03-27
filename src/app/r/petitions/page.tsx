@@ -198,12 +198,11 @@ export default function ResidentPetitionsPage() {
       {/* ── Petition Detail Sheet ── */}
       <Sheet open={!!selectedId} onOpenChange={handleSheetOpenChange}>
         <SheetContent className="overflow-y-auto sm:max-w-md">
+          <SheetHeader className="mb-4">
+            <SheetTitle>{petitionDetail?.title ?? "Petition"}</SheetTitle>
+          </SheetHeader>
           {petitionDetail && (
             <>
-              <SheetHeader className="mb-4">
-                <SheetTitle>{petitionDetail.title}</SheetTitle>
-              </SheetHeader>
-
               <div className="space-y-4">
                 {/* Type + status badges */}
                 <div className="flex flex-wrap gap-2">
@@ -274,24 +273,18 @@ export default function ResidentPetitionsPage() {
                   )}
                 </div>
 
-                {/* PDF viewer */}
-                {petitionDetail.documentSignedUrl ? (
-                  <iframe
-                    src={petitionDetail.documentSignedUrl}
-                    className="h-[400px] w-full rounded-md border"
-                    title="Petition document"
-                  />
-                ) : petitionDetail.documentUrl ? (
+                {/* Document link */}
+                {petitionDetail.documentSignedUrl && (
                   <a
-                    href={petitionDetail.documentUrl}
+                    href={petitionDetail.documentSignedUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-primary flex items-center gap-1.5 text-sm underline"
                   >
                     <FileText className="h-4 w-4" />
-                    Download PDF
+                    View Document
                   </a>
-                ) : null}
+                )}
 
                 <Separator />
 

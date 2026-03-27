@@ -4,7 +4,42 @@ import { internalError, notFoundError, unauthorizedError } from "@/lib/api-helpe
 import { logAudit } from "@/lib/audit";
 import { getCurrentUser } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { ensureBucket } from "@/lib/supabase/ensure-bucket";
+
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string; petitionId: string }> },
+) {
+  try {
+    const { id: societyId, petitionId } = await params;
+
+    const user = await getCurrentUser();
+    if (!user) return unauthorizedError("Authentication required");
+
+    const petition = await prisma.petition.findUnique({ where: { id: petitionId } });
+    if (!petition || petition.societyId !== societyId) return notFoundError("Petition not found");
+    if (!petition.documentUrl) return notFoundError("No document attached");
+
+    const supabase = createAdminClient();
+    const { data, error } = await supabase.storage
+      .from("petition-docs")
+      .download(petition.documentUrl);
+
+    if (error || !data) return internalError("Failed to retrieve document");
+
+    const buffer = Buffer.from(await data.arrayBuffer());
+    return new NextResponse(buffer, {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": "inline",
+        "Cache-Control": "private, max-age=3600",
+      },
+    });
+  } catch {
+    return internalError("Failed to serve petition document");
+  }
+}
 
 export async function POST(
   request: NextRequest,
@@ -45,7 +80,8 @@ export async function POST(
       );
     }
 
-    const supabase = await createClient();
+    const supabase = createAdminClient();
+    await ensureBucket(supabase, "petition-docs");
 
     if (petition.documentUrl) {
       await supabase.storage.from("petition-docs").remove([petition.documentUrl]);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, Suspense } from "react";
+import { useState, useRef, useEffect, Suspense } from "react";
 
 import { useParams, useRouter } from "next/navigation";
 
@@ -120,6 +120,76 @@ function MethodBadge({ method }: { method: string }) {
   );
 }
 
+// ── PDF Viewer (blob-based to bypass X-Frame-Options) ─────────────────────
+
+function PdfViewer({
+  societyId,
+  petitionId,
+  downloadUrl,
+}: {
+  societyId: string;
+  petitionId: string;
+  downloadUrl: string;
+}) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let revoke: string | null = null;
+
+    fetch(`/api/v1/societies/${societyId}/petitions/${petitionId}/document`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to load PDF");
+        return res.blob();
+      })
+      .then((blob) => {
+        const url = URL.createObjectURL(blob);
+        revoke = url;
+        setBlobUrl(url);
+      })
+      .catch(() => setError(true));
+
+    return () => {
+      if (revoke) URL.revokeObjectURL(revoke);
+    };
+  }, [societyId, petitionId]);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium">Petition Document</p>
+        <Button variant="outline" size="sm" asChild>
+          <a href={downloadUrl} target="_blank" rel="noopener noreferrer" download>
+            <Download className="mr-1 h-4 w-4" />
+            Download PDF
+          </a>
+        </Button>
+      </div>
+      <div className="overflow-hidden rounded-md border">
+        {error ? (
+          <div className="text-muted-foreground flex h-[600px] items-center justify-center">
+            Failed to load document preview.{" "}
+            <a
+              href={downloadUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="ml-1 underline"
+            >
+              Open in new tab
+            </a>
+          </div>
+        ) : blobUrl ? (
+          <iframe src={blobUrl} title="Petition Document" className="h-[600px] w-full" />
+        ) : (
+          <div className="flex h-[600px] items-center justify-center">
+            <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Page shell ─────────────────────────────────────────────────────────────
 
 export default function PetitionDetailPage() {
@@ -162,12 +232,14 @@ function PetitionDetailPageInner() {
     queryKey: ["petition", societyId, petitionId],
     queryFn: () => getPetition(societyId, petitionId),
     enabled: !!societyId && !!petitionId,
+    staleTime: 0,
   });
 
   const { data: signaturesData } = useQuery({
     queryKey: ["signatures", societyId, petitionId],
     queryFn: () => getSignatures(societyId, petitionId),
     enabled: !!societyId && !!petitionId,
+    staleTime: 0,
   });
 
   const signatures = signaturesData?.data ?? [];
@@ -447,29 +519,11 @@ function PetitionDetailPageInner() {
         {/* ── Document Tab ── */}
         <TabsContent value="document" className="space-y-4 pt-4">
           {petition.documentSignedUrl ? (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium">Petition Document</p>
-                <Button variant="outline" size="sm" asChild>
-                  <a
-                    href={petition.documentSignedUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    download
-                  >
-                    <Download className="mr-1 h-4 w-4" />
-                    Download PDF
-                  </a>
-                </Button>
-              </div>
-              <div className="overflow-hidden rounded-md border">
-                <iframe
-                  src={petition.documentSignedUrl}
-                  title="Petition Document"
-                  className="h-[600px] w-full"
-                />
-              </div>
-            </div>
+            <PdfViewer
+              societyId={societyId}
+              petitionId={petitionId}
+              downloadUrl={petition.documentSignedUrl}
+            />
           ) : (
             <Card>
               <CardContent className="flex flex-col items-center justify-center gap-4 py-12">

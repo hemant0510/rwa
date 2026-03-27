@@ -75,7 +75,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     });
 
     return NextResponse.json(petition, { status: 201 });
-  } catch {
+  } catch (err) {
+    console.error("[POST /petitions]", err);
     return internalError("Failed to create petition");
   }
 }

@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { internalError, notFoundError, unauthorizedError } from "@/lib/api-helpers";
 import { getCurrentUser } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 type RouteParams = { params: Promise<{ petitionId: string }> };
 
@@ -34,9 +34,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return notFoundError("Petition not found");
     }
 
-    const supabase = await createClient();
     let documentSignedUrl: string | null = null;
     if (petition.documentUrl) {
+      const supabase = createAdminClient();
       const { data: urlData } = await supabase.storage
         .from("petition-docs")
         .createSignedUrl(petition.documentUrl, 3600);
