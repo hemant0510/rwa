@@ -175,3 +175,33 @@ export async function sendEventCancelled(
     { name: "3", value: reason },
   ]);
 }
+
+export async function sendPetitionPublished(
+  mobile: string,
+  residentName: string,
+  petitionTitle: string,
+  petitionType: string,
+  targetAuthority: string,
+) {
+  return sendTemplateMessage(mobile, "petition_published", [
+    { name: "1", value: residentName },
+    { name: "2", value: petitionTitle },
+    { name: "3", value: petitionType },
+    { name: "4", value: targetAuthority },
+  ]);
+}
+
+export async function sendPetitionSubmitted(
+  mobile: string,
+  residentName: string,
+  petitionTitle: string,
+  targetAuthority: string,
+  submittedDate: string,
+) {
+  return sendTemplateMessage(mobile, "petition_submitted", [
+    { name: "1", value: residentName },
+    { name: "2", value: petitionTitle },
+    { name: "3", value: targetAuthority },
+    { name: "4", value: submittedDate },
+  ]);
+}

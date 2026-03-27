@@ -55,6 +55,8 @@ export default defineConfig({
         "src/app/api/cron/fee-overdue-check/**",
         "src/app/api/v1/societies/[id]/events/**",
         "src/app/api/v1/residents/me/events/**",
+        "src/app/api/v1/societies/[id]/petitions/**",
+        "src/app/api/v1/residents/me/petitions/**",
       ],
       exclude: [
         "src/lib/prisma.ts",
