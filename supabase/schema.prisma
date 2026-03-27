@@ -182,6 +182,25 @@ enum DeficitDisposition {
   ADDITIONAL_COLLECTION
 }
 
+// Petitions enums
+enum PetitionType {
+  COMPLAINT
+  PETITION
+  NOTICE
+}
+
+enum PetitionStatus {
+  DRAFT
+  PUBLISHED
+  SUBMITTED
+  CLOSED
+}
+
+enum SignatureMethod {
+  DRAWN
+  UPLOADED
+}
+
 enum QueryStatus {
   OPEN
   RESPONDED
@@ -329,6 +348,8 @@ model Society {
   communityEvents          CommunityEvent[]
   eventRegistrations       EventRegistration[]
   eventPayments            EventPayment[]
+  petitions                Petition[]
+  petitionSignatures       PetitionSignature[]
 
   @@map("societies")
 }
@@ -413,6 +434,8 @@ model User {
   eventRegistrations       EventRegistration[]   @relation("EventRegistrations")
   eventPaymentsAsUser      EventPayment[]        @relation("EventPaymentsAsUser")
   eventPaymentsRecorded    EventPayment[]        @relation("EventPaymentsRecorded")
+  petitionsCreated         Petition[]            @relation("PetitionCreatedBy")
+  petitionSignatures       PetitionSignature[]   @relation("PetitionSignatures")
 
   @@unique([societyId, email])
   @@map("users")
@@ -1281,4 +1304,57 @@ model EventPayment {
   recorder     User              @relation("EventPaymentsRecorded", fields: [recordedBy], references: [id])
 
   @@map("event_payments")
+}
+
+// ═══════════════════════════════════════════════════
+// PETITIONS & COMPLAINTS
+// ═══════════════════════════════════════════════════
+
+/// 37. Petition — collective petitions, complaints, and notices.
+model Petition {
+  id               String         @id @default(uuid()) @db.Uuid
+  societyId        String         @map("society_id") @db.Uuid
+  title            String         @db.VarChar(200)
+  description      String?
+  type             PetitionType
+  documentUrl      String?        @map("document_url") @db.VarChar(500)
+  targetAuthority  String?        @map("target_authority") @db.VarChar(200)
+  minSignatures    Int?           @map("min_signatures")
+  deadline         DateTime?      @db.Date
+  status           PetitionStatus @default(DRAFT)
+  closedReason     String?        @map("closed_reason")
+  submittedAt      DateTime?      @map("submitted_at")
+  createdBy        String         @map("created_by") @db.Uuid
+  publishedAt      DateTime?      @map("published_at")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  society    Society              @relation(fields: [societyId], references: [id])
+  creator    User                 @relation("PetitionCreatedBy", fields: [createdBy], references: [id])
+  signatures PetitionSignature[]
+
+  @@index([societyId])
+  @@index([status])
+  @@map("petitions")
+}
+
+/// 38. PetitionSignature — one signature per resident per petition.
+model PetitionSignature {
+  id           String          @id @default(uuid()) @db.Uuid
+  petitionId   String          @map("petition_id") @db.Uuid
+  userId       String          @map("user_id") @db.Uuid
+  societyId    String          @map("society_id") @db.Uuid
+  method       SignatureMethod
+  signatureUrl String          @map("signature_url") @db.VarChar(500)
+  signedAt     DateTime        @default(now()) @map("signed_at")
+
+  petition Petition @relation(fields: [petitionId], references: [id])
+  user     User     @relation("PetitionSignatures", fields: [userId], references: [id])
+  society  Society  @relation(fields: [societyId], references: [id])
+
+  @@unique([petitionId, userId])
+  @@index([petitionId])
+  @@index([userId])
+  @@index([societyId])
+  @@map("petition_signatures")
 }
