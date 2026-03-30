@@ -12,18 +12,15 @@ import { SignatureUpload } from "@/components/features/petitions/SignatureUpload
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
-import {
-  getResidentPetition,
-  getResidentPetitions,
-  revokeSignature,
-  signPetition,
-} from "@/services/petitions";
+import { getResidentPetition, getResidentPetitions, signPetition } from "@/services/petitions";
 import type { Petition } from "@/services/petitions";
 
 // ── Constants ──
@@ -54,6 +51,7 @@ export default function ResidentPetitionsPage() {
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [signMode, setSignMode] = useState<"DRAWN" | "UPLOADED" | null>(null);
+  const [consentGiven, setConsentGiven] = useState(false);
 
   // ── Queries ──
 
@@ -79,16 +77,7 @@ export default function ResidentPetitionsPage() {
     onSuccess: () => {
       toast.success("Petition signed!");
       setSignMode(null);
-      void queryClient.invalidateQueries({ queryKey: ["resident-petitions"] });
-      void queryClient.invalidateQueries({ queryKey: ["resident-petition", selectedId] });
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  const revokeMutation = useMutation({
-    mutationFn: () => revokeSignature(selectedId!),
-    onSuccess: () => {
-      toast.success("Signature revoked.");
+      setConsentGiven(false);
       void queryClient.invalidateQueries({ queryKey: ["resident-petitions"] });
       void queryClient.invalidateQueries({ queryKey: ["resident-petition", selectedId] });
     },
@@ -100,12 +89,14 @@ export default function ResidentPetitionsPage() {
   const handleSelectPetition = (petition: Petition) => {
     setSelectedId(petition.id);
     setSignMode(null);
+    setConsentGiven(false);
   };
 
   const handleSheetOpenChange = (open: boolean) => {
     if (!open) {
       setSelectedId(null);
       setSignMode(null);
+      setConsentGiven(false);
     }
   };
 
@@ -299,28 +290,12 @@ export default function ResidentPetitionsPage() {
 
                   {/* PUBLISHED — already signed */}
                   {petitionDetail.status === "PUBLISHED" && petitionDetail.mySignature && (
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 text-green-600">
-                        <CheckCircle2 className="h-5 w-5" />
-                        <span className="text-sm font-medium">
-                          You signed on{" "}
-                          {format(new Date(petitionDetail.mySignature.signedAt), "dd MMM yyyy")}
-                        </span>
-                      </div>
-                      {!signMode && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="border-destructive/30 text-destructive hover:bg-destructive/5 w-full"
-                          disabled={revokeMutation.isPending}
-                          onClick={() => revokeMutation.mutate()}
-                        >
-                          {revokeMutation.isPending && (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          )}
-                          Revoke Signature
-                        </Button>
-                      )}
+                    <div className="flex items-center gap-2 text-green-600">
+                      <CheckCircle2 className="h-5 w-5" />
+                      <span className="text-sm font-medium">
+                        You signed on{" "}
+                        {format(new Date(petitionDetail.mySignature.signedAt), "dd MMM yyyy")}
+                      </span>
                     </div>
                   )}
 
@@ -338,11 +313,28 @@ export default function ResidentPetitionsPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => setSignMode(null)}
+                              onClick={() => {
+                                setSignMode(null);
+                                setConsentGiven(false);
+                              }}
                               disabled={signMutation.isPending}
                             >
                               Cancel
                             </Button>
+                          </div>
+
+                          <div className="flex items-start gap-2 rounded-md border p-3 text-sm">
+                            <Checkbox
+                              id="consent"
+                              checked={consentGiven}
+                              onCheckedChange={(v) => setConsentGiven(!!v)}
+                            />
+                            <Label
+                              htmlFor="consent"
+                              className="text-muted-foreground cursor-pointer leading-snug"
+                            >
+                              I have read the petition document and agree to add my signature
+                            </Label>
                           </div>
 
                           <Tabs
@@ -363,14 +355,14 @@ export default function ResidentPetitionsPage() {
                             <TabsContent value="draw" className="mt-3">
                               <SignaturePad
                                 onSignature={handleSignature}
-                                disabled={signMutation.isPending}
+                                disabled={!consentGiven || signMutation.isPending}
                               />
                             </TabsContent>
 
                             <TabsContent value="upload" className="mt-3">
                               <SignatureUpload
                                 onSignature={handleSignature}
-                                disabled={signMutation.isPending}
+                                disabled={!consentGiven || signMutation.isPending}
                               />
                             </TabsContent>
                           </Tabs>

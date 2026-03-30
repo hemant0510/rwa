@@ -203,6 +203,18 @@ export async function downloadReport(societyId: string, petitionId: string) {
   return res.blob();
 }
 
+export async function downloadSignedDoc(societyId: string, petitionId: string) {
+  const res = await fetch(`${API_BASE}/societies/${societyId}/petitions/${petitionId}/signed-doc`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { error?: { message?: string } }).error?.message ??
+        "Failed to download signed document",
+    );
+  }
+  return res.blob();
+}
+
 // ── Resident: Petitions ──
 
 export async function getResidentPetitions() {
@@ -234,15 +246,4 @@ export async function signPetition(petitionId: string, data: SignPetitionInput) 
     throw new Error(err.error?.message || "Failed to sign petition");
   }
   return res.json() as Promise<{ signedAt: string }>;
-}
-
-export async function revokeSignature(petitionId: string) {
-  const res = await fetch(`${API_BASE}/residents/me/petitions/${petitionId}/sign`, {
-    method: "DELETE",
-  });
-  if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.error?.message || "Failed to revoke signature");
-  }
-  return res.json() as Promise<{ message: string }>;
 }

@@ -50,6 +50,7 @@ import {
   closePetition,
   deletePetition,
   downloadReport,
+  downloadSignedDoc,
   getPetition,
   getSignatures,
   publishPetition,
@@ -351,6 +352,8 @@ function PetitionDetailPageInner() {
     setEditDialog(true);
   }
 
+  const [signedDocPending, setSignedDocPending] = useState(false);
+
   async function handleDownloadReport() {
     try {
       const blob = await downloadReport(societyId, petitionId);
@@ -362,6 +365,23 @@ function PetitionDetailPageInner() {
       URL.revokeObjectURL(url);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to download report");
+    }
+  }
+
+  async function handleDownloadSignedDoc() {
+    try {
+      setSignedDocPending(true);
+      const blob = await downloadSignedDoc(societyId, petitionId);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `signed-doc-${petitionId}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to download signed document");
+    } finally {
+      setSignedDocPending(false);
     }
   }
 
@@ -474,10 +494,21 @@ function PetitionDetailPageInner() {
 
             {isPublished && (
               <>
-                <Button variant="outline" size="sm" onClick={handleDownloadReport}>
-                  <Download className="mr-1 h-4 w-4" />
-                  Download Report
-                </Button>
+                {petition.documentUrl && signatureCount > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDownloadSignedDoc}
+                    disabled={signedDocPending}
+                  >
+                    {signedDocPending ? (
+                      <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="mr-1 h-4 w-4" />
+                    )}
+                    Signed Document
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -492,10 +523,19 @@ function PetitionDetailPageInner() {
               </>
             )}
 
-            {isReadOnly && (
-              <Button variant="outline" size="sm" onClick={handleDownloadReport}>
-                <Download className="mr-1 h-4 w-4" />
-                Download Report
+            {isReadOnly && petition.documentUrl && signatureCount > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadSignedDoc}
+                disabled={signedDocPending}
+              >
+                {signedDocPending ? (
+                  <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="mr-1 h-4 w-4" />
+                )}
+                Signed Document
               </Button>
             )}
           </div>
