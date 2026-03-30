@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, Suspense } from "react";
+import { useState, useRef, useEffect, Suspense } from "react";
 
 import { useParams, useRouter } from "next/navigation";
 
@@ -144,11 +144,34 @@ function DocumentViewer({
   downloadUrl: string;
   documentUrl: string;
 }) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [loadError, setLoadError] = useState(false);
   const isDocx = documentUrl.endsWith(".docx");
-  // Direct API URL — avoids blob: URL which iOS Safari can't render in iframes
+  // Direct API URL — used for the mobile "Open PDF" link
   const docApiUrl = `/api/v1/societies/${societyId}/petitions/${petitionId}/document`;
   const label = isDocx ? "Download Document" : "Download PDF";
+
+  // Fetch the PDF as a blob so the desktop iframe uses a blob: URL.
+  // This is necessary because putting a Next.js API route directly in an iframe
+  // can cause the middleware to intercept/redirect the request before the PDF
+  // bytes are returned, leaving the iframe blank.
+  useEffect(() => {
+    if (isDocx) return;
+    let objectUrl: string | null = null;
+    fetch(docApiUrl)
+      .then((r) => {
+        if (!r.ok) throw new Error("fetch failed");
+        return r.blob();
+      })
+      .then((blob) => {
+        objectUrl = URL.createObjectURL(blob);
+        setBlobUrl(objectUrl);
+      })
+      .catch(() => setLoadError(true));
+    return () => {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [docApiUrl, isDocx]);
 
   return (
     <div className="space-y-3">
@@ -163,7 +186,7 @@ function DocumentViewer({
       </div>
 
       {isDocx ? (
-        /* DOCX — browsers can't render Word docs inline; show a prominent open link */
+        /* DOCX — browsers can't render Word docs inline */
         <div className="flex flex-col items-center gap-3 rounded-md border bg-gray-50 py-12">
           <FileText className="text-muted-foreground h-10 w-10" />
           <p className="text-muted-foreground text-sm">Word document — preview not available.</p>
@@ -176,7 +199,7 @@ function DocumentViewer({
         </div>
       ) : (
         <>
-          {/* Mobile fallback — iOS Safari can't render PDFs inside iframes */}
+          {/* Mobile — iOS Safari can't render blob: URLs in iframes */}
           <div className="block md:hidden">
             <div className="flex flex-col items-center gap-3 rounded-md border bg-gray-50 py-12">
               <FileText className="text-muted-foreground h-10 w-10" />
@@ -192,7 +215,7 @@ function DocumentViewer({
             </div>
           </div>
 
-          {/* Desktop — direct API URL avoids blob: URL issues */}
+          {/* Desktop — blob URL fetched via authenticated JS fetch */}
           <div className="hidden overflow-hidden rounded-md border md:block">
             {loadError ? (
               <div className="text-muted-foreground flex h-[600px] items-center justify-center gap-2">
@@ -201,13 +224,12 @@ function DocumentViewer({
                   Open in new tab
                 </a>
               </div>
+            ) : !blobUrl ? (
+              <div className="flex h-[600px] items-center justify-center">
+                <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
+              </div>
             ) : (
-              <iframe
-                src={docApiUrl}
-                title="Petition Document"
-                className="h-[600px] w-full"
-                onError={() => setLoadError(true)}
-              />
+              <iframe src={blobUrl} title="Petition Document" className="h-[600px] w-full" />
             )}
           </div>
         </>
