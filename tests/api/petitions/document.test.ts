@@ -10,10 +10,14 @@ const mockPrisma = vi.hoisted(() => ({
 }));
 const mockGetCurrentUser = vi.hoisted(() => vi.fn());
 const mockLogAudit = vi.hoisted(() => vi.fn());
+const mockBlob = vi.hoisted(() => ({
+  arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(8)),
+}));
 const mockSupabaseStorage = vi.hoisted(() => ({
   from: vi.fn().mockReturnValue({
     remove: vi.fn().mockResolvedValue({}),
     upload: vi.fn().mockResolvedValue({ error: null }),
+    download: vi.fn().mockResolvedValue({ data: mockBlob, error: null }),
   }),
 }));
 const mockCreateClient = vi.hoisted(() =>
@@ -28,7 +32,7 @@ vi.mock("@/lib/supabase/ensure-bucket", () => ({
   ensureBucket: vi.fn().mockResolvedValue(undefined),
 }));
 
-import { POST } from "@/app/api/v1/societies/[id]/petitions/[petitionId]/document/route";
+import { GET, POST } from "@/app/api/v1/societies/[id]/petitions/[petitionId]/document/route";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -238,9 +242,134 @@ describe("POST /api/v1/societies/[id]/petitions/[petitionId]/document", () => {
     );
   });
 
+  it("returns 400 with INVALID_TYPE when file type is not PDF or DOCX", async () => {
+    const imageFile = new File(["image bytes"], "photo.jpg", { type: "image/jpeg" });
+    const res = await POST(makeFormDataRequest(imageFile), makeParams());
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error.code).toBe("INVALID_TYPE");
+  });
+
+  it("accepts a DOCX file and uploads with .docx extension", async () => {
+    const mockUpload = vi.fn().mockResolvedValue({ error: null });
+    mockSupabaseStorage.from.mockReturnValue({
+      remove: vi.fn().mockResolvedValue({}),
+      upload: mockUpload,
+    });
+    const docxFile = new File(["docx bytes"], "petition.docx", {
+      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    });
+    const res = await POST(makeFormDataRequest(docxFile), makeParams());
+    expect(res.status).toBe(200);
+    const [path, , options] = mockUpload.mock.calls[0];
+    expect(path).toMatch(/^soc-1\/pet-1\/\d+\.docx$/);
+    expect(options.contentType).toBe(
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    );
+  });
+
   it("returns 500 on database error", async () => {
     mockPrisma.petition.findUnique.mockRejectedValue(new Error("DB crash"));
     const res = await POST(makeFormDataRequest(mockFile), makeParams());
+    expect(res.status).toBe(500);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /societies/[id]/petitions/[petitionId]/document
+// ---------------------------------------------------------------------------
+
+function makeGetRequest() {
+  return new NextRequest("http://localhost/test", { method: "GET" });
+}
+
+const mockUser = {
+  userId: "user-1",
+  authUserId: "auth-user-1",
+  societyId: "soc-1",
+  role: "RESIDENT" as const,
+};
+
+const mockPetitionWithDoc = {
+  id: "pet-1",
+  societyId: "soc-1",
+  title: "Test",
+  status: "PUBLISHED",
+  documentUrl: "soc-1/pet-1/123.pdf",
+};
+
+describe("GET /api/v1/societies/[id]/petitions/[petitionId]/document", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetCurrentUser.mockResolvedValue(mockUser);
+    mockPrisma.petition.findUnique.mockResolvedValue(mockPetitionWithDoc);
+    mockSupabaseStorage.from.mockReturnValue({
+      remove: vi.fn().mockResolvedValue({}),
+      upload: vi.fn().mockResolvedValue({ error: null }),
+      download: vi.fn().mockResolvedValue({ data: mockBlob, error: null }),
+    });
+  });
+
+  it("returns 401 when not authenticated", async () => {
+    mockGetCurrentUser.mockResolvedValue(null);
+    const res = await GET(makeGetRequest(), makeParams());
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 404 when petition does not exist", async () => {
+    mockPrisma.petition.findUnique.mockResolvedValue(null);
+    const res = await GET(makeGetRequest(), makeParams());
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 404 when petition belongs to a different society", async () => {
+    mockPrisma.petition.findUnique.mockResolvedValue({
+      ...mockPetitionWithDoc,
+      societyId: "other-soc",
+    });
+    const res = await GET(makeGetRequest(), makeParams());
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 404 when petition has no documentUrl", async () => {
+    mockPrisma.petition.findUnique.mockResolvedValue({
+      ...mockPetitionWithDoc,
+      documentUrl: null,
+    });
+    const res = await GET(makeGetRequest(), makeParams());
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 500 when storage download fails", async () => {
+    mockSupabaseStorage.from.mockReturnValue({
+      download: vi.fn().mockResolvedValue({ data: null, error: { message: "not found" } }),
+    });
+    const res = await GET(makeGetRequest(), makeParams());
+    expect(res.status).toBe(500);
+  });
+
+  it("returns 200 with PDF content type for a .pdf document", async () => {
+    const res = await GET(makeGetRequest(), makeParams());
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toBe("application/pdf");
+    expect(res.headers.get("Content-Disposition")).toBe("inline");
+  });
+
+  it("returns 200 with DOCX content type for a .docx document", async () => {
+    mockPrisma.petition.findUnique.mockResolvedValue({
+      ...mockPetitionWithDoc,
+      documentUrl: "soc-1/pet-1/123.docx",
+    });
+    const res = await GET(makeGetRequest(), makeParams());
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toBe(
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    );
+  });
+
+  it("returns 500 on unexpected error", async () => {
+    mockPrisma.petition.findUnique.mockRejectedValue(new Error("DB crash"));
+    const res = await GET(makeGetRequest(), makeParams());
     expect(res.status).toBe(500);
   });
 });

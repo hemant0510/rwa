@@ -557,4 +557,35 @@ describe("GET /api/v1/societies/[id]/petitions/[petitionId]/signed-doc", () => {
     const textCalls = mockPage.drawText.mock.calls.map((c) => c[0] as string);
     expect(textCalls.some((t) => t.includes("Total Signatures: 1"))).toBe(true);
   });
+
+  it("truncates long signatory names that exceed the column width", async () => {
+    // Simulate font returning wide measurements: anything longer than 3 chars is "too wide"
+    // so the truncate while loop executes multiple iterations before exiting
+    const narrowFont = {
+      widthOfTextAtSize: vi.fn().mockImplementation((text: string) => (text.length > 3 ? 200 : 10)),
+    };
+    mockPdfDoc.embedFont.mockResolvedValue(narrowFont);
+
+    const longNameSignature = [
+      {
+        ...mockSignatures[0],
+        user: {
+          name: "A Very Long Resident Name That Overflows",
+          userUnits: [{ unit: { displayLabel: "A-101" } }],
+        },
+      },
+    ];
+    mockPrisma.petitionSignature.findMany.mockResolvedValue(longNameSignature);
+    mockPrisma.petition.findUnique.mockResolvedValue({
+      ...mockPetition,
+      _count: { signatures: 1 },
+    });
+
+    const res = await GET(makeGetRequest(), makeParams());
+    expect(res.status).toBe(200);
+    // The truncated name should end with "…"
+    const drawTextArgs = mockPage.drawText.mock.calls.map((c) => c[0] as string);
+    const truncatedCall = drawTextArgs.find((t) => t.endsWith("…"));
+    expect(truncatedCall).toBeDefined();
+  });
 });

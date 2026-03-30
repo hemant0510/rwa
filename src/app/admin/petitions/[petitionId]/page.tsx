@@ -1,12 +1,21 @@
 "use client";
 
-import { useState, useRef, useEffect, Suspense } from "react";
+import { useState, useRef, Suspense } from "react";
 
 import { useParams, useRouter } from "next/navigation";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Download, Eye, FileText, Loader2, Trash2, Upload } from "lucide-react";
+import {
+  ArrowLeft,
+  Calendar,
+  Download,
+  Eye,
+  FileText,
+  Loader2,
+  Trash2,
+  Upload,
+} from "lucide-react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -51,6 +60,7 @@ import {
   deletePetition,
   downloadReport,
   downloadSignedDoc,
+  extendDeadline,
   getPetition,
   getSignatures,
   publishPetition,
@@ -123,37 +133,22 @@ function MethodBadge({ method }: { method: string }) {
 
 // ── PDF Viewer (blob-based to bypass X-Frame-Options) ─────────────────────
 
-function PdfViewer({
+function DocumentViewer({
   societyId,
   petitionId,
   downloadUrl,
+  documentUrl,
 }: {
   societyId: string;
   petitionId: string;
   downloadUrl: string;
+  documentUrl: string;
 }) {
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
-  const [error, setError] = useState(false);
-
-  useEffect(() => {
-    let revoke: string | null = null;
-
-    fetch(`/api/v1/societies/${societyId}/petitions/${petitionId}/document`)
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to load PDF");
-        return res.blob();
-      })
-      .then((blob) => {
-        const url = URL.createObjectURL(blob);
-        revoke = url;
-        setBlobUrl(url);
-      })
-      .catch(() => setError(true));
-
-    return () => {
-      if (revoke) URL.revokeObjectURL(revoke);
-    };
-  }, [societyId, petitionId]);
+  const [loadError, setLoadError] = useState(false);
+  const isDocx = documentUrl.endsWith(".docx");
+  // Direct API URL — avoids blob: URL which iOS Safari can't render in iframes
+  const docApiUrl = `/api/v1/societies/${societyId}/petitions/${petitionId}/document`;
+  const label = isDocx ? "Download Document" : "Download PDF";
 
   return (
     <div className="space-y-3">
@@ -162,31 +157,61 @@ function PdfViewer({
         <Button variant="outline" size="sm" asChild>
           <a href={downloadUrl} target="_blank" rel="noopener noreferrer" download>
             <Download className="mr-1 h-4 w-4" />
-            Download PDF
+            {label}
           </a>
         </Button>
       </div>
-      <div className="overflow-hidden rounded-md border">
-        {error ? (
-          <div className="text-muted-foreground flex h-[600px] items-center justify-center">
-            Failed to load document preview.{" "}
-            <a
-              href={downloadUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="ml-1 underline"
-            >
-              Open in new tab
+
+      {isDocx ? (
+        /* DOCX — browsers can't render Word docs inline; show a prominent open link */
+        <div className="flex flex-col items-center gap-3 rounded-md border bg-gray-50 py-12">
+          <FileText className="text-muted-foreground h-10 w-10" />
+          <p className="text-muted-foreground text-sm">Word document — preview not available.</p>
+          <Button variant="outline" size="sm" asChild>
+            <a href={downloadUrl} target="_blank" rel="noopener noreferrer" download>
+              <Download className="mr-1 h-4 w-4" />
+              Download DOCX
             </a>
+          </Button>
+        </div>
+      ) : (
+        <>
+          {/* Mobile fallback — iOS Safari can't render PDFs inside iframes */}
+          <div className="block md:hidden">
+            <div className="flex flex-col items-center gap-3 rounded-md border bg-gray-50 py-12">
+              <FileText className="text-muted-foreground h-10 w-10" />
+              <p className="text-muted-foreground text-sm">
+                PDF preview is not available on mobile.
+              </p>
+              <Button variant="outline" size="sm" asChild>
+                <a href={docApiUrl} target="_blank" rel="noopener noreferrer">
+                  <Eye className="mr-1 h-4 w-4" />
+                  Open PDF
+                </a>
+              </Button>
+            </div>
           </div>
-        ) : blobUrl ? (
-          <iframe src={blobUrl} title="Petition Document" className="h-[600px] w-full" />
-        ) : (
-          <div className="flex h-[600px] items-center justify-center">
-            <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+
+          {/* Desktop — direct API URL avoids blob: URL issues */}
+          <div className="hidden overflow-hidden rounded-md border md:block">
+            {loadError ? (
+              <div className="text-muted-foreground flex h-[600px] items-center justify-center gap-2">
+                <span>Failed to load document preview.</span>
+                <a href={docApiUrl} target="_blank" rel="noopener noreferrer" className="underline">
+                  Open in new tab
+                </a>
+              </div>
+            ) : (
+              <iframe
+                src={docApiUrl}
+                title="Petition Document"
+                className="h-[600px] w-full"
+                onError={() => setLoadError(true)}
+              />
+            )}
           </div>
-        )}
-      </div>
+        </>
+      )}
     </div>
   );
 }
@@ -223,6 +248,8 @@ function PetitionDetailPageInner() {
   const [editDialog, setEditDialog] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [removeSignatureId, setRemoveSignatureId] = useState<string | null>(null);
+  const [extendDeadlineDialog, setExtendDeadlineDialog] = useState(false);
+  const [newDeadline, setNewDeadline] = useState("");
 
   // ── File upload state ──
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -339,6 +366,17 @@ function PetitionDetailPageInner() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const extendDeadlineMutation = useMutation({
+    mutationFn: (deadline: string | null) => extendDeadline(societyId, petitionId, deadline),
+    onSuccess: () => {
+      toast.success("Deadline updated.");
+      setExtendDeadlineDialog(false);
+      setNewDeadline("");
+      invalidatePetition();
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   // ── Helpers ──
   function openEditDialog(p: Petition) {
     editForm.reset({
@@ -391,8 +429,12 @@ function PetitionDetailPageInner() {
       setSelectedFile(null);
       return;
     }
-    if (file.type !== "application/pdf") {
-      toast.error("Only PDF files are allowed.");
+    const allowed = [
+      "application/pdf",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ];
+    if (!allowed.includes(file.type)) {
+      toast.error("Only PDF and DOCX files are allowed.");
       e.target.value = "";
       return;
     }
@@ -512,6 +554,17 @@ function PetitionDetailPageInner() {
                 <Button
                   variant="outline"
                   size="sm"
+                  onClick={() => {
+                    setNewDeadline(petition.deadline ? petition.deadline.split("T")[0] : "");
+                    setExtendDeadlineDialog(true);
+                  }}
+                >
+                  <Calendar className="mr-1 h-4 w-4" />
+                  Extend Deadline
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
                   className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
                   onClick={() => setCloseDialog(true)}
                 >
@@ -558,11 +611,12 @@ function PetitionDetailPageInner() {
 
         {/* ── Document Tab ── */}
         <TabsContent value="document" className="space-y-4 pt-4">
-          {petition.documentSignedUrl ? (
-            <PdfViewer
+          {petition.documentSignedUrl && petition.documentUrl ? (
+            <DocumentViewer
               societyId={societyId}
               petitionId={petitionId}
               downloadUrl={petition.documentSignedUrl}
+              documentUrl={petition.documentUrl}
             />
           ) : (
             <Card>
@@ -836,11 +890,11 @@ function PetitionDetailPageInner() {
               <Input
                 id="petition-doc-file"
                 type="file"
-                accept="application/pdf"
+                accept="application/pdf,.pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx"
                 ref={fileInputRef}
                 onChange={handleFileChange}
               />
-              <p className="text-muted-foreground text-xs">Only PDF files, max 10 MB.</p>
+              <p className="text-muted-foreground text-xs">PDF or DOCX, max 10 MB.</p>
             </div>
             {selectedFile && (
               <p className="text-sm">
@@ -1173,6 +1227,57 @@ function PetitionDetailPageInner() {
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
               Remove
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Dialog: Extend Deadline ── */}
+      <Dialog
+        open={extendDeadlineDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            setExtendDeadlineDialog(false);
+            setNewDeadline("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Extend Deadline</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-muted-foreground text-sm">
+              Set a new deadline for this petition. Leave empty to remove the deadline.
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="extend-deadline-input">Deadline (optional)</Label>
+              <Input
+                id="extend-deadline-input"
+                type="date"
+                value={newDeadline}
+                onChange={(e) => setNewDeadline(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setExtendDeadlineDialog(false);
+                setNewDeadline("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={extendDeadlineMutation.isPending}
+              onClick={() => extendDeadlineMutation.mutate(newDeadline || null)}
+            >
+              {extendDeadlineMutation.isPending && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Save
             </Button>
           </DialogFooter>
         </DialogContent>

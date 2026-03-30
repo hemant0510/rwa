@@ -135,12 +135,24 @@ export default function ResidentPetitionsPage() {
                 {/* Title + type badge */}
                 <div className="flex items-start justify-between gap-2">
                   <h3 className="text-sm leading-tight font-semibold">{petition.title}</h3>
-                  <Badge
-                    variant="outline"
-                    className={`shrink-0 text-xs ${TYPE_COLORS[petition.type] ?? ""}`}
-                  >
-                    {petition.type}
-                  </Badge>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <Badge
+                      variant="outline"
+                      className={`text-xs ${TYPE_COLORS[petition.type] ?? ""}`}
+                    >
+                      {petition.type}
+                    </Badge>
+                    {/* Signed indicator on listing */}
+                    {petition.mySignature && (
+                      <Badge
+                        variant="outline"
+                        className="border-green-200 bg-green-50 text-xs text-green-700"
+                      >
+                        <CheckCircle2 className="mr-1 h-3 w-3" />
+                        Signed
+                      </Badge>
+                    )}
+                  </div>
                 </div>
 
                 {/* Meta */}
@@ -188,12 +200,14 @@ export default function ResidentPetitionsPage() {
 
       {/* ── Petition Detail Sheet ── */}
       <Sheet open={!!selectedId} onOpenChange={handleSheetOpenChange}>
-        <SheetContent className="overflow-y-auto sm:max-w-md">
-          <SheetHeader className="mb-4">
+        <SheetContent className="flex flex-col overflow-hidden sm:max-w-md">
+          <SheetHeader className="shrink-0">
             <SheetTitle>{petitionDetail?.title ?? "Petition"}</SheetTitle>
           </SheetHeader>
-          {petitionDetail && (
-            <>
+
+          {/* Scrollable content area */}
+          <div className="min-h-0 flex-1 overflow-y-auto py-4">
+            {petitionDetail && (
               <div className="space-y-4">
                 {/* Type + status badges */}
                 <div className="flex flex-wrap gap-2">
@@ -307,7 +321,7 @@ export default function ResidentPetitionsPage() {
                           Sign Petition
                         </Button>
                       ) : (
-                        <div className="space-y-3">
+                        <div className="space-y-4">
                           <div className="flex items-center justify-between">
                             <p className="text-sm font-medium">Sign this Petition</p>
                             <Button
@@ -323,6 +337,7 @@ export default function ResidentPetitionsPage() {
                             </Button>
                           </div>
 
+                          {/* Consent checkbox — always at top so it's never hidden on mobile */}
                           <div className="flex items-start gap-2 rounded-md border p-3 text-sm">
                             <Checkbox
                               id="consent"
@@ -337,35 +352,44 @@ export default function ResidentPetitionsPage() {
                             </Label>
                           </div>
 
-                          <Tabs
-                            value={signMode === "UPLOADED" ? "upload" : "draw"}
-                            onValueChange={(v) =>
-                              setSignMode(v === "upload" ? "UPLOADED" : "DRAWN")
-                            }
-                          >
-                            <TabsList className="w-full">
-                              <TabsTrigger value="draw" className="flex-1">
-                                Draw
-                              </TabsTrigger>
-                              <TabsTrigger value="upload" className="flex-1">
-                                Upload
-                              </TabsTrigger>
-                            </TabsList>
+                          {/* Signature method — only shown after consent to keep layout compact */}
+                          {consentGiven && (
+                            <Tabs
+                              value={signMode === "UPLOADED" ? "upload" : "draw"}
+                              onValueChange={(v) =>
+                                setSignMode(v === "upload" ? "UPLOADED" : "DRAWN")
+                              }
+                            >
+                              <TabsList className="w-full">
+                                <TabsTrigger value="draw" className="flex-1">
+                                  Draw
+                                </TabsTrigger>
+                                <TabsTrigger value="upload" className="flex-1">
+                                  Upload
+                                </TabsTrigger>
+                              </TabsList>
 
-                            <TabsContent value="draw" className="mt-3">
-                              <SignaturePad
-                                onSignature={handleSignature}
-                                disabled={!consentGiven || signMutation.isPending}
-                              />
-                            </TabsContent>
+                              <TabsContent value="draw" className="mt-3">
+                                <SignaturePad
+                                  onSignature={handleSignature}
+                                  disabled={signMutation.isPending}
+                                />
+                              </TabsContent>
 
-                            <TabsContent value="upload" className="mt-3">
-                              <SignatureUpload
-                                onSignature={handleSignature}
-                                disabled={!consentGiven || signMutation.isPending}
-                              />
-                            </TabsContent>
-                          </Tabs>
+                              <TabsContent value="upload" className="mt-3">
+                                <SignatureUpload
+                                  onSignature={handleSignature}
+                                  disabled={signMutation.isPending}
+                                />
+                              </TabsContent>
+                            </Tabs>
+                          )}
+
+                          {!consentGiven && (
+                            <p className="text-muted-foreground text-center text-xs">
+                              Check the box above to enable signing
+                            </p>
+                          )}
 
                           {signMutation.isPending && (
                             <div className="flex items-center justify-center gap-2 text-sm">
@@ -379,8 +403,8 @@ export default function ResidentPetitionsPage() {
                   )}
                 </div>
               </div>
-            </>
-          )}
+            )}
+          </div>
         </SheetContent>
       </Sheet>
     </div>

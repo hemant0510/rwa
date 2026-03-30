@@ -26,6 +26,8 @@ export interface Petition {
   createdAt: string;
   creator: { name: string };
   _count?: { signatures: number };
+  // Resident list only — whether the current resident has signed this petition
+  mySignature?: { id: string; method: string; signedAt: string } | null;
 }
 
 export interface PetitionSignature {
@@ -93,6 +95,25 @@ export async function updatePetition(
   if (!res.ok) {
     const err = await res.json();
     throw new Error(err.error?.message || "Failed to update petition");
+  }
+  return res.json() as Promise<Petition>;
+}
+
+export async function extendDeadline(
+  societyId: string,
+  petitionId: string,
+  deadline: string | null,
+) {
+  const res = await fetch(`${API_BASE}/societies/${societyId}/petitions/${petitionId}/deadline`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ deadline }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(
+      (err as { error?: { message?: string } }).error?.message ?? "Failed to update deadline",
+    );
   }
   return res.json() as Promise<Petition>;
 }

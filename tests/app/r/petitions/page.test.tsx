@@ -248,6 +248,25 @@ describe("ResidentPetitionsPage", () => {
     });
   });
 
+  it("shows Signed badge on petition card when resident has already signed", async () => {
+    const signedPetition = {
+      ...mockPetition,
+      mySignature: { id: "sig-1", method: "DRAWN", signedAt: "2026-03-21T10:00:00Z" },
+    };
+    mockGetResidentPetitions.mockResolvedValue({ data: [signedPetition] });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Signed")).toBeInTheDocument();
+    });
+  });
+
+  it("does not show Signed badge when resident has not signed", async () => {
+    mockGetResidentPetitions.mockResolvedValue({ data: [mockPetition] });
+    renderPage();
+    await waitFor(() => screen.getByText("Fix Water Supply"));
+    expect(screen.queryByText("Signed")).not.toBeInTheDocument();
+  });
+
   // ── Detail sheet ────────────────────────────────────────────────────────────
 
   it("opens detail sheet when card is clicked", async () => {
@@ -318,7 +337,7 @@ describe("ResidentPetitionsPage", () => {
     });
   });
 
-  it("shows Draw/Upload tabs after clicking Sign Petition", async () => {
+  it("shows Draw/Upload tabs only after consent is given", async () => {
     mockGetResidentPetitions.mockResolvedValue({ data: [mockPetition] });
     mockGetResidentPetition.mockResolvedValue(mockPetitionDetail);
     const user = userEvent.setup();
@@ -327,13 +346,18 @@ describe("ResidentPetitionsPage", () => {
     await user.click(screen.getByText("Fix Water Supply"));
     await waitFor(() => screen.getByRole("button", { name: "Sign Petition" }));
     await user.click(screen.getByRole("button", { name: "Sign Petition" }));
+    // Tabs should NOT appear before consent
+    await waitFor(() => screen.getByRole("checkbox"));
+    expect(screen.queryByRole("tab", { name: "Draw" })).not.toBeInTheDocument();
+    // Give consent — tabs should now appear
+    await user.click(screen.getByRole("checkbox"));
     await waitFor(() => {
       expect(screen.getByRole("tab", { name: "Draw" })).toBeInTheDocument();
       expect(screen.getByRole("tab", { name: "Upload" })).toBeInTheDocument();
     });
   });
 
-  it("shows SignaturePad in Draw tab by default", async () => {
+  it("shows SignaturePad in Draw tab after consent is given", async () => {
     mockGetResidentPetitions.mockResolvedValue({ data: [mockPetition] });
     mockGetResidentPetition.mockResolvedValue(mockPetitionDetail);
     const user = userEvent.setup();
@@ -342,12 +366,14 @@ describe("ResidentPetitionsPage", () => {
     await user.click(screen.getByText("Fix Water Supply"));
     await waitFor(() => screen.getByRole("button", { name: "Sign Petition" }));
     await user.click(screen.getByRole("button", { name: "Sign Petition" }));
+    await waitFor(() => screen.getByRole("checkbox"));
+    await user.click(screen.getByRole("checkbox"));
     await waitFor(() => {
       expect(screen.getByTestId("mock-signature-pad")).toBeInTheDocument();
     });
   });
 
-  it("shows SignatureUpload after switching to Upload tab", async () => {
+  it("shows SignatureUpload after giving consent and switching to Upload tab", async () => {
     mockGetResidentPetitions.mockResolvedValue({ data: [mockPetition] });
     mockGetResidentPetition.mockResolvedValue(mockPetitionDetail);
     const user = userEvent.setup();
@@ -356,6 +382,8 @@ describe("ResidentPetitionsPage", () => {
     await user.click(screen.getByText("Fix Water Supply"));
     await waitFor(() => screen.getByRole("button", { name: "Sign Petition" }));
     await user.click(screen.getByRole("button", { name: "Sign Petition" }));
+    await waitFor(() => screen.getByRole("checkbox"));
+    await user.click(screen.getByRole("checkbox"));
     await waitFor(() => screen.getByRole("tab", { name: "Upload" }));
     await user.click(screen.getByRole("tab", { name: "Upload" }));
     await waitFor(() => {
@@ -381,7 +409,7 @@ describe("ResidentPetitionsPage", () => {
     });
   });
 
-  it("signature pad is disabled before consent is given", async () => {
+  it("signature pad is hidden before consent is given", async () => {
     mockGetResidentPetitions.mockResolvedValue({ data: [mockPetition] });
     mockGetResidentPetition.mockResolvedValue(mockPetitionDetail);
     const user = userEvent.setup();
@@ -390,8 +418,10 @@ describe("ResidentPetitionsPage", () => {
     await user.click(screen.getByText("Fix Water Supply"));
     await waitFor(() => screen.getByRole("button", { name: "Sign Petition" }));
     await user.click(screen.getByRole("button", { name: "Sign Petition" }));
-    await waitFor(() => screen.getByTestId("mock-signature-pad"));
-    expect(screen.getByTestId("mock-signature-pad")).toBeDisabled();
+    // Consent checkbox should be visible but pad should not exist yet
+    await waitFor(() => screen.getByRole("checkbox"));
+    expect(screen.queryByTestId("mock-signature-pad")).not.toBeInTheDocument();
+    expect(screen.getByText("Check the box above to enable signing")).toBeInTheDocument();
   });
 
   it("signature pad becomes enabled after consent checkbox is checked", async () => {
@@ -410,7 +440,7 @@ describe("ResidentPetitionsPage", () => {
     });
   });
 
-  it("consent checkbox resets to unchecked when Cancel is clicked", async () => {
+  it("consent resets when Cancel is clicked — pad hidden again on re-open", async () => {
     mockGetResidentPetitions.mockResolvedValue({ data: [mockPetition] });
     mockGetResidentPetition.mockResolvedValue(mockPetitionDetail);
     const user = userEvent.setup();
@@ -420,15 +450,15 @@ describe("ResidentPetitionsPage", () => {
     await waitFor(() => screen.getByRole("button", { name: "Sign Petition" }));
     await user.click(screen.getByRole("button", { name: "Sign Petition" }));
     await waitFor(() => screen.getByRole("checkbox"));
-    // Give consent, then cancel
+    // Give consent so pad appears, then cancel
     await user.click(screen.getByRole("checkbox"));
+    await waitFor(() => screen.getByTestId("mock-signature-pad"));
     await user.click(screen.getByRole("button", { name: "Cancel" }));
-    // Re-open signing flow
+    // Re-open signing flow — consent is reset so pad should be hidden
     await waitFor(() => screen.getByRole("button", { name: "Sign Petition" }));
     await user.click(screen.getByRole("button", { name: "Sign Petition" }));
-    await waitFor(() => screen.getByTestId("mock-signature-pad"));
-    // Pad should be disabled again (consent reset)
-    expect(screen.getByTestId("mock-signature-pad")).toBeDisabled();
+    await waitFor(() => screen.getByRole("checkbox"));
+    expect(screen.queryByTestId("mock-signature-pad")).not.toBeInTheDocument();
   });
 
   // ── Signing with consent ────────────────────────────────────────────────────
