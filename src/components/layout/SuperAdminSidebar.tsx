@@ -6,10 +6,11 @@ import { usePathname } from "next/navigation";
 import {
   Building2,
   LayoutDashboard,
-  Settings,
-  Tag,
   Layers,
   ReceiptIndianRupee,
+  ScrollText,
+  Settings,
+  Tag,
 } from "lucide-react";
 
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -21,6 +22,7 @@ const navItems = [
   { href: "/sa/billing", label: "Billing", icon: ReceiptIndianRupee },
   { href: "/sa/plans", label: "Plans", icon: Layers },
   { href: "/sa/discounts", label: "Discounts", icon: Tag },
+  { href: "/sa/audit-logs", label: "Audit Logs", icon: ScrollText },
   { href: "/sa/settings", label: "Settings", icon: Settings },
 ];
 

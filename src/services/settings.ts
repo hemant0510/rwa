@@ -18,7 +18,7 @@ export interface PlatformConfigItem {
 async function handleResponse<T>(res: Response): Promise<T> {
   const json = await res.json();
   if (!res.ok) throw new Error(json?.error?.message ?? "Request failed");
-  return json.data as T;
+  return json as T;
 }
 
 export async function getProfile(): Promise<SuperAdminProfile> {
