@@ -152,6 +152,14 @@ export const mockPrisma = {
     create: vi.fn(),
     findMany: vi.fn(),
   },
+  subscriptionInvoice: {
+    findMany: vi.fn(),
+    findFirst: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    updateMany: vi.fn(),
+    count: vi.fn(),
+  },
   $transaction: vi.fn((arg: unknown) => {
     if (typeof arg === "function") {
       return (arg as (tx: typeof mockPrisma) => Promise<unknown>)(mockPrisma);
