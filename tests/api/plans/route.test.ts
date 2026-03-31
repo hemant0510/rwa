@@ -2,13 +2,16 @@ import { NextRequest } from "next/server";
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+/* eslint-disable import/order */
 import { mockPrisma } from "../../__mocks__/prisma";
+import { GET, POST } from "@/app/api/v1/super-admin/plans/route";
+/* eslint-enable import/order */
 
 const mockRequireSuperAdmin = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/auth-guard", () => ({ requireSuperAdmin: mockRequireSuperAdmin }));
 
-// eslint-disable-next-line import/order -- must import after mocks
-import { GET, POST } from "@/app/api/v1/super-admin/plans/route";
+const mockLogAudit = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/audit", () => ({ logAudit: mockLogAudit }));
 
 const saOk = {
   data: { superAdminId: "sa-1", authUserId: "auth-sa-1", email: "sa@rwa.com" },
@@ -72,6 +75,7 @@ describe("GET /api/v1/super-admin/plans", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockRequireSuperAdmin.mockResolvedValue(saOk);
+    mockLogAudit.mockResolvedValue(undefined);
   });
 
   it("returns 403 when not super admin", async () => {
@@ -131,6 +135,7 @@ describe("POST /api/v1/super-admin/plans", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockRequireSuperAdmin.mockResolvedValue(saOk);
+    mockLogAudit.mockResolvedValue(undefined);
   });
 
   it("returns 403 when not super admin", async () => {
@@ -235,5 +240,26 @@ describe("POST /api/v1/super-admin/plans", () => {
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.planType).toBe("PER_UNIT");
+  });
+
+  it("logs audit entry on success", async () => {
+    mockPrisma.platformPlan.findUnique.mockResolvedValue(null);
+    mockPrisma.platformPlan.create.mockResolvedValue({
+      ...mockPlan,
+      billingOptions: [
+        { id: "opt-1", planId: "plan-1", billingCycle: "MONTHLY", price: 999, isActive: true },
+      ],
+    });
+
+    const req = makeReq(validCreatePayload);
+    await POST(req);
+
+    expect(mockLogAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionType: "SA_PLAN_CREATED",
+        userId: "sa-1",
+        entityType: "PlatformPlan",
+      }),
+    );
   });
 });

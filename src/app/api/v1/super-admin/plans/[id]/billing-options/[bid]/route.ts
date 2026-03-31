@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 
 import { internalError, notFoundError, parseBody, successResponse } from "@/lib/api-helpers";
+import { logAudit } from "@/lib/audit";
 import { requireSuperAdmin } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 
@@ -35,6 +36,15 @@ export async function PATCH(request: NextRequest, { params }: Params) {
         price: data.price,
         ...(data.isActive !== undefined && { isActive: data.isActive }),
       },
+    });
+
+    void logAudit({
+      actionType: "SA_BILLING_OPTION_UPDATED",
+      userId: auth.data.superAdminId,
+      entityType: "PlanBillingOption",
+      entityId: bid,
+      oldValue: { price: Number(option.price) },
+      newValue: data,
     });
 
     return successResponse({ ...updated, price: Number(updated.price) });

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 
 import { internalError, notFoundError, parseBody, successResponse } from "@/lib/api-helpers";
+import { logAudit } from "@/lib/audit";
 import { requireSuperAdmin } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { updatePlanSchema } from "@/lib/validations/plan";
@@ -64,6 +65,15 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       },
     });
 
+    void logAudit({
+      actionType: "SA_PLAN_UPDATED",
+      userId: auth.data.superAdminId,
+      entityType: "PlatformPlan",
+      entityId: id,
+      oldValue: { name: existing.name },
+      newValue: data,
+    });
+
     return successResponse({
       ...plan,
       pricePerUnit: plan.pricePerUnit ? Number(plan.pricePerUnit) : null,
@@ -105,6 +115,14 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     await prisma.platformPlan.update({
       where: { id },
       data: { isActive: false, isPublic: false },
+    });
+
+    void logAudit({
+      actionType: "SA_PLAN_ARCHIVED",
+      userId: auth.data.superAdminId,
+      entityType: "PlatformPlan",
+      entityId: id,
+      newValue: { name: plan.name },
     });
 
     return successResponse({ success: true });

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 
 import { parseBody, internalError, successResponse } from "@/lib/api-helpers";
+import { logAudit } from "@/lib/audit";
 import { requireSuperAdmin } from "@/lib/auth-guard";
 import { sendEmail } from "@/lib/email";
 import { getSubscriptionReminderEmailHtml } from "@/lib/email-templates/subscription";
@@ -62,6 +63,14 @@ export async function POST(request: NextRequest) {
     );
     const sent = results.filter((r) => r.status === "fulfilled").length;
     const failed = results.filter((r) => r.status === "rejected").length;
+
+    void logAudit({
+      actionType: "SA_BULK_REMINDERS_SENT",
+      userId: auth.data.superAdminId,
+      entityType: "Society",
+      entityId: "batch",
+      newValue: { societyCount: data.societyIds.length, sent, failed },
+    });
 
     return successResponse({ sent, failed });
   } catch {

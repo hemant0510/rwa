@@ -2,10 +2,17 @@ import { NextRequest } from "next/server";
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+/* eslint-disable import/order */
 import { mockPrisma } from "../../__mocks__/prisma";
+import { PATCH } from "@/app/api/v1/super-admin/plans/[id]/billing-options/[bid]/route";
+import { POST } from "@/app/api/v1/super-admin/plans/[id]/billing-options/route";
+/* eslint-enable import/order */
 
 const mockRequireSuperAdmin = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/auth-guard", () => ({ requireSuperAdmin: mockRequireSuperAdmin }));
+
+const mockLogAudit = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/audit", () => ({ logAudit: mockLogAudit }));
 
 const saOk = {
   data: { superAdminId: "sa-1", authUserId: "auth-sa-1", email: "sa@rwa.com" },
@@ -15,9 +22,6 @@ const saForbidden = {
   data: null,
   error: new Response(JSON.stringify({ error: { code: "FORBIDDEN" } }), { status: 403 }),
 };
-
-import { PATCH } from "@/app/api/v1/super-admin/plans/[id]/billing-options/[bid]/route";
-import { POST } from "@/app/api/v1/super-admin/plans/[id]/billing-options/route";
 
 function makePostReq(body: unknown, planId = "plan-1") {
   return new NextRequest(`http://localhost/api/v1/super-admin/plans/${planId}/billing-options`, {
@@ -60,6 +64,7 @@ describe("POST /api/v1/super-admin/plans/[id]/billing-options", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockRequireSuperAdmin.mockResolvedValue(saOk);
+    mockLogAudit.mockResolvedValue(undefined);
   });
 
   it("returns 403 when not super admin", async () => {
@@ -134,12 +139,30 @@ describe("POST /api/v1/super-admin/plans/[id]/billing-options", () => {
 
     expect(res.status).toBe(500);
   });
+
+  it("logs audit entry on success", async () => {
+    mockPrisma.platformPlan.findUnique.mockResolvedValue({ id: "plan-1" });
+    mockPrisma.planBillingOption.findUnique.mockResolvedValue(null);
+    mockPrisma.planBillingOption.create.mockResolvedValue(mockOption);
+
+    const req = makePostReq({ billingCycle: "ANNUAL", price: 9990 });
+    await POST(req, makePostParams("plan-1"));
+
+    expect(mockLogAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionType: "SA_BILLING_OPTION_CREATED",
+        userId: "sa-1",
+        entityType: "PlanBillingOption",
+      }),
+    );
+  });
 });
 
 describe("PATCH /api/v1/super-admin/plans/[id]/billing-options/[bid]", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockRequireSuperAdmin.mockResolvedValue(saOk);
+    mockLogAudit.mockResolvedValue(undefined);
   });
 
   it("returns 403 when not super admin", async () => {
@@ -212,5 +235,21 @@ describe("PATCH /api/v1/super-admin/plans/[id]/billing-options/[bid]", () => {
     const res = await PATCH(req, makePatchParams("plan-1", "opt-1"));
 
     expect(res.status).toBe(500);
+  });
+
+  it("logs audit entry on success", async () => {
+    mockPrisma.planBillingOption.findUnique.mockResolvedValue(mockOption);
+    mockPrisma.planBillingOption.update.mockResolvedValue({ ...mockOption, price: 10990 });
+
+    const req = makePatchReq({ price: 10990 });
+    await PATCH(req, makePatchParams("plan-1", "opt-1"));
+
+    expect(mockLogAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionType: "SA_BILLING_OPTION_UPDATED",
+        userId: "sa-1",
+        entityType: "PlanBillingOption",
+      }),
+    );
   });
 });

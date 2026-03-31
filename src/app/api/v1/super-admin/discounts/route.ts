@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 
 import { internalError, parseBody, successResponse } from "@/lib/api-helpers";
+import { logAudit } from "@/lib/audit";
 import { requireSuperAdmin } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { createDiscountSchema } from "@/lib/validations/discount";
@@ -65,6 +66,14 @@ export async function POST(request: NextRequest) {
         maxUsageCount: data.maxUsageCount ?? null,
         allowedCycles: data.allowedCycles,
       },
+    });
+
+    void logAudit({
+      actionType: "SA_DISCOUNT_CREATED",
+      userId: auth.data.superAdminId,
+      entityType: "PlanDiscount",
+      entityId: discount.id,
+      newValue: { name: discount.name, triggerType: discount.triggerType },
     });
 
     return successResponse({ ...discount, discountValue: Number(discount.discountValue) }, 201);

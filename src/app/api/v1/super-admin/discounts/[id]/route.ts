@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 
 import { internalError, notFoundError, parseBody, successResponse } from "@/lib/api-helpers";
+import { logAudit } from "@/lib/audit";
 import { requireSuperAdmin } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { updateDiscountSchema } from "@/lib/validations/discount";
@@ -32,6 +33,15 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       },
     });
 
+    void logAudit({
+      actionType: "SA_DISCOUNT_UPDATED",
+      userId: auth.data.superAdminId,
+      entityType: "PlanDiscount",
+      entityId: id,
+      oldValue: { name: existing.name },
+      newValue: data,
+    });
+
     return successResponse({ ...discount, discountValue: Number(discount.discountValue) });
   } catch {
     return internalError("Failed to update discount");
@@ -50,6 +60,15 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     if (!existing) return notFoundError("Discount not found");
 
     await prisma.planDiscount.update({ where: { id }, data: { isActive: false } });
+
+    void logAudit({
+      actionType: "SA_DISCOUNT_DEACTIVATED",
+      userId: auth.data.superAdminId,
+      entityType: "PlanDiscount",
+      entityId: id,
+      newValue: { name: existing.name },
+    });
+
     return successResponse({ success: true });
   } catch {
     return internalError("Failed to deactivate discount");

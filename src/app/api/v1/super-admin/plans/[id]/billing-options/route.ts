@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 
 import { internalError, notFoundError, parseBody, successResponse } from "@/lib/api-helpers";
+import { logAudit } from "@/lib/audit";
 import { requireSuperAdmin } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { createBillingOptionSchema } from "@/lib/validations/plan";
@@ -31,6 +32,14 @@ export async function POST(request: NextRequest, { params }: Params) {
 
     const option = await prisma.planBillingOption.create({
       data: { planId: id, billingCycle: data.billingCycle, price: data.price },
+    });
+
+    void logAudit({
+      actionType: "SA_BILLING_OPTION_CREATED",
+      userId: auth.data.superAdminId,
+      entityType: "PlanBillingOption",
+      entityId: option.id,
+      newValue: { planId: id, billingCycle: data.billingCycle, price: data.price },
     });
 
     return successResponse({ ...option, price: Number(option.price) }, 201);

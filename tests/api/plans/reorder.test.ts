@@ -2,10 +2,16 @@ import { NextRequest } from "next/server";
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+/* eslint-disable import/order */
 import { mockPrisma } from "../../__mocks__/prisma";
+import { POST } from "@/app/api/v1/super-admin/plans/reorder/route";
+/* eslint-enable import/order */
 
 const mockRequireSuperAdmin = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/auth-guard", () => ({ requireSuperAdmin: mockRequireSuperAdmin }));
+
+const mockLogAudit = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/audit", () => ({ logAudit: mockLogAudit }));
 
 const saOk = {
   data: { superAdminId: "sa-1", authUserId: "auth-sa-1", email: "sa@rwa.com" },
@@ -24,12 +30,11 @@ function makeReq(body: unknown) {
   });
 }
 
-import { POST } from "@/app/api/v1/super-admin/plans/reorder/route";
-
 describe("POST /api/v1/super-admin/plans/reorder", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockRequireSuperAdmin.mockResolvedValue(saOk);
+    mockLogAudit.mockResolvedValue(undefined);
   });
 
   it("returns 403 when not super admin", async () => {
@@ -103,5 +108,26 @@ describe("POST /api/v1/super-admin/plans/reorder", () => {
     const res = await POST(req);
 
     expect(res.status).toBe(500);
+  });
+
+  it("logs audit entry on success", async () => {
+    mockPrisma.platformPlan.update.mockResolvedValue({});
+
+    const req = makeReq({
+      order: [
+        { id: "11111111-1111-4111-8111-111111111111", displayOrder: 1 },
+        { id: "22222222-2222-4222-8222-222222222222", displayOrder: 2 },
+        { id: "33333333-3333-4333-8333-333333333333", displayOrder: 3 },
+      ],
+    });
+    await POST(req);
+
+    expect(mockLogAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionType: "SA_PLAN_REORDERED",
+        userId: "sa-1",
+        entityType: "PlatformPlan",
+      }),
+    );
   });
 });

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 
 import { internalError, parseBody, successResponse } from "@/lib/api-helpers";
+import { logAudit } from "@/lib/audit";
 import { requireSuperAdmin } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { reorderPlansSchema } from "@/lib/validations/plan";
@@ -20,6 +21,14 @@ export async function POST(request: NextRequest) {
         prisma.platformPlan.update({ where: { id }, data: { displayOrder } }),
       ),
     );
+
+    void logAudit({
+      actionType: "SA_PLAN_REORDERED",
+      userId: auth.data.superAdminId,
+      entityType: "PlatformPlan",
+      entityId: "batch",
+      newValue: { order: data.order },
+    });
 
     return successResponse({ success: true });
   } catch {

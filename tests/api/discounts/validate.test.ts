@@ -2,13 +2,16 @@ import { NextRequest } from "next/server";
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+/* eslint-disable import/order */
 import { mockPrisma } from "../../__mocks__/prisma";
+import { POST } from "@/app/api/v1/super-admin/discounts/validate/route";
+/* eslint-enable import/order */
 
 const mockRequireSuperAdmin = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/auth-guard", () => ({ requireSuperAdmin: mockRequireSuperAdmin }));
 
-// eslint-disable-next-line import/order -- must import after mocks
-import { POST } from "@/app/api/v1/super-admin/discounts/validate/route";
+const mockLogAudit = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/audit", () => ({ logAudit: mockLogAudit }));
 
 const saOk = {
   data: { superAdminId: "sa-1", authUserId: "auth-sa-1", email: "sa@rwa.com" },
@@ -54,6 +57,7 @@ describe("POST /api/v1/super-admin/discounts/validate", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockRequireSuperAdmin.mockResolvedValue(saOk);
+    mockLogAudit.mockResolvedValue(undefined);
   });
 
   it("returns 403 when not super admin", async () => {

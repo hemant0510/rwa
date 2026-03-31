@@ -2,13 +2,16 @@ import { NextRequest } from "next/server";
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+/* eslint-disable import/order */
 import { mockPrisma } from "../../__mocks__/prisma";
+import { GET, POST } from "@/app/api/v1/super-admin/discounts/route";
+/* eslint-enable import/order */
 
 const mockRequireSuperAdmin = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/auth-guard", () => ({ requireSuperAdmin: mockRequireSuperAdmin }));
 
-// eslint-disable-next-line import/order -- must import after mocks
-import { GET, POST } from "@/app/api/v1/super-admin/discounts/route";
+const mockLogAudit = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/audit", () => ({ logAudit: mockLogAudit }));
 
 const saOk = {
   data: { superAdminId: "sa-1", authUserId: "auth-sa-1", email: "sa@rwa.com" },
@@ -62,6 +65,7 @@ describe("GET /api/v1/super-admin/discounts", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockRequireSuperAdmin.mockResolvedValue(saOk);
+    mockLogAudit.mockResolvedValue(undefined);
   });
 
   it("returns 403 when not super admin", async () => {
@@ -119,6 +123,7 @@ describe("POST /api/v1/super-admin/discounts", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockRequireSuperAdmin.mockResolvedValue(saOk);
+    mockLogAudit.mockResolvedValue(undefined);
   });
 
   it("returns 403 when not super admin", async () => {
@@ -222,5 +227,21 @@ describe("POST /api/v1/super-admin/discounts", () => {
     const res = await POST(req);
 
     expect(res.status).toBe(500);
+  });
+
+  it("logs audit entry on success", async () => {
+    mockPrisma.planDiscount.findFirst.mockResolvedValue(null);
+    mockPrisma.planDiscount.create.mockResolvedValue(mockDiscount);
+
+    const req = makeReq(validCouponPayload);
+    await POST(req);
+
+    expect(mockLogAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionType: "SA_DISCOUNT_CREATED",
+        userId: "sa-1",
+        entityType: "PlanDiscount",
+      }),
+    );
   });
 });

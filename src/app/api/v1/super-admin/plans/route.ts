@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 
 import { internalError, notFoundError, parseBody, successResponse } from "@/lib/api-helpers";
+import { logAudit } from "@/lib/audit";
 import { requireSuperAdmin } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { createPlanSchema } from "@/lib/validations/plan";
@@ -91,6 +92,14 @@ export async function POST(request: NextRequest) {
         price: Number(o.price),
       })),
     };
+
+    void logAudit({
+      actionType: "SA_PLAN_CREATED",
+      userId: auth.data.superAdminId,
+      entityType: "PlatformPlan",
+      entityId: plan.id,
+      newValue: { name: plan.name, slug: plan.slug },
+    });
 
     return successResponse(serialized, 201);
   } catch {

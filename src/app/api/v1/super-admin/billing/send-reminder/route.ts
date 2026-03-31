@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 
 import { parseBody, internalError, successResponse, notFoundError } from "@/lib/api-helpers";
+import { logAudit } from "@/lib/audit";
 import { requireSuperAdmin } from "@/lib/auth-guard";
 import { sendEmail } from "@/lib/email";
 import { getSubscriptionReminderEmailHtml } from "@/lib/email-templates/subscription";
@@ -60,6 +61,15 @@ export async function POST(request: NextRequest) {
     });
 
     await Promise.all(recipients.map((email) => sendEmail(email, content.subject, html)));
+
+    void logAudit({
+      actionType: "SA_REMINDER_SENT",
+      userId: auth.data.superAdminId,
+      societyId: data.societyId,
+      entityType: "Society",
+      entityId: data.societyId,
+      newValue: { templateKey: data.templateKey, recipientCount: recipients.length },
+    });
 
     return successResponse({ sent: recipients.length });
   } catch {
