@@ -43,6 +43,11 @@ describe("settings service", () => {
       });
       await expect(getProfile()).rejects.toThrow("Forbidden");
     });
+
+    it("throws fallback message when no error message in response", async () => {
+      mockFetch.mockResolvedValue({ ok: false, json: () => Promise.resolve({}) });
+      await expect(getProfile()).rejects.toThrow("Request failed");
+    });
   });
 
   describe("updateProfile", () => {

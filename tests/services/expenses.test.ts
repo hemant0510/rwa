@@ -38,6 +38,12 @@ describe("expenses service", () => {
       expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining("limit=10"));
     });
 
+    it("includes scope param when provided", async () => {
+      mockFetch.mockResolvedValue(okJson({ data: [], total: 0, page: 1, limit: 20 }));
+      await getExpenses("soc-1", { scope: "general" });
+      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining("scope=general"));
+    });
+
     it("fetches without params", async () => {
       mockFetch.mockResolvedValue(okJson({ data: [], total: 0, page: 1, limit: 20 }));
       await getExpenses("soc-1");

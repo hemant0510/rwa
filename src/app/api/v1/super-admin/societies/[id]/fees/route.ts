@@ -1,0 +1,65 @@
+import { type NextRequest, NextResponse } from "next/server";
+
+import { internalError, successResponse } from "@/lib/api-helpers";
+import { requireSuperAdmin } from "@/lib/auth-guard";
+import { getSessionYear } from "@/lib/fee-calculator";
+import { prisma } from "@/lib/prisma";
+
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireSuperAdmin();
+  if (auth.error) return auth.error as NextResponse;
+
+  try {
+    const { id: societyId } = await params;
+    const session = new URL(req.url).searchParams.get("session") || getSessionYear(new Date());
+
+    const fees = await prisma.membershipFee.findMany({
+      where: { societyId, sessionYear: session },
+      include: {
+        user: { select: { id: true, name: true, mobile: true, rwaid: true, ownershipType: true } },
+        unit: { select: { displayLabel: true } },
+        feePayments: { where: { isReversal: false, isReversed: false } },
+      },
+    });
+
+    const statusCounts: Record<string, number> = {};
+    let totalDue = 0;
+    let totalCollected = 0;
+
+    for (const fee of fees) {
+      statusCounts[fee.status] = (statusCounts[fee.status] || 0) + 1;
+      totalDue += Number(fee.amountDue);
+      totalCollected += Number(fee.amountPaid);
+    }
+
+    const stats = Object.entries(statusCounts).map(([status, count]) => ({
+      status,
+      _count: count,
+    }));
+
+    return successResponse({
+      sessionYear: session,
+      totalResidents: fees.length,
+      stats,
+      totalDue,
+      totalCollected,
+      totalOutstanding: totalDue - totalCollected,
+      collectionRate: fees.length > 0 ? Math.round((totalCollected / totalDue) * 100) : 0,
+      fees: fees.map((f) => ({
+        id: f.id,
+        userId: f.userId,
+        user: { name: f.user.name, mobile: f.user.mobile, rwaid: f.user.rwaid },
+        ownershipType: f.user.ownershipType,
+        unit: f.unit?.displayLabel || "—",
+        amountDue: Number(f.amountDue),
+        amountPaid: Number(f.amountPaid),
+        balance: Number(f.amountDue) - Number(f.amountPaid),
+        status: f.status,
+        payments: f.feePayments,
+      })),
+    });
+  } catch (err) {
+    console.error("[SA Fees]", err);
+    return internalError();
+  }
+}

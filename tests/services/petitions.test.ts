@@ -10,6 +10,7 @@ import {
   publishPetition,
   submitPetition,
   closePetition,
+  extendDeadline,
   getSignatures,
   removeSignature,
   downloadReport,
@@ -439,6 +440,45 @@ describe("petitions service", () => {
       mockFetch.mockResolvedValue({ ok: false, json: () => Promise.reject(new Error("bad json")) });
       await expect(downloadSignedDoc("soc-1", "pet-1")).rejects.toThrow(
         "Failed to download signed document",
+      );
+    });
+  });
+
+  describe("extendDeadline", () => {
+    it("sends PATCH to deadline endpoint and returns updated petition", async () => {
+      const petition = { id: "pet-1", deadline: "2026-06-01" };
+      mockFetch.mockResolvedValue(okJson(petition));
+      const result = await extendDeadline("soc-1", "pet-1", "2026-06-01");
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining("/societies/soc-1/petitions/pet-1/deadline"),
+        expect.objectContaining({ method: "PATCH" }),
+      );
+      expect(result).toEqual(petition);
+    });
+
+    it("throws with API error message on failure", async () => {
+      mockFetch.mockResolvedValue(
+        errJson({ error: { message: "Deadline cannot be in the past" } }),
+      );
+      await expect(extendDeadline("soc-1", "pet-1", "2020-01-01")).rejects.toThrow(
+        "Deadline cannot be in the past",
+      );
+    });
+
+    it("throws fallback message when error body has no message", async () => {
+      mockFetch.mockResolvedValue(errJson({}));
+      await expect(extendDeadline("soc-1", "pet-1", null)).rejects.toThrow(
+        "Failed to update deadline",
+      );
+    });
+
+    it("throws fallback message when json() rejects on error", async () => {
+      mockFetch.mockResolvedValue({
+        ok: false,
+        json: () => Promise.reject(new Error("bad json")),
+      });
+      await expect(extendDeadline("soc-1", "pet-1", null)).rejects.toThrow(
+        "Failed to update deadline",
       );
     });
   });

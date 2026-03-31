@@ -385,6 +385,14 @@ describe("billing service", () => {
       expect(url).toContain("status=UNPAID");
     });
 
+    it("fetches with page and limit filters", async () => {
+      mockFetch.mockResolvedValue(okJson({ rows: [], total: 0 }));
+      await getAllInvoices({ page: 2, limit: 25 });
+      const url = mockFetch.mock.calls[0][0] as string;
+      expect(url).toContain("page=2");
+      expect(url).toContain("limit=25");
+    });
+
     it("throws on failure", async () => {
       mockFetch.mockResolvedValue(errNoBody());
       await expect(getAllInvoices()).rejects.toThrow("Failed to fetch all invoices");

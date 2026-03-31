@@ -96,4 +96,48 @@ describe("SignaturePad", () => {
     expect(screen.getByText("Clear")).toBeDisabled();
     expect(screen.getByText("Confirm Signature")).toBeDisabled();
   });
+
+  it("ResizeObserver callback with w > 0 updates width and clears canvas", () => {
+    type ROCallback = (entries: { contentRect: { width: number } }[]) => void;
+    let observerCb: ROCallback | undefined;
+    const OriginalResizeObserver = global.ResizeObserver;
+    const mockObserve = vi.fn();
+    const mockDisconnect = vi.fn();
+    global.ResizeObserver = class {
+      constructor(cb: ROCallback) {
+        observerCb = cb;
+      }
+      observe = mockObserve;
+      disconnect = mockDisconnect;
+    } as unknown as typeof ResizeObserver;
+
+    render(<SignaturePad onSignature={mockOnSignature} />);
+    act(() => {
+      observerCb?.([{ contentRect: { width: 500 } }]);
+    });
+
+    expect(mockClear).toHaveBeenCalled();
+    global.ResizeObserver = OriginalResizeObserver;
+  });
+
+  it("ResizeObserver callback with w === 0 does not update width or clear canvas", () => {
+    type ROCallback = (entries: { contentRect: { width: number } }[]) => void;
+    let observerCb: ROCallback | undefined;
+    const OriginalResizeObserver = global.ResizeObserver;
+    global.ResizeObserver = class {
+      constructor(cb: ROCallback) {
+        observerCb = cb;
+      }
+      observe = vi.fn();
+      disconnect = vi.fn();
+    } as unknown as typeof ResizeObserver;
+
+    render(<SignaturePad onSignature={mockOnSignature} />);
+    act(() => {
+      observerCb?.([{ contentRect: { width: 0 } }]);
+    });
+
+    expect(mockClear).not.toHaveBeenCalled();
+    global.ResizeObserver = OriginalResizeObserver;
+  });
 });

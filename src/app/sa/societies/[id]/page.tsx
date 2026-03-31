@@ -10,16 +10,21 @@ import { format } from "date-fns";
 import {
   AlertTriangle,
   ArrowLeft,
+  BookOpen,
   Building2,
   CheckCircle,
   Clock,
   Copy,
   CreditCard,
+  Database,
+  FileBarChart,
   History,
   IndianRupee,
   LayoutDashboard,
   Loader2,
+  Megaphone,
   Pencil,
+  ScrollText,
   Shield,
   Trash2,
   UserPlus,
@@ -66,6 +71,18 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { APP_URL, INDIAN_STATES } from "@/lib/constants";
+import {
+  getSABroadcasts,
+  getSAEvents,
+  getSAExpenses,
+  getSAFees,
+  getSAGoverningBody,
+  getSAMigrations,
+  getSAPetitions,
+  getSAReport,
+  getSAResidents,
+  getSASettings,
+} from "@/services/sa-society-deep-dive";
 import { activateAdmin, deleteSociety, getSociety } from "@/services/societies";
 import type { ActivateAdminInput } from "@/services/societies";
 import { SOCIETY_TYPE_LABELS } from "@/types/society";
@@ -132,6 +149,7 @@ export default function SocietyDetailPage({ params }: { params: Promise<{ id: st
   const queryClient = useQueryClient();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [activateOpen, setActivateOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("overview");
 
   // Lifecycle modal state
   const [suspendOpen, setSuspendOpen] = useState(false);
@@ -174,6 +192,67 @@ export default function SocietyDetailPage({ params }: { params: Promise<{ id: st
   const { data: statusHistory = [] } = useQuery({
     queryKey: ["society-status-history", id],
     queryFn: () => getStatusHistory(id),
+  });
+
+  // Lazy-loaded tab queries
+  const { data: residents } = useQuery({
+    queryKey: ["sa-residents", id],
+    queryFn: () => getSAResidents(id),
+    enabled: activeTab === "residents",
+  });
+
+  const { data: fees } = useQuery({
+    queryKey: ["sa-fees", id],
+    queryFn: () => getSAFees(id),
+    enabled: activeTab === "fees",
+  });
+
+  const { data: expenses } = useQuery({
+    queryKey: ["sa-expenses", id],
+    queryFn: () => getSAExpenses(id),
+    enabled: activeTab === "expenses",
+  });
+
+  const { data: events } = useQuery({
+    queryKey: ["sa-events", id],
+    queryFn: () => getSAEvents(id),
+    enabled: activeTab === "events",
+  });
+
+  const { data: petitions } = useQuery({
+    queryKey: ["sa-petitions", id],
+    queryFn: () => getSAPetitions(id),
+    enabled: activeTab === "petitions",
+  });
+
+  const { data: broadcasts } = useQuery({
+    queryKey: ["sa-broadcasts", id],
+    queryFn: () => getSABroadcasts(id),
+    enabled: activeTab === "broadcasts",
+  });
+
+  const { data: governingBody } = useQuery({
+    queryKey: ["sa-governing-body", id],
+    queryFn: () => getSAGoverningBody(id),
+    enabled: activeTab === "governing-body",
+  });
+
+  const { data: migrations } = useQuery({
+    queryKey: ["sa-migrations", id],
+    queryFn: () => getSAMigrations(id),
+    enabled: activeTab === "migrations",
+  });
+
+  const { data: settings } = useQuery({
+    queryKey: ["sa-settings", id],
+    queryFn: () => getSASettings(id),
+    enabled: activeTab === "settings",
+  });
+
+  const { data: collectionReport } = useQuery({
+    queryKey: ["sa-report-collection", id],
+    queryFn: () => getSAReport(id, "collection-summary"),
+    enabled: activeTab === "reports",
   });
 
   const deleteMutation = useMutation({
@@ -471,20 +550,22 @@ export default function SocietyDetailPage({ params }: { params: Promise<{ id: st
       </div>
 
       {/* Main content tabs */}
-      <Tabs defaultValue="overview">
-        <TabsList>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="h-auto flex-wrap">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="status-history">
-            <History className="mr-1.5 h-3.5 w-3.5" />
-            Status History
-            {statusHistory.length > 0 && (
-              <span className="bg-muted ml-1.5 rounded px-1.5 py-0.5 text-xs font-medium">
-                {statusHistory.length}
-              </span>
-            )}
-          </TabsTrigger>
+          <TabsTrigger value="residents">Residents</TabsTrigger>
+          <TabsTrigger value="fees">Fees</TabsTrigger>
+          <TabsTrigger value="expenses">Expenses</TabsTrigger>
+          <TabsTrigger value="events">Events</TabsTrigger>
+          <TabsTrigger value="petitions">Petitions</TabsTrigger>
+          <TabsTrigger value="reports">Reports</TabsTrigger>
+          <TabsTrigger value="broadcasts">Broadcasts</TabsTrigger>
+          <TabsTrigger value="governing-body">Governing Body</TabsTrigger>
+          <TabsTrigger value="migrations">Migrations</TabsTrigger>
+          <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
+        {/* ── Overview Tab ── */}
         <TabsContent value="overview" className="space-y-6 pt-4">
           <div className="grid gap-6 md:grid-cols-2">
             <Card>
@@ -598,14 +679,18 @@ export default function SocietyDetailPage({ params }: { params: Promise<{ id: st
               </p>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        <TabsContent value="status-history" className="pt-4">
+          {/* Status History timeline (moved from old Status History tab) */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <History className="h-4 w-4" />
                 Status Change History
+                {statusHistory.length > 0 && (
+                  <span className="bg-muted ml-1.5 rounded px-1.5 py-0.5 text-xs font-medium">
+                    {statusHistory.length}
+                  </span>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -661,6 +746,871 @@ export default function SocietyDetailPage({ params }: { params: Promise<{ id: st
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* ── Residents Tab ── */}
+        <TabsContent value="residents" className="pt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Residents ({(residents as { total?: number } | undefined)?.total ?? 0})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {!residents ? (
+                <p className="text-muted-foreground py-4 text-sm">Loading...</p>
+              ) : (residents as { data: Record<string, unknown>[] }).data.length === 0 ? (
+                <p className="text-muted-foreground py-4 text-center text-sm">
+                  No residents found.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-left">
+                        <th className="pr-4 pb-2 font-medium">Name</th>
+                        <th className="pr-4 pb-2 font-medium">RWAID</th>
+                        <th className="pr-4 pb-2 font-medium">Status</th>
+                        <th className="pr-4 pb-2 font-medium">Unit</th>
+                        <th className="pr-4 pb-2 font-medium">Type</th>
+                        <th className="pb-2 font-medium">Mobile</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {(residents as { data: Record<string, unknown>[] }).data.map(
+                        (r: Record<string, unknown>) => (
+                          <tr key={r.id as string} className="hover:bg-muted/50">
+                            <td className="py-2 pr-4 font-medium">{r.name as string}</td>
+                            <td className="text-muted-foreground py-2 pr-4 font-mono text-xs">
+                              {(r.rwaid as string) ?? "—"}
+                            </td>
+                            <td className="py-2 pr-4">
+                              <Badge variant="outline" className="text-xs">
+                                {r.status as string}
+                              </Badge>
+                            </td>
+                            <td className="text-muted-foreground py-2 pr-4 text-xs">
+                              {(
+                                r.userUnits as Array<{ unit: { displayLabel: string } }> | undefined
+                              )?.[0]?.unit?.displayLabel ?? "—"}
+                            </td>
+                            <td className="text-muted-foreground py-2 pr-4 text-xs">
+                              {r.ownershipType as string}
+                            </td>
+                            <td className="text-muted-foreground py-2 text-xs">
+                              {r.mobile as string}
+                            </td>
+                          </tr>
+                        ),
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── Fees Tab ── */}
+        <TabsContent value="fees" className="pt-4">
+          <div className="space-y-4">
+            {!fees ? (
+              <p className="text-muted-foreground py-4 text-sm">Loading...</p>
+            ) : (
+              <>
+                <div className="grid gap-4 sm:grid-cols-4">
+                  <Card>
+                    <CardContent className="pt-4">
+                      <p className="text-muted-foreground text-xs">Total Due</p>
+                      <p className="text-xl font-bold">
+                        ₹
+                        {Number((fees as Record<string, unknown>).totalDue ?? 0).toLocaleString(
+                          "en-IN",
+                        )}
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="pt-4">
+                      <p className="text-muted-foreground text-xs">Collected</p>
+                      <p className="text-xl font-bold text-green-600">
+                        ₹
+                        {Number(
+                          (fees as Record<string, unknown>).totalCollected ?? 0,
+                        ).toLocaleString("en-IN")}
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="pt-4">
+                      <p className="text-muted-foreground text-xs">Outstanding</p>
+                      <p className="text-xl font-bold text-orange-600">
+                        ₹
+                        {Number(
+                          (fees as Record<string, unknown>).totalOutstanding ?? 0,
+                        ).toLocaleString("en-IN")}
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="pt-4">
+                      <p className="text-muted-foreground text-xs">Collection Rate</p>
+                      <p className="text-xl font-bold">
+                        {((fees as Record<string, unknown>).collectionRate as string) ?? "—"}
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <IndianRupee className="h-4 w-4" />
+                      Fee Records
+                      {(fees as Record<string, unknown>).sessionYear
+                        ? ` — ${(fees as Record<string, unknown>).sessionYear as string}`
+                        : ""}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {((fees as { data?: Record<string, unknown>[] }).data ?? []).length === 0 ? (
+                      <p className="text-muted-foreground py-4 text-center text-sm">
+                        No fee records found.
+                      </p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b text-left">
+                              <th className="pr-4 pb-2 font-medium">Name</th>
+                              <th className="pr-4 pb-2 font-medium">Unit</th>
+                              <th className="pr-4 pb-2 font-medium">Amount Due</th>
+                              <th className="pr-4 pb-2 font-medium">Amount Paid</th>
+                              <th className="pr-4 pb-2 font-medium">Balance</th>
+                              <th className="pb-2 font-medium">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y">
+                            {((fees as { data?: Record<string, unknown>[] }).data ?? []).map(
+                              (f: Record<string, unknown>) => (
+                                <tr key={f.id as string} className="hover:bg-muted/50">
+                                  <td className="py-2 pr-4 font-medium">{f.name as string}</td>
+                                  <td className="text-muted-foreground py-2 pr-4 text-xs">
+                                    {f.unit as string}
+                                  </td>
+                                  <td className="py-2 pr-4">
+                                    ₹{Number(f.amountDue ?? 0).toLocaleString("en-IN")}
+                                  </td>
+                                  <td className="py-2 pr-4 text-green-600">
+                                    ₹{Number(f.amountPaid ?? 0).toLocaleString("en-IN")}
+                                  </td>
+                                  <td className="py-2 pr-4 text-orange-600">
+                                    ₹{Number(f.balance ?? 0).toLocaleString("en-IN")}
+                                  </td>
+                                  <td className="py-2">
+                                    <Badge variant="outline" className="text-xs">
+                                      {f.status as string}
+                                    </Badge>
+                                  </td>
+                                </tr>
+                              ),
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* ── Expenses Tab ── */}
+        <TabsContent value="expenses" className="pt-4">
+          <div className="space-y-4">
+            {!expenses ? (
+              <p className="text-muted-foreground py-4 text-sm">Loading...</p>
+            ) : (
+              <>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Card>
+                    <CardContent className="pt-4">
+                      <p className="text-muted-foreground text-xs">Total Expenses</p>
+                      <p className="text-xl font-bold text-red-600">
+                        ₹
+                        {Number(
+                          (expenses as Record<string, unknown>).totalExpenses ?? 0,
+                        ).toLocaleString("en-IN")}
+                      </p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="pt-4">
+                      <p className="text-muted-foreground text-xs">Balance in Hand</p>
+                      <p className="text-xl font-bold text-blue-600">
+                        ₹
+                        {Number(
+                          (expenses as Record<string, unknown>).balanceInHand ?? 0,
+                        ).toLocaleString("en-IN")}
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Wallet className="h-4 w-4" />
+                      Expense Records
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {((expenses as { data?: Record<string, unknown>[] }).data ?? []).length ===
+                    0 ? (
+                      <p className="text-muted-foreground py-4 text-center text-sm">
+                        No expenses found.
+                      </p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b text-left">
+                              <th className="pr-4 pb-2 font-medium">Date</th>
+                              <th className="pr-4 pb-2 font-medium">Category</th>
+                              <th className="pr-4 pb-2 font-medium">Amount</th>
+                              <th className="pr-4 pb-2 font-medium">Description</th>
+                              <th className="pb-2 font-medium">Logged By</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y">
+                            {((expenses as { data?: Record<string, unknown>[] }).data ?? []).map(
+                              (e: Record<string, unknown>) => (
+                                <tr key={e.id as string} className="hover:bg-muted/50">
+                                  <td className="text-muted-foreground py-2 pr-4 text-xs">
+                                    {e.date
+                                      ? format(new Date(e.date as string), "dd MMM yyyy")
+                                      : "—"}
+                                  </td>
+                                  <td className="py-2 pr-4">
+                                    <Badge variant="outline" className="text-xs">
+                                      {e.category as string}
+                                    </Badge>
+                                  </td>
+                                  <td className="py-2 pr-4 font-medium text-red-600">
+                                    ₹{Number(e.amount ?? 0).toLocaleString("en-IN")}
+                                  </td>
+                                  <td className="text-muted-foreground py-2 pr-4 text-xs">
+                                    {e.description as string}
+                                  </td>
+                                  <td className="text-muted-foreground py-2 text-xs">
+                                    {e.loggedBy as string}
+                                  </td>
+                                </tr>
+                              ),
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* ── Events Tab ── */}
+        <TabsContent value="events" className="pt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                Events ({(events as { total?: number } | undefined)?.total ?? 0})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {!events ? (
+                <p className="text-muted-foreground py-4 text-sm">Loading...</p>
+              ) : (events as { data: Record<string, unknown>[] }).data.length === 0 ? (
+                <p className="text-muted-foreground py-4 text-center text-sm">No events found.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-left">
+                        <th className="pr-4 pb-2 font-medium">Title</th>
+                        <th className="pr-4 pb-2 font-medium">Category</th>
+                        <th className="pr-4 pb-2 font-medium">Status</th>
+                        <th className="pr-4 pb-2 font-medium">Date</th>
+                        <th className="pb-2 font-medium">Registrations</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {(events as { data: Record<string, unknown>[] }).data.map(
+                        (ev: Record<string, unknown>) => (
+                          <tr key={ev.id as string} className="hover:bg-muted/50">
+                            <td className="py-2 pr-4 font-medium">{ev.title as string}</td>
+                            <td className="text-muted-foreground py-2 pr-4 text-xs">
+                              {ev.category as string}
+                            </td>
+                            <td className="py-2 pr-4">
+                              <Badge variant="outline" className="text-xs">
+                                {ev.status as string}
+                              </Badge>
+                            </td>
+                            <td className="text-muted-foreground py-2 pr-4 text-xs">
+                              {ev.eventDate
+                                ? format(new Date(ev.eventDate as string), "dd MMM yyyy")
+                                : "—"}
+                            </td>
+                            <td className="text-muted-foreground py-2 text-xs">
+                              {(ev.registrationCount as string) ?? "—"}
+                            </td>
+                          </tr>
+                        ),
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── Petitions Tab ── */}
+        <TabsContent value="petitions" className="pt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ScrollText className="h-4 w-4" />
+                Petitions ({(petitions as { total?: number } | undefined)?.total ?? 0})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {!petitions ? (
+                <p className="text-muted-foreground py-4 text-sm">Loading...</p>
+              ) : (petitions as { data: Record<string, unknown>[] }).data.length === 0 ? (
+                <p className="text-muted-foreground py-4 text-center text-sm">
+                  No petitions found.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-left">
+                        <th className="pr-4 pb-2 font-medium">Title</th>
+                        <th className="pr-4 pb-2 font-medium">Type</th>
+                        <th className="pr-4 pb-2 font-medium">Status</th>
+                        <th className="pr-4 pb-2 font-medium">Signatures</th>
+                        <th className="pb-2 font-medium">Created</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {(petitions as { data: Record<string, unknown>[] }).data.map(
+                        (p: Record<string, unknown>) => (
+                          <tr key={p.id as string} className="hover:bg-muted/50">
+                            <td className="py-2 pr-4 font-medium">{p.title as string}</td>
+                            <td className="text-muted-foreground py-2 pr-4 text-xs">
+                              {p.type as string}
+                            </td>
+                            <td className="py-2 pr-4">
+                              <Badge variant="outline" className="text-xs">
+                                {p.status as string}
+                              </Badge>
+                            </td>
+                            <td className="text-muted-foreground py-2 pr-4 text-xs">
+                              {(p.signatureCount as string) ?? "0"}
+                            </td>
+                            <td className="text-muted-foreground py-2 text-xs">
+                              {p.createdAt
+                                ? format(new Date(p.createdAt as string), "dd MMM yyyy")
+                                : "—"}
+                            </td>
+                          </tr>
+                        ),
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── Reports Tab ── */}
+        <TabsContent value="reports" className="pt-4">
+          <div className="space-y-4">
+            {!collectionReport ? (
+              <p className="text-muted-foreground py-4 text-sm">Loading...</p>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileBarChart className="h-4 w-4" />
+                      Collection Summary
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <DetailRow
+                      label="Session Year"
+                      value={
+                        ((collectionReport as Record<string, unknown>).sessionYear as string) ?? "—"
+                      }
+                    />
+                    <DetailRow
+                      label="Total Due"
+                      value={`₹${Number((collectionReport as Record<string, unknown>).totalDue ?? 0).toLocaleString("en-IN")}`}
+                    />
+                    <DetailRow
+                      label="Total Collected"
+                      value={`₹${Number((collectionReport as Record<string, unknown>).totalCollected ?? 0).toLocaleString("en-IN")}`}
+                    />
+                    <DetailRow
+                      label="Outstanding"
+                      value={`₹${Number((collectionReport as Record<string, unknown>).totalOutstanding ?? 0).toLocaleString("en-IN")}`}
+                    />
+                    <DetailRow
+                      label="Collection Rate"
+                      value={
+                        ((collectionReport as Record<string, unknown>).collectionRate as string) ??
+                        "—"
+                      }
+                    />
+                    <DetailRow
+                      label="Total Residents"
+                      value={String(
+                        (collectionReport as Record<string, unknown>).totalResidents ?? "—",
+                      )}
+                    />
+                    <DetailRow
+                      label="Fully Paid"
+                      value={String((collectionReport as Record<string, unknown>).fullyPaid ?? "—")}
+                    />
+                    <DetailRow
+                      label="Partially Paid"
+                      value={String(
+                        (collectionReport as Record<string, unknown>).partiallyPaid ?? "—",
+                      )}
+                    />
+                    <DetailRow
+                      label="Unpaid"
+                      value={String((collectionReport as Record<string, unknown>).unpaid ?? "—")}
+                    />
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileBarChart className="h-4 w-4" />
+                      Download Report
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <p className="text-muted-foreground text-sm">
+                      Download the full PDF collection summary report for this society.
+                    </p>
+                    <a
+                      href={`/api/v1/societies/${id}/reports/collection-summary?format=pdf`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Button variant="outline" className="w-full">
+                        <FileBarChart className="mr-2 h-4 w-4" />
+                        Download PDF Report
+                      </Button>
+                    </a>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* ── Broadcasts Tab ── */}
+        <TabsContent value="broadcasts" className="pt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Megaphone className="h-4 w-4" />
+                Broadcasts ({(broadcasts as { total?: number } | undefined)?.total ?? 0})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {!broadcasts ? (
+                <p className="text-muted-foreground py-4 text-sm">Loading...</p>
+              ) : (broadcasts as { data: Record<string, unknown>[] }).data.length === 0 ? (
+                <p className="text-muted-foreground py-4 text-center text-sm">
+                  No broadcasts found.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-left">
+                        <th className="pr-4 pb-2 font-medium">Date</th>
+                        <th className="pr-4 pb-2 font-medium">Message</th>
+                        <th className="pr-4 pb-2 font-medium">Filter</th>
+                        <th className="pr-4 pb-2 font-medium">Count</th>
+                        <th className="pb-2 font-medium">Sent By</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {(broadcasts as { data: Record<string, unknown>[] }).data.map(
+                        (b: Record<string, unknown>) => (
+                          <tr key={b.id as string} className="hover:bg-muted/50">
+                            <td className="text-muted-foreground py-2 pr-4 text-xs">
+                              {b.createdAt
+                                ? format(new Date(b.createdAt as string), "dd MMM yyyy")
+                                : "—"}
+                            </td>
+                            <td className="py-2 pr-4 text-xs">
+                              {((b.message as string) ?? "").length > 80
+                                ? `${(b.message as string).slice(0, 80)}…`
+                                : (b.message as string)}
+                            </td>
+                            <td className="text-muted-foreground py-2 pr-4 text-xs">
+                              {(b.recipientFilter as string) ?? "All"}
+                            </td>
+                            <td className="text-muted-foreground py-2 pr-4 text-xs">
+                              {(b.recipientCount as string) ?? "—"}
+                            </td>
+                            <td className="text-muted-foreground py-2 text-xs">
+                              {b.sentBy as string}
+                            </td>
+                          </tr>
+                        ),
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── Governing Body Tab ── */}
+        <TabsContent value="governing-body" className="pt-4">
+          <div className="space-y-4">
+            {!governingBody ? (
+              <p className="text-muted-foreground py-4 text-sm">Loading...</p>
+            ) : (
+              <>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <BookOpen className="h-4 w-4" />
+                      Members (
+                      {
+                        ((governingBody as { members?: Record<string, unknown>[] }).members ?? [])
+                          .length
+                      }
+                      )
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {((governingBody as { members?: Record<string, unknown>[] }).members ?? [])
+                      .length === 0 ? (
+                      <p className="text-muted-foreground py-4 text-center text-sm">
+                        No governing body members found.
+                      </p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b text-left">
+                              <th className="pr-4 pb-2 font-medium">Designation</th>
+                              <th className="pr-4 pb-2 font-medium">Name</th>
+                              <th className="pr-4 pb-2 font-medium">Mobile</th>
+                              <th className="pb-2 font-medium">Assigned Date</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y">
+                            {(
+                              (governingBody as { members?: Record<string, unknown>[] }).members ??
+                              []
+                            ).map((m: Record<string, unknown>) => (
+                              <tr key={m.id as string} className="hover:bg-muted/50">
+                                <td className="py-2 pr-4">
+                                  <Badge variant="outline" className="text-xs">
+                                    {m.designation as string}
+                                  </Badge>
+                                </td>
+                                <td className="py-2 pr-4 font-medium">{m.name as string}</td>
+                                <td className="text-muted-foreground py-2 pr-4 font-mono text-xs">
+                                  {m.mobile
+                                    ? `${(m.mobile as string).slice(0, 4)}******${(m.mobile as string).slice(-2)}`
+                                    : "—"}
+                                </td>
+                                <td className="text-muted-foreground py-2 text-xs">
+                                  {m.assignedAt
+                                    ? format(new Date(m.assignedAt as string), "dd MMM yyyy")
+                                    : "—"}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {(governingBody as { designations?: Record<string, unknown>[] }).designations &&
+                  (
+                    (governingBody as { designations?: Record<string, unknown>[] }).designations ??
+                    []
+                  ).length > 0 && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <Shield className="h-4 w-4" />
+                          Designations
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex flex-wrap gap-2">
+                          {(
+                            (governingBody as { designations?: Record<string, unknown>[] })
+                              .designations ?? []
+                          ).map((d: Record<string, unknown>) => (
+                            <Badge key={d.id as string} variant="outline">
+                              {d.name as string}
+                            </Badge>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+              </>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* ── Migrations Tab ── */}
+        <TabsContent value="migrations" className="pt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Database className="h-4 w-4" />
+                Migration Batches ({(migrations as { total?: number } | undefined)?.total ?? 0})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {!migrations ? (
+                <p className="text-muted-foreground py-4 text-sm">Loading...</p>
+              ) : (migrations as { data: Record<string, unknown>[] }).data.length === 0 ? (
+                <p className="text-muted-foreground py-4 text-center text-sm">
+                  No migration batches found.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-left">
+                        <th className="pr-4 pb-2 font-medium">Date</th>
+                        <th className="pr-4 pb-2 font-medium">Total Rows</th>
+                        <th className="pr-4 pb-2 font-medium">Valid</th>
+                        <th className="pr-4 pb-2 font-medium">Errors</th>
+                        <th className="pr-4 pb-2 font-medium">Imported</th>
+                        <th className="pr-4 pb-2 font-medium">Status</th>
+                        <th className="pb-2 font-medium">Uploaded By</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {(migrations as { data: Record<string, unknown>[] }).data.map(
+                        (m: Record<string, unknown>) => (
+                          <tr key={m.id as string} className="hover:bg-muted/50">
+                            <td className="text-muted-foreground py-2 pr-4 text-xs">
+                              {m.createdAt
+                                ? format(new Date(m.createdAt as string), "dd MMM yyyy")
+                                : "—"}
+                            </td>
+                            <td className="text-muted-foreground py-2 pr-4 text-xs">
+                              {m.totalRows as string}
+                            </td>
+                            <td className="py-2 pr-4 text-xs text-green-600">
+                              {m.validRows as string}
+                            </td>
+                            <td className="py-2 pr-4 text-xs text-red-600">
+                              {m.errorRows as string}
+                            </td>
+                            <td className="py-2 pr-4 text-xs text-blue-600">
+                              {m.importedRows as string}
+                            </td>
+                            <td className="py-2 pr-4">
+                              <Badge variant="outline" className="text-xs">
+                                {m.status as string}
+                              </Badge>
+                            </td>
+                            <td className="text-muted-foreground py-2 text-xs">
+                              {m.uploadedBy as string}
+                            </td>
+                          </tr>
+                        ),
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── Settings Tab ── */}
+        <TabsContent value="settings" className="pt-4">
+          <div className="space-y-4">
+            {!settings ? (
+              <p className="text-muted-foreground py-4 text-sm">Loading...</p>
+            ) : (
+              <>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-sm">
+                        <Building2 className="h-4 w-4" />
+                        Society Info
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <DetailRow
+                        label="Name"
+                        value={((settings as Record<string, unknown>).name as string) ?? "—"}
+                      />
+                      <DetailRow
+                        label="Code"
+                        value={((settings as Record<string, unknown>).societyCode as string) ?? "—"}
+                      />
+                      <DetailRow
+                        label="Type"
+                        value={((settings as Record<string, unknown>).type as string) ?? "—"}
+                      />
+                      <DetailRow
+                        label="City"
+                        value={((settings as Record<string, unknown>).city as string) ?? "—"}
+                      />
+                      <DetailRow
+                        label="State"
+                        value={((settings as Record<string, unknown>).state as string) ?? "—"}
+                      />
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-sm">
+                        <CreditCard className="h-4 w-4" />
+                        Fee Config
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <DetailRow
+                        label="Joining Fee"
+                        value={`₹${Number((settings as Record<string, unknown>).joiningFee ?? 0).toLocaleString("en-IN")}`}
+                      />
+                      <DetailRow
+                        label="Annual Fee"
+                        value={`₹${Number((settings as Record<string, unknown>).annualFee ?? 0).toLocaleString("en-IN")}`}
+                      />
+                      <DetailRow
+                        label="Grace Period"
+                        value={`${((settings as Record<string, unknown>).gracePeriodDays as string) ?? 0} days`}
+                      />
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-sm">
+                        <ScrollText className="h-4 w-4" />
+                        Current Subscription
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <DetailRow
+                        label="Plan"
+                        value={((settings as Record<string, unknown>).plan as string) ?? "—"}
+                      />
+                      <DetailRow
+                        label="Status"
+                        value={
+                          ((settings as Record<string, unknown>).subscriptionStatus as string) ??
+                          "—"
+                        }
+                      />
+                      <DetailRow
+                        label="Expires"
+                        value={
+                          (settings as Record<string, unknown>).subscriptionExpiry
+                            ? format(
+                                new Date(
+                                  (settings as Record<string, unknown>)
+                                    .subscriptionExpiry as string,
+                                ),
+                                "dd MMM yyyy",
+                              )
+                            : "—"
+                        }
+                      />
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {(settings as { feeSessions?: Record<string, unknown>[] }).feeSessions &&
+                  ((settings as { feeSessions?: Record<string, unknown>[] }).feeSessions ?? [])
+                    .length > 0 && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                          <IndianRupee className="h-4 w-4" />
+                          Fee Sessions
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b text-left">
+                                <th className="pr-4 pb-2 font-medium">Session Year</th>
+                                <th className="pr-4 pb-2 font-medium">Status</th>
+                                <th className="pr-4 pb-2 font-medium">Joining Fee</th>
+                                <th className="pb-2 font-medium">Annual Fee</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y">
+                              {(
+                                (settings as { feeSessions?: Record<string, unknown>[] })
+                                  .feeSessions ?? []
+                              ).map((s: Record<string, unknown>) => (
+                                <tr key={s.id as string} className="hover:bg-muted/50">
+                                  <td className="py-2 pr-4 font-medium">
+                                    {s.sessionYear as string}
+                                  </td>
+                                  <td className="py-2 pr-4">
+                                    <Badge variant="outline" className="text-xs">
+                                      {s.status as string}
+                                    </Badge>
+                                  </td>
+                                  <td className="py-2 pr-4">
+                                    ₹{Number(s.joiningFee ?? 0).toLocaleString("en-IN")}
+                                  </td>
+                                  <td className="py-2">
+                                    ₹{Number(s.annualFee ?? 0).toLocaleString("en-IN")}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+              </>
+            )}
+          </div>
         </TabsContent>
       </Tabs>
 

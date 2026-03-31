@@ -39,6 +39,12 @@ describe("residents service", () => {
       expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining("page=2"));
     });
 
+    it("fetches residents with docStatus param", async () => {
+      mockFetch.mockResolvedValue(okJson({ data: [], total: 0 }));
+      await getResidents("soc-1", { docStatus: "PENDING" });
+      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining("docStatus=PENDING"));
+    });
+
     it("throws on error", async () => {
       mockFetch.mockResolvedValue({ ok: false });
       await expect(getResidents("soc-1")).rejects.toThrow("Failed to fetch residents");
@@ -85,6 +91,11 @@ describe("residents service", () => {
           body: JSON.stringify({ reason: "Not eligible" }),
         }),
       );
+    });
+
+    it("throws on error", async () => {
+      mockFetch.mockResolvedValue({ ok: false });
+      await expect(rejectResident("res-1", "reason")).rejects.toThrow("Failed to reject resident");
     });
   });
 
