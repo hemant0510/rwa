@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 /* eslint-disable import/order */
 import { mockPrisma } from "../../__mocks__/prisma";
-import { PATCH } from "@/app/api/v1/super-admin/plans/[id]/billing-options/[bid]/route";
+import { DELETE, PATCH } from "@/app/api/v1/super-admin/plans/[id]/billing-options/[bid]/route";
 import { POST } from "@/app/api/v1/super-admin/plans/[id]/billing-options/route";
 /* eslint-enable import/order */
 
@@ -48,6 +48,13 @@ function makePostParams(id: string) {
 
 function makePatchParams(id: string, bid: string) {
   return { params: Promise.resolve({ id, bid }) };
+}
+
+function makeDeleteReq(planId = "plan-1", bid = "opt-1") {
+  return new NextRequest(
+    `http://localhost/api/v1/super-admin/plans/${planId}/billing-options/${bid}`,
+    { method: "DELETE" },
+  );
 }
 
 const mockOption = {
@@ -251,5 +258,74 @@ describe("PATCH /api/v1/super-admin/plans/[id]/billing-options/[bid]", () => {
         entityType: "PlanBillingOption",
       }),
     );
+  });
+});
+
+describe("DELETE /api/v1/super-admin/plans/[id]/billing-options/[bid]", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRequireSuperAdmin.mockResolvedValue(saOk);
+    mockLogAudit.mockResolvedValue(undefined);
+  });
+
+  it("returns 403 when not super admin", async () => {
+    mockRequireSuperAdmin.mockResolvedValue(saForbidden);
+    const res = await DELETE(makeDeleteReq(), makePatchParams("plan-1", "opt-1"));
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 200 on successful deactivation", async () => {
+    mockPrisma.planBillingOption.findUnique.mockResolvedValue(mockOption);
+    mockPrisma.planBillingOption.update.mockResolvedValue({ ...mockOption, isActive: false });
+
+    const res = await DELETE(makeDeleteReq(), makePatchParams("plan-1", "opt-1"));
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+  });
+
+  it("returns 404 when billing option not found", async () => {
+    mockPrisma.planBillingOption.findUnique.mockResolvedValue(null);
+
+    const res = await DELETE(makeDeleteReq(), makePatchParams("plan-1", "missing-opt"));
+
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 404 when billing option belongs to a different plan", async () => {
+    mockPrisma.planBillingOption.findUnique.mockResolvedValue({
+      ...mockOption,
+      planId: "another-plan",
+    });
+
+    const res = await DELETE(makeDeleteReq("plan-1", "opt-1"), makePatchParams("plan-1", "opt-1"));
+
+    expect(res.status).toBe(404);
+  });
+
+  it("logs audit entry on success", async () => {
+    mockPrisma.planBillingOption.findUnique.mockResolvedValue(mockOption);
+    mockPrisma.planBillingOption.update.mockResolvedValue({ ...mockOption, isActive: false });
+
+    await DELETE(makeDeleteReq(), makePatchParams("plan-1", "opt-1"));
+
+    expect(mockLogAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actionType: "SA_BILLING_OPTION_DELETED",
+        userId: "sa-1",
+        entityType: "PlanBillingOption",
+        entityId: "opt-1",
+      }),
+    );
+  });
+
+  it("returns 500 when database throws", async () => {
+    mockPrisma.planBillingOption.findUnique.mockResolvedValue(mockOption);
+    mockPrisma.planBillingOption.update.mockRejectedValue(new Error("DB error"));
+
+    const res = await DELETE(makeDeleteReq(), makePatchParams("plan-1", "opt-1"));
+
+    expect(res.status).toBe(500);
   });
 });

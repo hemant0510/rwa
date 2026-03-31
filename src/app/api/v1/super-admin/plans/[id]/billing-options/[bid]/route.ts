@@ -52,3 +52,30 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     return internalError("Failed to update billing option");
   }
 }
+
+// DELETE /api/v1/super-admin/plans/[id]/billing-options/[bid] — soft delete (deactivate)
+export async function DELETE(_req: NextRequest, { params }: Params) {
+  const auth = await requireSuperAdmin();
+  if (auth.error) return auth.error;
+
+  try {
+    const { id, bid } = await params;
+
+    const option = await prisma.planBillingOption.findUnique({ where: { id: bid } });
+    if (!option || option.planId !== id) return notFoundError("Billing option not found");
+
+    await prisma.planBillingOption.update({ where: { id: bid }, data: { isActive: false } });
+
+    void logAudit({
+      actionType: "SA_BILLING_OPTION_DELETED",
+      userId: auth.data.superAdminId,
+      entityType: "PlanBillingOption",
+      entityId: bid,
+      newValue: { billingCycle: option.billingCycle },
+    });
+
+    return successResponse({ success: true });
+  } catch {
+    return internalError("Failed to delete billing option");
+  }
+}
