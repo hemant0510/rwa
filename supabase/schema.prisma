@@ -350,6 +350,7 @@ model Society {
   eventPayments            EventPayment[]
   petitions                Petition[]
   petitionSignatures       PetitionSignature[]
+  statusChanges            SocietyStatusChange[]
 
   @@map("societies")
 }
@@ -1369,4 +1370,23 @@ model PetitionSignature {
   @@index([userId])
   @@index([societyId])
   @@map("petition_signatures")
+}
+
+/// 39. SocietyStatusChange — audit trail for society lifecycle transitions.
+model SocietyStatusChange {
+  id             String        @id @default(uuid()) @db.Uuid
+  societyId      String        @map("society_id") @db.Uuid
+  fromStatus     SocietyStatus @map("from_status")
+  toStatus       SocietyStatus @map("to_status")
+  reason         String        @db.Text
+  note           String?       @db.Text
+  gracePeriodEnd DateTime?     @map("grace_period_end")
+  notifiedAdmin  Boolean       @default(false) @map("notified_admin")
+  performedBy    String        @map("performed_by") @db.Uuid
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  society Society @relation(fields: [societyId], references: [id])
+
+  @@index([societyId])
+  @@map("society_status_changes")
 }

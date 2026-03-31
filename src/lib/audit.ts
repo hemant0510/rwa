@@ -53,7 +53,10 @@ type AuditAction =
   | "SA_DISCOUNT_DEACTIVATED"
   | "SA_REMINDER_SENT"
   | "SA_BULK_REMINDERS_SENT"
-  | "SA_SETTINGS_UPDATED";
+  | "SA_SETTINGS_UPDATED"
+  | "SA_SOCIETY_SUSPENDED"
+  | "SA_SOCIETY_REACTIVATED"
+  | "SA_SOCIETY_OFFBOARDED";
 
 interface AuditLogInput {
   actionType: AuditAction;

@@ -205,3 +205,40 @@ export async function sendPetitionSubmitted(
     { name: "4", value: submittedDate },
   ]);
 }
+
+export async function sendSocietySuspended(
+  mobile: string,
+  adminName: string,
+  societyName: string,
+  reason: string,
+  gracePeriodEnd: string | null,
+) {
+  return sendTemplateMessage(mobile, "society_suspended", [
+    { name: "1", value: adminName },
+    { name: "2", value: societyName },
+    { name: "3", value: reason },
+    { name: "4", value: gracePeriodEnd ?? "immediately" },
+  ]);
+}
+
+export async function sendSocietyReactivated(
+  mobile: string,
+  adminName: string,
+  societyName: string,
+) {
+  return sendTemplateMessage(mobile, "society_reactivated", [
+    { name: "1", value: adminName },
+    { name: "2", value: societyName },
+  ]);
+}
+
+export async function sendSocietyOffboarded(
+  mobile: string,
+  adminName: string,
+  societyName: string,
+) {
+  return sendTemplateMessage(mobile, "society_offboarded", [
+    { name: "1", value: adminName },
+    { name: "2", value: societyName },
+  ]);
+}
