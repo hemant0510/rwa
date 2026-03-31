@@ -480,6 +480,18 @@ model SuperAdmin {
   @@map("super_admins")
 }
 
+/// 2c. PlatformConfig — platform-wide key-value configuration managed by super admin.
+model PlatformConfig {
+  key       String   @id @db.VarChar(100)
+  value     String   @db.Text
+  type      String   @default("string") @db.VarChar(20)
+  label     String   @db.VarChar(200)
+  updatedAt DateTime @updatedAt @map("updated_at")
+  updatedBy String?  @map("updated_by") @db.Uuid
+
+  @@map("platform_configs")
+}
+
 /// 3. Unit — physical property units (houses, flats, villas, plots).
 model Unit {
   id              String    @id @default(uuid()) @db.Uuid
