@@ -7,6 +7,22 @@ import { prisma } from "@/lib/prisma";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ensureBucket } from "@/lib/supabase/ensure-bucket";
 
+// Allowed upload types
+const ALLOWED_TYPES: Record<string, { ext: string; contentType: string }> = {
+  "application/pdf": { ext: "pdf", contentType: "application/pdf" },
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {
+    ext: "docx",
+    contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  },
+};
+
+function getContentTypeFromPath(path: string): string {
+  if (path.endsWith(".docx")) {
+    return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  }
+  return "application/pdf";
+}
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string; petitionId: string }> },
@@ -29,9 +45,11 @@ export async function GET(
     if (error || !data) return internalError("Failed to retrieve document");
 
     const buffer = Buffer.from(await data.arrayBuffer());
+    const contentType = getContentTypeFromPath(petition.documentUrl);
+
     return new NextResponse(buffer, {
       headers: {
-        "Content-Type": "application/pdf",
+        "Content-Type": contentType,
         "Content-Disposition": "inline",
         "Cache-Control": "private, max-age=3600",
       },
@@ -80,6 +98,20 @@ export async function POST(
       );
     }
 
+    const blob = file as Blob;
+    const fileType = ALLOWED_TYPES[blob.type];
+    if (!fileType) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "INVALID_TYPE",
+            message: "Only PDF and DOCX files are allowed",
+          },
+        },
+        { status: 400 },
+      );
+    }
+
     const supabase = createAdminClient();
     await ensureBucket(supabase, "petition-docs");
 
@@ -87,11 +119,11 @@ export async function POST(
       await supabase.storage.from("petition-docs").remove([petition.documentUrl]);
     }
 
-    const path = `${societyId}/${petitionId}/${Date.now()}.pdf`;
-    const buffer = Buffer.from(await (file as Blob).arrayBuffer());
+    const path = `${societyId}/${petitionId}/${Date.now()}.${fileType.ext}`;
+    const buffer = Buffer.from(await blob.arrayBuffer());
     const { error: uploadError } = await supabase.storage
       .from("petition-docs")
-      .upload(path, buffer, { contentType: "application/pdf", upsert: false });
+      .upload(path, buffer, { contentType: fileType.contentType, upsert: false });
 
     if (uploadError) {
       return internalError(`Storage error: ${uploadError.message}`);

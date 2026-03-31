@@ -13,10 +13,10 @@ import {
   getSignatures,
   removeSignature,
   downloadReport,
+  downloadSignedDoc,
   getResidentPetitions,
   getResidentPetition,
   signPetition,
-  revokeSignature,
 } from "@/services/petitions";
 
 const mockFetch = vi.fn();
@@ -409,25 +409,37 @@ describe("petitions service", () => {
     });
   });
 
-  describe("revokeSignature", () => {
-    it("sends DELETE to sign endpoint", async () => {
-      mockFetch.mockResolvedValue(okJson({ message: "Signature revoked" }));
-      const result = await revokeSignature("pet-1");
+  describe("downloadSignedDoc", () => {
+    it("fetches signed-doc and returns blob on success", async () => {
+      mockFetch.mockResolvedValue({ ok: true, blob: () => Promise.resolve(new Blob(["pdf"])) });
+      const result = await downloadSignedDoc("soc-1", "pet-1");
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining("/residents/me/petitions/pet-1/sign"),
-        expect.objectContaining({ method: "DELETE" }),
+        expect.stringContaining("/societies/soc-1/petitions/pet-1/signed-doc"),
       );
-      expect(result.message).toBe("Signature revoked");
+      expect(result).toBeInstanceOf(Blob);
     });
 
-    it("throws with API error message", async () => {
-      mockFetch.mockResolvedValue(errJson({ error: { message: "No active signature" } }));
-      await expect(revokeSignature("pet-1")).rejects.toThrow("No active signature");
+    it("throws with API error message when response is not ok", async () => {
+      mockFetch.mockResolvedValue(
+        errJson({ error: { message: "Petition has no uploaded document" } }),
+      );
+      await expect(downloadSignedDoc("soc-1", "pet-1")).rejects.toThrow(
+        "Petition has no uploaded document",
+      );
     });
 
-    it("throws with fallback message when no error message", async () => {
-      mockFetch.mockResolvedValue(errJson({}));
-      await expect(revokeSignature("pet-1")).rejects.toThrow("Failed to revoke signature");
+    it("throws with fallback message when error body has no message", async () => {
+      mockFetch.mockResolvedValue({ ok: false, json: () => Promise.resolve({}) });
+      await expect(downloadSignedDoc("soc-1", "pet-1")).rejects.toThrow(
+        "Failed to download signed document",
+      );
+    });
+
+    it("throws with fallback when json() rejects", async () => {
+      mockFetch.mockResolvedValue({ ok: false, json: () => Promise.reject(new Error("bad json")) });
+      await expect(downloadSignedDoc("soc-1", "pet-1")).rejects.toThrow(
+        "Failed to download signed document",
+      );
     });
   });
 });

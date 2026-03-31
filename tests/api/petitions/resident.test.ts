@@ -42,10 +42,7 @@ vi.mock("@/lib/supabase/ensure-bucket", () => ({
 }));
 
 import { GET as GET_DETAIL } from "@/app/api/v1/residents/me/petitions/[petitionId]/route";
-import {
-  POST as POST_SIGN,
-  DELETE as DELETE_REVOKE,
-} from "@/app/api/v1/residents/me/petitions/[petitionId]/sign/route";
+import { POST as POST_SIGN } from "@/app/api/v1/residents/me/petitions/[petitionId]/sign/route";
 import { GET as GET_LIST } from "@/app/api/v1/residents/me/petitions/route";
 
 // ---------------------------------------------------------------------------
@@ -62,10 +59,6 @@ function makeRequest(body: unknown) {
     body: JSON.stringify(body),
     headers: { "Content-Type": "application/json" },
   });
-}
-
-function makeDeleteRequest() {
-  return new NextRequest("http://localhost/test", { method: "DELETE" });
 }
 
 function makePetitionParams(petitionId = "pet-1") {
@@ -553,133 +546,6 @@ describe("POST /api/v1/residents/me/petitions/[petitionId]/sign — sign petitio
   it("returns 500 on database error", async () => {
     mockPrisma.petition.findUnique.mockRejectedValue(new Error("DB crash"));
     const res = await POST_SIGN(makeRequest(validSignData), makePetitionParams());
-    expect(res.status).toBe(500);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// DELETE /residents/me/petitions/[petitionId]/sign — revoke signature
-// ---------------------------------------------------------------------------
-
-describe("DELETE /api/v1/residents/me/petitions/[petitionId]/sign — revoke signature", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockGetCurrentUser.mockResolvedValue(mockResident);
-    mockPrisma.petition.findUnique.mockResolvedValue(mockPublishedPetition);
-    mockPrisma.petitionSignature.findUnique.mockResolvedValue(mockSignature);
-    mockPrisma.petitionSignature.delete.mockResolvedValue(mockSignature);
-    mockSupabaseStorage.from.mockReturnValue({
-      remove: vi.fn().mockResolvedValue({}),
-      upload: vi.fn().mockResolvedValue({ error: null }),
-      createSignedUrl: vi.fn().mockResolvedValue({ data: { signedUrl: "https://signed.url" } }),
-    });
-  });
-
-  it("returns 401 when not authenticated", async () => {
-    mockGetCurrentUser.mockResolvedValue(null);
-    const res = await DELETE_REVOKE(makeDeleteRequest(), makePetitionParams());
-    expect(res.status).toBe(401);
-  });
-
-  it("returns 404 when petition does not exist", async () => {
-    mockPrisma.petition.findUnique.mockResolvedValue(null);
-    const res = await DELETE_REVOKE(makeDeleteRequest(), makePetitionParams());
-    expect(res.status).toBe(404);
-  });
-
-  it("returns 404 when petition belongs to a different society", async () => {
-    mockPrisma.petition.findUnique.mockResolvedValue({
-      ...mockPublishedPetition,
-      societyId: "other-soc",
-    });
-    const res = await DELETE_REVOKE(makeDeleteRequest(), makePetitionParams());
-    expect(res.status).toBe(404);
-  });
-
-  it("returns 400 with NOT_PUBLISHED when petition is DRAFT", async () => {
-    mockPrisma.petition.findUnique.mockResolvedValue({
-      ...mockPublishedPetition,
-      status: "DRAFT",
-    });
-    const res = await DELETE_REVOKE(makeDeleteRequest(), makePetitionParams());
-    expect(res.status).toBe(400);
-    const body = await res.json();
-    expect(body.error.code).toBe("NOT_PUBLISHED");
-  });
-
-  it("returns 400 with NOT_PUBLISHED when petition is SUBMITTED", async () => {
-    mockPrisma.petition.findUnique.mockResolvedValue(mockSubmittedPetition);
-    const res = await DELETE_REVOKE(makeDeleteRequest(), makePetitionParams());
-    expect(res.status).toBe(400);
-    const body = await res.json();
-    expect(body.error.code).toBe("NOT_PUBLISHED");
-  });
-
-  it("returns 400 with NOT_PUBLISHED when petition is CLOSED", async () => {
-    mockPrisma.petition.findUnique.mockResolvedValue({
-      ...mockPublishedPetition,
-      status: "CLOSED",
-    });
-    const res = await DELETE_REVOKE(makeDeleteRequest(), makePetitionParams());
-    expect(res.status).toBe(400);
-    const body = await res.json();
-    expect(body.error.code).toBe("NOT_PUBLISHED");
-  });
-
-  it("returns 404 when resident has not signed the petition", async () => {
-    mockPrisma.petitionSignature.findUnique.mockResolvedValue(null);
-    const res = await DELETE_REVOKE(makeDeleteRequest(), makePetitionParams());
-    expect(res.status).toBe(404);
-  });
-
-  it("looks up signature by composite petitionId+userId key", async () => {
-    await DELETE_REVOKE(makeDeleteRequest(), makePetitionParams());
-    expect(mockPrisma.petitionSignature.findUnique).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { petitionId_userId: { petitionId: "pet-1", userId: "user-1" } },
-      }),
-    );
-  });
-
-  it("removes signature image from storage", async () => {
-    const mockRemove = vi.fn().mockResolvedValue({});
-    mockSupabaseStorage.from.mockReturnValue({ remove: mockRemove });
-    await DELETE_REVOKE(makeDeleteRequest(), makePetitionParams());
-    expect(mockSupabaseStorage.from).toHaveBeenCalledWith("petition-signatures");
-    expect(mockRemove).toHaveBeenCalledWith(["soc-1/pet-1/user-1.png"]);
-  });
-
-  it("deletes the signature record from database", async () => {
-    await DELETE_REVOKE(makeDeleteRequest(), makePetitionParams());
-    expect(mockPrisma.petitionSignature.delete).toHaveBeenCalledWith({
-      where: { id: "sig-1" },
-    });
-  });
-
-  it("fires audit log PETITION_SIGNATURE_REVOKED on success", async () => {
-    await DELETE_REVOKE(makeDeleteRequest(), makePetitionParams());
-    expect(mockLogAudit).toHaveBeenCalledWith(
-      expect.objectContaining({
-        actionType: "PETITION_SIGNATURE_REVOKED",
-        userId: "user-1",
-        societyId: "soc-1",
-        entityType: "PetitionSignature",
-        entityId: "sig-1",
-        oldValue: { petitionId: "pet-1", method: "DRAWN" },
-      }),
-    );
-  });
-
-  it("returns 200 with revoke message on success", async () => {
-    const res = await DELETE_REVOKE(makeDeleteRequest(), makePetitionParams());
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.message).toBe("Signature revoked");
-  });
-
-  it("returns 500 on database error", async () => {
-    mockPrisma.petition.findUnique.mockRejectedValue(new Error("DB crash"));
-    const res = await DELETE_REVOKE(makeDeleteRequest(), makePetitionParams());
     expect(res.status).toBe(500);
   });
 });

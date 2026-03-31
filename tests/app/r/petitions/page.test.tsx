@@ -11,14 +11,12 @@ const {
   mockGetResidentPetitions,
   mockGetResidentPetition,
   mockSignPetition,
-  mockRevokeSignature,
   mockToastSuccess,
   mockToastError,
 } = vi.hoisted(() => ({
   mockGetResidentPetitions: vi.fn(),
   mockGetResidentPetition: vi.fn(),
   mockSignPetition: vi.fn(),
-  mockRevokeSignature: vi.fn(),
   mockToastSuccess: vi.fn(),
   mockToastError: vi.fn(),
 }));
@@ -27,7 +25,6 @@ vi.mock("@/services/petitions", () => ({
   getResidentPetitions: (...args: unknown[]) => mockGetResidentPetitions(...args),
   getResidentPetition: (...args: unknown[]) => mockGetResidentPetition(...args),
   signPetition: (...args: unknown[]) => mockSignPetition(...args),
-  revokeSignature: (...args: unknown[]) => mockRevokeSignature(...args),
 }));
 
 vi.mock("sonner", () => ({
@@ -38,10 +35,17 @@ vi.mock("sonner", () => ({
 }));
 
 vi.mock("@/components/features/petitions/SignaturePad", () => ({
-  SignaturePad: ({ onSignature }: { onSignature: (url: string) => void }) => (
+  SignaturePad: ({
+    onSignature,
+    disabled,
+  }: {
+    onSignature: (url: string) => void;
+    disabled?: boolean;
+  }) => (
     <button
       data-testid="mock-signature-pad"
       onClick={() => onSignature("data:image/png;base64,abc")}
+      disabled={disabled}
     >
       Mock SignaturePad
     </button>
@@ -49,10 +53,17 @@ vi.mock("@/components/features/petitions/SignaturePad", () => ({
 }));
 
 vi.mock("@/components/features/petitions/SignatureUpload", () => ({
-  SignatureUpload: ({ onSignature }: { onSignature: (url: string) => void }) => (
+  SignatureUpload: ({
+    onSignature,
+    disabled,
+  }: {
+    onSignature: (url: string) => void;
+    disabled?: boolean;
+  }) => (
     <button
       data-testid="mock-signature-upload"
       onClick={() => onSignature("data:image/png;base64,xyz")}
+      disabled={disabled}
     >
       Mock SignatureUpload
     </button>
@@ -209,7 +220,6 @@ describe("ResidentPetitionsPage", () => {
     mockGetResidentPetitions.mockResolvedValue({ data: [mockPetition] });
     renderPage();
     await waitFor(() => {
-      // targetAuthority appears on both the card and in the sheet; getAll is safe
       expect(screen.getAllByText("Municipal Corporation")[0]).toBeInTheDocument();
     });
   });
@@ -238,6 +248,25 @@ describe("ResidentPetitionsPage", () => {
     });
   });
 
+  it("shows Signed badge on petition card when resident has already signed", async () => {
+    const signedPetition = {
+      ...mockPetition,
+      mySignature: { id: "sig-1", method: "DRAWN", signedAt: "2026-03-21T10:00:00Z" },
+    };
+    mockGetResidentPetitions.mockResolvedValue({ data: [signedPetition] });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Signed")).toBeInTheDocument();
+    });
+  });
+
+  it("does not show Signed badge when resident has not signed", async () => {
+    mockGetResidentPetitions.mockResolvedValue({ data: [mockPetition] });
+    renderPage();
+    await waitFor(() => screen.getByText("Fix Water Supply"));
+    expect(screen.queryByText("Signed")).not.toBeInTheDocument();
+  });
+
   // ── Detail sheet ────────────────────────────────────────────────────────────
 
   it("opens detail sheet when card is clicked", async () => {
@@ -258,7 +287,6 @@ describe("ResidentPetitionsPage", () => {
     await waitFor(() => screen.getByText("Fix Water Supply"));
     await user.click(screen.getByText("Fix Water Supply"));
     await waitFor(() => {
-      // Title appears in the SheetTitle inside the sheet
       const allTitles = screen.getAllByText("Fix Water Supply");
       expect(allTitles.length).toBeGreaterThan(1);
     });
@@ -290,7 +318,6 @@ describe("ResidentPetitionsPage", () => {
     await waitFor(() => screen.getByText("Fix Water Supply"));
     await user.click(screen.getByText("Fix Water Supply"));
     await waitFor(() => {
-      // Sheet is open and content is loaded
       expect(screen.getByRole("dialog")).toBeInTheDocument();
     });
     expect(screen.queryByRole("link", { name: /view document/i })).not.toBeInTheDocument();
@@ -310,7 +337,7 @@ describe("ResidentPetitionsPage", () => {
     });
   });
 
-  it("shows Draw/Upload tabs after clicking Sign Petition", async () => {
+  it("shows Draw/Upload tabs only after consent is given", async () => {
     mockGetResidentPetitions.mockResolvedValue({ data: [mockPetition] });
     mockGetResidentPetition.mockResolvedValue(mockPetitionDetail);
     const user = userEvent.setup();
@@ -319,13 +346,18 @@ describe("ResidentPetitionsPage", () => {
     await user.click(screen.getByText("Fix Water Supply"));
     await waitFor(() => screen.getByRole("button", { name: "Sign Petition" }));
     await user.click(screen.getByRole("button", { name: "Sign Petition" }));
+    // Tabs should NOT appear before consent
+    await waitFor(() => screen.getByRole("checkbox"));
+    expect(screen.queryByRole("tab", { name: "Draw" })).not.toBeInTheDocument();
+    // Give consent — tabs should now appear
+    await user.click(screen.getByRole("checkbox"));
     await waitFor(() => {
       expect(screen.getByRole("tab", { name: "Draw" })).toBeInTheDocument();
       expect(screen.getByRole("tab", { name: "Upload" })).toBeInTheDocument();
     });
   });
 
-  it("shows SignaturePad in Draw tab by default", async () => {
+  it("shows SignaturePad in Draw tab after consent is given", async () => {
     mockGetResidentPetitions.mockResolvedValue({ data: [mockPetition] });
     mockGetResidentPetition.mockResolvedValue(mockPetitionDetail);
     const user = userEvent.setup();
@@ -334,12 +366,14 @@ describe("ResidentPetitionsPage", () => {
     await user.click(screen.getByText("Fix Water Supply"));
     await waitFor(() => screen.getByRole("button", { name: "Sign Petition" }));
     await user.click(screen.getByRole("button", { name: "Sign Petition" }));
+    await waitFor(() => screen.getByRole("checkbox"));
+    await user.click(screen.getByRole("checkbox"));
     await waitFor(() => {
       expect(screen.getByTestId("mock-signature-pad")).toBeInTheDocument();
     });
   });
 
-  it("shows SignatureUpload after switching to Upload tab", async () => {
+  it("shows SignatureUpload after giving consent and switching to Upload tab", async () => {
     mockGetResidentPetitions.mockResolvedValue({ data: [mockPetition] });
     mockGetResidentPetition.mockResolvedValue(mockPetitionDetail);
     const user = userEvent.setup();
@@ -348,6 +382,8 @@ describe("ResidentPetitionsPage", () => {
     await user.click(screen.getByText("Fix Water Supply"));
     await waitFor(() => screen.getByRole("button", { name: "Sign Petition" }));
     await user.click(screen.getByRole("button", { name: "Sign Petition" }));
+    await waitFor(() => screen.getByRole("checkbox"));
+    await user.click(screen.getByRole("checkbox"));
     await waitFor(() => screen.getByRole("tab", { name: "Upload" }));
     await user.click(screen.getByRole("tab", { name: "Upload" }));
     await waitFor(() => {
@@ -355,7 +391,79 @@ describe("ResidentPetitionsPage", () => {
     });
   });
 
-  it("calls signPetition with DRAWN method when SignaturePad fires onSignature", async () => {
+  // ── Consent checkbox ────────────────────────────────────────────────────────
+
+  it("shows consent checkbox when sign mode is active", async () => {
+    mockGetResidentPetitions.mockResolvedValue({ data: [mockPetition] });
+    mockGetResidentPetition.mockResolvedValue(mockPetitionDetail);
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => screen.getByText("Fix Water Supply"));
+    await user.click(screen.getByText("Fix Water Supply"));
+    await waitFor(() => screen.getByRole("button", { name: "Sign Petition" }));
+    await user.click(screen.getByRole("button", { name: "Sign Petition" }));
+    await waitFor(() => {
+      expect(
+        screen.getByText(/I have read the petition document and agree to add my signature/),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("signature pad is hidden before consent is given", async () => {
+    mockGetResidentPetitions.mockResolvedValue({ data: [mockPetition] });
+    mockGetResidentPetition.mockResolvedValue(mockPetitionDetail);
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => screen.getByText("Fix Water Supply"));
+    await user.click(screen.getByText("Fix Water Supply"));
+    await waitFor(() => screen.getByRole("button", { name: "Sign Petition" }));
+    await user.click(screen.getByRole("button", { name: "Sign Petition" }));
+    // Consent checkbox should be visible but pad should not exist yet
+    await waitFor(() => screen.getByRole("checkbox"));
+    expect(screen.queryByTestId("mock-signature-pad")).not.toBeInTheDocument();
+    expect(screen.getByText("Check the box above to enable signing")).toBeInTheDocument();
+  });
+
+  it("signature pad becomes enabled after consent checkbox is checked", async () => {
+    mockGetResidentPetitions.mockResolvedValue({ data: [mockPetition] });
+    mockGetResidentPetition.mockResolvedValue(mockPetitionDetail);
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => screen.getByText("Fix Water Supply"));
+    await user.click(screen.getByText("Fix Water Supply"));
+    await waitFor(() => screen.getByRole("button", { name: "Sign Petition" }));
+    await user.click(screen.getByRole("button", { name: "Sign Petition" }));
+    await waitFor(() => screen.getByRole("checkbox"));
+    await user.click(screen.getByRole("checkbox"));
+    await waitFor(() => {
+      expect(screen.getByTestId("mock-signature-pad")).not.toBeDisabled();
+    });
+  });
+
+  it("consent resets when Cancel is clicked — pad hidden again on re-open", async () => {
+    mockGetResidentPetitions.mockResolvedValue({ data: [mockPetition] });
+    mockGetResidentPetition.mockResolvedValue(mockPetitionDetail);
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => screen.getByText("Fix Water Supply"));
+    await user.click(screen.getByText("Fix Water Supply"));
+    await waitFor(() => screen.getByRole("button", { name: "Sign Petition" }));
+    await user.click(screen.getByRole("button", { name: "Sign Petition" }));
+    await waitFor(() => screen.getByRole("checkbox"));
+    // Give consent so pad appears, then cancel
+    await user.click(screen.getByRole("checkbox"));
+    await waitFor(() => screen.getByTestId("mock-signature-pad"));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    // Re-open signing flow — consent is reset so pad should be hidden
+    await waitFor(() => screen.getByRole("button", { name: "Sign Petition" }));
+    await user.click(screen.getByRole("button", { name: "Sign Petition" }));
+    await waitFor(() => screen.getByRole("checkbox"));
+    expect(screen.queryByTestId("mock-signature-pad")).not.toBeInTheDocument();
+  });
+
+  // ── Signing with consent ────────────────────────────────────────────────────
+
+  it("calls signPetition with DRAWN method after giving consent and clicking SignaturePad", async () => {
     mockGetResidentPetitions.mockResolvedValue({ data: [mockPetition] });
     mockGetResidentPetition.mockResolvedValue(mockPetitionDetail);
     mockSignPetition.mockResolvedValue({ signedAt: "2026-03-27T10:00:00Z" });
@@ -365,6 +473,8 @@ describe("ResidentPetitionsPage", () => {
     await user.click(screen.getByText("Fix Water Supply"));
     await waitFor(() => screen.getByRole("button", { name: "Sign Petition" }));
     await user.click(screen.getByRole("button", { name: "Sign Petition" }));
+    await waitFor(() => screen.getByRole("checkbox"));
+    await user.click(screen.getByRole("checkbox"));
     await waitFor(() => screen.getByTestId("mock-signature-pad"));
     await user.click(screen.getByTestId("mock-signature-pad"));
     await waitFor(() => {
@@ -375,7 +485,7 @@ describe("ResidentPetitionsPage", () => {
     });
   });
 
-  it("calls signPetition with UPLOADED method when SignatureUpload fires onSignature", async () => {
+  it("calls signPetition with UPLOADED method after giving consent and clicking SignatureUpload", async () => {
     mockGetResidentPetitions.mockResolvedValue({ data: [mockPetition] });
     mockGetResidentPetition.mockResolvedValue(mockPetitionDetail);
     mockSignPetition.mockResolvedValue({ signedAt: "2026-03-27T10:00:00Z" });
@@ -385,6 +495,8 @@ describe("ResidentPetitionsPage", () => {
     await user.click(screen.getByText("Fix Water Supply"));
     await waitFor(() => screen.getByRole("button", { name: "Sign Petition" }));
     await user.click(screen.getByRole("button", { name: "Sign Petition" }));
+    await waitFor(() => screen.getByRole("checkbox"));
+    await user.click(screen.getByRole("checkbox"));
     await waitFor(() => screen.getByRole("tab", { name: "Upload" }));
     await user.click(screen.getByRole("tab", { name: "Upload" }));
     await waitFor(() => screen.getByTestId("mock-signature-upload"));
@@ -407,6 +519,8 @@ describe("ResidentPetitionsPage", () => {
     await user.click(screen.getByText("Fix Water Supply"));
     await waitFor(() => screen.getByRole("button", { name: "Sign Petition" }));
     await user.click(screen.getByRole("button", { name: "Sign Petition" }));
+    await waitFor(() => screen.getByRole("checkbox"));
+    await user.click(screen.getByRole("checkbox"));
     await waitFor(() => screen.getByTestId("mock-signature-pad"));
     await user.click(screen.getByTestId("mock-signature-pad"));
     await waitFor(() => {
@@ -424,6 +538,8 @@ describe("ResidentPetitionsPage", () => {
     await user.click(screen.getByText("Fix Water Supply"));
     await waitFor(() => screen.getByRole("button", { name: "Sign Petition" }));
     await user.click(screen.getByRole("button", { name: "Sign Petition" }));
+    await waitFor(() => screen.getByRole("checkbox"));
+    await user.click(screen.getByRole("checkbox"));
     await waitFor(() => screen.getByTestId("mock-signature-pad"));
     await user.click(screen.getByTestId("mock-signature-pad"));
     await waitFor(() => {
@@ -461,51 +577,20 @@ describe("ResidentPetitionsPage", () => {
     });
   });
 
-  it("shows Revoke Signature button when petition is PUBLISHED and signed", async () => {
+  it("does NOT show Revoke Signature button when petition is PUBLISHED and already signed", async () => {
     mockGetResidentPetitions.mockResolvedValue({ data: [mockPetition] });
     mockGetResidentPetition.mockResolvedValue(mockPetitionDetailSigned);
     const user = userEvent.setup();
     renderPage();
     await waitFor(() => screen.getByText("Fix Water Supply"));
     await user.click(screen.getByText("Fix Water Supply"));
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Revoke Signature" })).toBeInTheDocument();
-    });
-  });
-
-  it("calls revokeSignature when Revoke Signature is clicked", async () => {
-    mockGetResidentPetitions.mockResolvedValue({ data: [mockPetition] });
-    mockGetResidentPetition.mockResolvedValue(mockPetitionDetailSigned);
-    mockRevokeSignature.mockResolvedValue({ message: "revoked" });
-    const user = userEvent.setup();
-    renderPage();
-    await waitFor(() => screen.getByText("Fix Water Supply"));
-    await user.click(screen.getByText("Fix Water Supply"));
-    await waitFor(() => screen.getByRole("button", { name: "Revoke Signature" }));
-    await user.click(screen.getByRole("button", { name: "Revoke Signature" }));
-    await waitFor(() => {
-      expect(mockRevokeSignature).toHaveBeenCalledWith("pet-1");
-    });
-  });
-
-  it("shows success toast after revoke mutation succeeds", async () => {
-    mockGetResidentPetitions.mockResolvedValue({ data: [mockPetition] });
-    mockGetResidentPetition.mockResolvedValue(mockPetitionDetailSigned);
-    mockRevokeSignature.mockResolvedValue({ message: "revoked" });
-    const user = userEvent.setup();
-    renderPage();
-    await waitFor(() => screen.getByText("Fix Water Supply"));
-    await user.click(screen.getByText("Fix Water Supply"));
-    await waitFor(() => screen.getByRole("button", { name: "Revoke Signature" }));
-    await user.click(screen.getByRole("button", { name: "Revoke Signature" }));
-    await waitFor(() => {
-      expect(mockToastSuccess).toHaveBeenCalledWith("Signature revoked.");
-    });
+    await waitFor(() => screen.getByText(/You signed on/));
+    expect(screen.queryByRole("button", { name: /revoke/i })).not.toBeInTheDocument();
   });
 
   // ── Action area — SUBMITTED ─────────────────────────────────────────────────
 
-  it("shows read-only message for SUBMITTED petition — no sign/revoke buttons", async () => {
+  it("shows read-only message for SUBMITTED petition — no sign button", async () => {
     mockGetResidentPetitions.mockResolvedValue({ data: [mockPetitionSubmitted] });
     mockGetResidentPetition.mockResolvedValue(mockPetitionDetailSubmitted);
     const user = userEvent.setup();
@@ -518,7 +603,7 @@ describe("ResidentPetitionsPage", () => {
       ).toBeInTheDocument();
     });
     expect(screen.queryByRole("button", { name: "Sign Petition" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Revoke Signature" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /revoke/i })).not.toBeInTheDocument();
   });
 
   it("shows submitted info block for SUBMITTED petition with submittedAt", async () => {
@@ -533,22 +618,7 @@ describe("ResidentPetitionsPage", () => {
     });
   });
 
-  // ── Signature count in detail sheet ────────────────────────────────────────
-
-  it("shows error toast when revoke fails", async () => {
-    mockGetResidentPetitions.mockResolvedValue({ data: [mockPetition] });
-    mockGetResidentPetition.mockResolvedValue(mockPetitionDetailSigned);
-    mockRevokeSignature.mockRejectedValue(new Error("Revoke failed"));
-    const user = userEvent.setup();
-    renderPage();
-    await waitFor(() => screen.getByText("Fix Water Supply"));
-    await user.click(screen.getByText("Fix Water Supply"));
-    await waitFor(() => screen.getByRole("button", { name: "Revoke Signature" }));
-    await user.click(screen.getByRole("button", { name: "Revoke Signature" }));
-    await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith("Revoke failed");
-    });
-  });
+  // ── Sheet close ─────────────────────────────────────────────────────────────
 
   it("resets state when sheet is closed", async () => {
     mockGetResidentPetitions.mockResolvedValue({ data: [mockPetition] });
@@ -558,13 +628,13 @@ describe("ResidentPetitionsPage", () => {
     await waitFor(() => screen.getByText("Fix Water Supply"));
     await user.click(screen.getByText("Fix Water Supply"));
     await waitFor(() => screen.getByText("Sign Petition"));
-    // Close the sheet by pressing Escape
     await user.keyboard("{Escape}");
-    // Sheet content should disappear
     await waitFor(() => {
       expect(screen.queryByText("Sign Petition")).not.toBeInTheDocument();
     });
   });
+
+  // ── Edge cases ──────────────────────────────────────────────────────────────
 
   it("renders card without optional fields (no authority, deadline, minSignatures)", async () => {
     const minimalPetition = {
@@ -578,9 +648,7 @@ describe("ResidentPetitionsPage", () => {
     mockGetResidentPetitions.mockResolvedValue({ data: [minimalPetition] });
     renderPage();
     await waitFor(() => screen.getByText("Fix Water Supply"));
-    // Should show "3 signed" without "of X"
     expect(screen.getByText("3 signed")).toBeInTheDocument();
-    // Should NOT show "Deadline:" or authority text
     expect(screen.queryByText(/Deadline/)).not.toBeInTheDocument();
     expect(screen.queryByText("Municipal Corporation")).not.toBeInTheDocument();
   });
@@ -593,7 +661,6 @@ describe("ResidentPetitionsPage", () => {
     await waitFor(() => screen.getByText("Fix Water Supply"));
     await user.click(screen.getByText("Fix Water Supply"));
     await waitFor(() => {
-      // getAll to handle card + sheet instances
       expect(screen.getAllByText("47 of 100 signed").length).toBeGreaterThan(0);
     });
   });
