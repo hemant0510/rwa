@@ -4,6 +4,21 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 import { mockPrisma } from "../../__mocks__/prisma";
 
+const mockRequireSuperAdmin = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/auth-guard", () => ({ requireSuperAdmin: mockRequireSuperAdmin }));
+
+// eslint-disable-next-line import/order -- must import after mocks
+import { PATCH, DELETE } from "@/app/api/v1/super-admin/discounts/[id]/route";
+
+const saOk = {
+  data: { superAdminId: "sa-1", authUserId: "auth-sa-1", email: "sa@rwa.com" },
+  error: null,
+};
+const saForbidden = {
+  data: null,
+  error: new Response(JSON.stringify({ error: { code: "FORBIDDEN" } }), { status: 403 }),
+};
+
 function makePatchReq(body: unknown, id = "d-1") {
   return new NextRequest(`http://localhost/api/v1/super-admin/discounts/${id}`, {
     method: "PATCH",
@@ -42,11 +57,16 @@ const mockDiscount = {
   updatedAt: new Date(),
 };
 
-import { PATCH, DELETE } from "@/app/api/v1/super-admin/discounts/[id]/route";
-
 describe("PATCH /api/v1/super-admin/discounts/[id]", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRequireSuperAdmin.mockResolvedValue(saOk);
+  });
+
+  it("returns 403 when not super admin", async () => {
+    mockRequireSuperAdmin.mockResolvedValue(saForbidden);
+    const res = await PATCH(makePatchReq({ name: "Updated" }), makeParams("d-1"));
+    expect(res.status).toBe(403);
   });
 
   it("returns 200 with updated discount", async () => {
@@ -168,6 +188,13 @@ describe("PATCH /api/v1/super-admin/discounts/[id]", () => {
 describe("DELETE /api/v1/super-admin/discounts/[id]", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRequireSuperAdmin.mockResolvedValue(saOk);
+  });
+
+  it("returns 403 when not super admin", async () => {
+    mockRequireSuperAdmin.mockResolvedValue(saForbidden);
+    const res = await DELETE(makeDeleteReq("d-1"), makeParams("d-1"));
+    expect(res.status).toBe(403);
   });
 
   it("returns 200 on successful deactivation", async () => {

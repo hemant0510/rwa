@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 
+import { requireSuperAdmin } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
+  const auth = await requireSuperAdmin();
+  if (auth.error) return auth.error;
+
   try {
     const [total, active, trial, suspended, recentSocieties] = await Promise.all([
       prisma.society.count(),

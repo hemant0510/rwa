@@ -72,14 +72,15 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL(loginUrl, request.url));
   }
 
-  // Admin-specific inactivity timeout
-  if (pathname.startsWith("/admin")) {
+  // Admin & Super Admin inactivity timeout
+  if (pathname.startsWith("/admin") || pathname.startsWith("/sa")) {
     const lastActivityStr = request.cookies.get(ACTIVITY_COOKIE)?.value;
 
     if (lastActivityStr) {
       const lastActivity = parseInt(lastActivityStr, 10);
       if (!isNaN(lastActivity) && Date.now() - lastActivity > ADMIN_SESSION_TIMEOUT_MS) {
-        const loginUrl = new URL("/login", request.url);
+        const loginPath = pathname.startsWith("/sa") ? "/super-admin-login" : "/login";
+        const loginUrl = new URL(loginPath, request.url);
         loginUrl.searchParams.set("reason", "session_expired");
         const response = NextResponse.redirect(loginUrl);
         response.cookies.delete(ACTIVITY_COOKIE);

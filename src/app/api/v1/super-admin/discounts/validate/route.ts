@@ -1,12 +1,16 @@
 import { NextRequest } from "next/server";
 
 import { internalError, notFoundError, parseBody, successResponse } from "@/lib/api-helpers";
+import { requireSuperAdmin } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { validateCouponSchema } from "@/lib/validations/discount";
 
 // POST /api/v1/super-admin/discounts/validate
 // Validates a coupon code against a specific plan + billing cycle
 export async function POST(request: NextRequest) {
+  const auth = await requireSuperAdmin();
+  if (auth.error) return auth.error;
+
   try {
     const { data, error } = await parseBody(request, validateCouponSchema);
     if (error) return error;

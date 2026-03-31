@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 
 import { parseBody, internalError, successResponse, notFoundError } from "@/lib/api-helpers";
+import { requireSuperAdmin } from "@/lib/auth-guard";
 import { sendEmail } from "@/lib/email";
 import { getSubscriptionReminderEmailHtml } from "@/lib/email-templates/subscription";
 import { prisma } from "@/lib/prisma";
@@ -29,6 +30,9 @@ function getReminderContent(templateKey: "expiry-reminder" | "overdue-reminder" 
 
 // POST /api/v1/super-admin/billing/send-reminder
 export async function POST(request: NextRequest) {
+  const auth = await requireSuperAdmin();
+  if (auth.error) return auth.error;
+
   try {
     const { data, error } = await parseBody(request, sendReminderSchema);
     if (error) return error;

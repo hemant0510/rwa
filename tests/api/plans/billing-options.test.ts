@@ -4,6 +4,21 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 import { mockPrisma } from "../../__mocks__/prisma";
 
+const mockRequireSuperAdmin = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/auth-guard", () => ({ requireSuperAdmin: mockRequireSuperAdmin }));
+
+const saOk = {
+  data: { superAdminId: "sa-1", authUserId: "auth-sa-1", email: "sa@rwa.com" },
+  error: null,
+};
+const saForbidden = {
+  data: null,
+  error: new Response(JSON.stringify({ error: { code: "FORBIDDEN" } }), { status: 403 }),
+};
+
+import { PATCH } from "@/app/api/v1/super-admin/plans/[id]/billing-options/[bid]/route";
+import { POST } from "@/app/api/v1/super-admin/plans/[id]/billing-options/route";
+
 function makePostReq(body: unknown, planId = "plan-1") {
   return new NextRequest(`http://localhost/api/v1/super-admin/plans/${planId}/billing-options`, {
     method: "POST",
@@ -41,12 +56,19 @@ const mockOption = {
   updatedAt: new Date(),
 };
 
-import { POST } from "@/app/api/v1/super-admin/plans/[id]/billing-options/route";
-import { PATCH } from "@/app/api/v1/super-admin/plans/[id]/billing-options/[bid]/route";
-
 describe("POST /api/v1/super-admin/plans/[id]/billing-options", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRequireSuperAdmin.mockResolvedValue(saOk);
+  });
+
+  it("returns 403 when not super admin", async () => {
+    mockRequireSuperAdmin.mockResolvedValue(saForbidden);
+    const res = await POST(
+      makePostReq({ billingCycle: "ANNUAL", price: 9990 }),
+      makePostParams("plan-1"),
+    );
+    expect(res.status).toBe(403);
   });
 
   it("returns 201 on successful creation", async () => {
@@ -117,6 +139,13 @@ describe("POST /api/v1/super-admin/plans/[id]/billing-options", () => {
 describe("PATCH /api/v1/super-admin/plans/[id]/billing-options/[bid]", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRequireSuperAdmin.mockResolvedValue(saOk);
+  });
+
+  it("returns 403 when not super admin", async () => {
+    mockRequireSuperAdmin.mockResolvedValue(saForbidden);
+    const res = await PATCH(makePatchReq({ price: 9990 }), makePatchParams("plan-1", "opt-1"));
+    expect(res.status).toBe(403);
   });
 
   it("returns 200 with updated billing option", async () => {

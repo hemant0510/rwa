@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { Prisma } from "@prisma/client";
 
 import { internalError, successResponse } from "@/lib/api-helpers";
+import { requireSuperAdmin } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 
 function parseExpiryRange(range: string | null) {
@@ -26,6 +27,9 @@ function isMissingTableError(error: unknown) {
 
 // GET /api/v1/super-admin/billing/subscriptions
 export async function GET(request: NextRequest) {
+  const auth = await requireSuperAdmin();
+  if (auth.error) return auth.error;
+
   try {
     const { searchParams } = request.nextUrl;
     const status = searchParams.get("status");

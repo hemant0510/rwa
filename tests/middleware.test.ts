@@ -254,7 +254,7 @@ describe("proxy", () => {
     expect(res.status).toBe(200);
   });
 
-  it("does not apply session timeout to /sa routes (only /admin)", async () => {
+  it("applies session timeout to /sa routes and redirects to super-admin-login", async () => {
     const supabaseResponse = makeSupabaseResponse();
     mockUpdateSession.mockResolvedValue({
       user: { id: "sa-1", email: "super@admin.com" },
@@ -265,8 +265,9 @@ describe("proxy", () => {
     const req = makeRequest("/sa/societies", { "admin-last-activity": nineHoursAgo });
     const res = await proxy(req);
 
-    // /sa routes are NOT subject to activity timeout
-    expect(res.status).toBe(200);
-    expect(res).toBe(supabaseResponse);
+    // /sa routes ARE subject to activity timeout, redirecting to super-admin-login
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toContain("/super-admin-login");
+    expect(res.headers.get("location")).toContain("reason=session_expired");
   });
 });

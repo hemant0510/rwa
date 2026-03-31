@@ -1,6 +1,6 @@
 # Petition — Signed Document & Resident Consent
 
-**Status:** Planned
+**Status:** Completed
 **Depends on:** Existing petitions module (Phase 6)
 **Last Updated:** 2026-03-28
 

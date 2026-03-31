@@ -4,6 +4,21 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 import { mockPrisma } from "../../__mocks__/prisma";
 
+const mockRequireSuperAdmin = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/auth-guard", () => ({ requireSuperAdmin: mockRequireSuperAdmin }));
+
+// eslint-disable-next-line import/order -- must import after mocks
+import { GET, POST } from "@/app/api/v1/super-admin/discounts/route";
+
+const saOk = {
+  data: { superAdminId: "sa-1", authUserId: "auth-sa-1", email: "sa@rwa.com" },
+  error: null,
+};
+const saForbidden = {
+  data: null,
+  error: new Response(JSON.stringify({ error: { code: "FORBIDDEN" } }), { status: 403 }),
+};
+
 function makeReq(body: unknown) {
   return new NextRequest("http://localhost/api/v1/super-admin/discounts", {
     method: "POST",
@@ -43,11 +58,16 @@ const mockDiscount = {
   updatedAt: new Date(),
 };
 
-import { GET, POST } from "@/app/api/v1/super-admin/discounts/route";
-
 describe("GET /api/v1/super-admin/discounts", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRequireSuperAdmin.mockResolvedValue(saOk);
+  });
+
+  it("returns 403 when not super admin", async () => {
+    mockRequireSuperAdmin.mockResolvedValue(saForbidden);
+    const res = await GET();
+    expect(res.status).toBe(403);
   });
 
   it("returns 200 with serialized discounts", async () => {
@@ -98,6 +118,13 @@ describe("GET /api/v1/super-admin/discounts", () => {
 describe("POST /api/v1/super-admin/discounts", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRequireSuperAdmin.mockResolvedValue(saOk);
+  });
+
+  it("returns 403 when not super admin", async () => {
+    mockRequireSuperAdmin.mockResolvedValue(saForbidden);
+    const res = await POST(makeReq({}));
+    expect(res.status).toBe(403);
   });
 
   it("returns 201 with created discount", async () => {

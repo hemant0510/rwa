@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 
 import { internalError, notFoundError, parseBody, successResponse } from "@/lib/api-helpers";
+import { requireSuperAdmin } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 
 type Params = { params: Promise<{ id: string; bid: string }> };
@@ -14,6 +15,9 @@ const updateBillingOptionSchema = z.object({
 
 // PATCH /api/v1/super-admin/plans/[id]/billing-options/[bid]
 export async function PATCH(request: NextRequest, { params }: Params) {
+  const auth = await requireSuperAdmin();
+  if (auth.error) return auth.error;
+
   try {
     const { id, bid } = await params;
     const { data, error } = await parseBody(request, updateBillingOptionSchema);

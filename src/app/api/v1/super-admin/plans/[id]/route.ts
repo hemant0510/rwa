@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 
 import { internalError, notFoundError, parseBody, successResponse } from "@/lib/api-helpers";
+import { requireSuperAdmin } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { updatePlanSchema } from "@/lib/validations/plan";
 
@@ -8,6 +9,9 @@ type Params = { params: Promise<{ id: string }> };
 
 // GET /api/v1/super-admin/plans/[id]
 export async function GET(_req: NextRequest, { params }: Params) {
+  const auth = await requireSuperAdmin();
+  if (auth.error) return auth.error;
+
   try {
     const { id } = await params;
     const plan = await prisma.platformPlan.findUnique({
@@ -37,6 +41,9 @@ export async function GET(_req: NextRequest, { params }: Params) {
 
 // PATCH /api/v1/super-admin/plans/[id]
 export async function PATCH(request: NextRequest, { params }: Params) {
+  const auth = await requireSuperAdmin();
+  if (auth.error) return auth.error;
+
   try {
     const { id } = await params;
     const { data, error } = await parseBody(request, updatePlanSchema);
@@ -70,6 +77,9 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 // DELETE /api/v1/super-admin/plans/[id]
 // Soft delete — sets isActive = false. Blocks if there are active subscribers.
 export async function DELETE(_req: NextRequest, { params }: Params) {
+  const auth = await requireSuperAdmin();
+  if (auth.error) return auth.error;
+
   try {
     const { id } = await params;
 

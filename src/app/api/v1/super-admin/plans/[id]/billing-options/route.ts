@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 
 import { internalError, notFoundError, parseBody, successResponse } from "@/lib/api-helpers";
+import { requireSuperAdmin } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { createBillingOptionSchema } from "@/lib/validations/plan";
 
@@ -8,6 +9,9 @@ type Params = { params: Promise<{ id: string }> };
 
 // POST /api/v1/super-admin/plans/[id]/billing-options
 export async function POST(request: NextRequest, { params }: Params) {
+  const auth = await requireSuperAdmin();
+  if (auth.error) return auth.error;
+
   try {
     const { id } = await params;
     const { data, error } = await parseBody(request, createBillingOptionSchema);

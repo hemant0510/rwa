@@ -1,10 +1,14 @@
 import { NextRequest } from "next/server";
 
 import { internalError, successResponse } from "@/lib/api-helpers";
+import { requireSuperAdmin } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 
 // GET /api/v1/super-admin/billing/expiring?days=30
 export async function GET(request: NextRequest) {
+  const auth = await requireSuperAdmin();
+  if (auth.error) return auth.error;
+
   try {
     const days = Number(request.nextUrl.searchParams.get("days") ?? "30");
     const now = new Date();

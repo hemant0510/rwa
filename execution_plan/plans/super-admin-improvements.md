@@ -68,7 +68,7 @@ The RWA admin has **11 major sections** with 100+ features. The SA can currently
 
 ### Problem
 
-Every `/api/v1/super-admin/*` route proceeds directly to database queries without verifying the caller is a super admin. The `forbiddenError()` helper exists in `src/lib/api-helpers.ts` but is never used.
+Every `/api/v1/super-admin/*` route proceeds directly to database queries without verifying the caller is a super admin. The `forbiddenError()` helper exists in `src/lib/api-helpers.ts` and is used extensively in admin/cron routes — but none of the 16 super-admin route files call it.
 
 **Attack scenario:** Any authenticated resident or RWA admin can directly call:
 
@@ -1762,123 +1762,171 @@ CREATE INDEX idx_service_request_messages_request ON service_request_messages(re
 
 ### Phase 1: Security (do first — blocks everything else)
 
-1. Create `src/lib/auth-guard.ts` with `requireSuperAdmin()`.
-2. Add `requireSuperAdmin()` to all 16 SA API route files (every handler).
-3. Add SA-specific inactivity timeout in `src/proxy.ts`.
-4. Add server-side SA role check in `src/app/sa/layout.tsx`.
-5. Test: verify a regular user gets 403 on all SA API endpoints.
+1. Update `tests/__mocks__/prisma.ts` — add `superAdmin` model mocks.
+2. Create `src/lib/auth-guard.ts` with `requireSuperAdmin()`.
+3. Write `tests/lib/auth-guard.test.ts` — 4 test cases (no user, not SA, inactive SA, active SA).
+4. Add `requireSuperAdmin()` to all 16 SA API route files (every handler).
+5. Write `tests/api/super-admin/stats.test.ts` — verify guard wiring (403 + 200).
+6. Write `tests/api/super-admin/plans/route.test.ts` — verify guard on GET + POST.
+7. Add SA-specific inactivity timeout in `src/proxy.ts`.
+8. Add SA timeout test cases to `tests/middleware.test.ts`.
+9. Add server-side SA role check in `src/app/sa/layout.tsx`.
+10. Run `npm run test:coverage` — confirm 95%+ on new files.
 
 ### Phase 2: Audit Logging
 
-6. Run migration to widen `AuditLog.actionType` to VarChar(50).
-7. Add 22 new action types to `src/lib/audit.ts`.
-8. Add `logAudit()` calls to all SA mutation routes (create/update/delete handlers).
-9. Test: verify audit entries are created for all SA mutations.
+11. Run migration to widen `AuditLog.actionType` to VarChar(50).
+12. Add 27 new action types to `src/lib/audit.ts`.
+13. Add `logAudit()` calls to all SA mutation routes (create/update/delete handlers).
+14. Write/update `tests/api/super-admin/plans/route.test.ts` — verify `logAudit` called with correct action types on POST/PATCH/DELETE.
+15. Write/update `tests/api/super-admin/discounts/route.test.ts` — same pattern.
+16. Verify `logAudit` throw does not break route (non-blocking test).
+17. Run `npm run test:coverage` — confirm 95%+.
 
 ### Phase 3: Settings Page
 
-10. Run migration to create `platform_configs` table + seed defaults.
-11. Add `PlatformConfig` model to `schema.prisma`.
-12. Create settings API routes (profile, password, platform config).
-13. Create `/sa/settings/page.tsx` with 3 tabs.
-14. Create `src/lib/validations/sa-settings.ts` + `src/services/sa-settings.ts`.
+18. Run migration to create `platform_configs` table + seed defaults.
+19. Add `PlatformConfig` model to `schema.prisma`. Update `tests/__mocks__/prisma.ts`.
+20. Create settings API routes (profile, password, platform config).
+21. Write `tests/api/super-admin/settings/profile.test.ts` — 5 cases.
+22. Write `tests/api/super-admin/settings/change-password.test.ts` — 4 cases.
+23. Write `tests/api/super-admin/settings/platform-config.test.ts` — 4 cases.
+24. Create `src/lib/validations/sa-settings.ts` + `src/services/sa-settings.ts`.
+25. Create `/sa/settings/page.tsx` with 3 tabs.
+26. Run `npm run test:coverage` — confirm 95%+.
 
 ### Phase 4: Audit Log Viewer
 
-15. Create audit log API route with filters + pagination.
-16. Create CSV export route.
-17. Create `AuditLogTable.tsx` component.
-18. Create `/sa/audit-logs/page.tsx`.
-19. Create `src/services/audit-logs.ts`.
-20. Update `SuperAdminSidebar.tsx` — add Audit Logs nav item.
+27. Create audit log API route with filters + pagination.
+28. Write `tests/api/super-admin/audit-logs/route.test.ts` — 6 cases (filters, pagination, auth).
+29. Create CSV export route.
+30. Write `tests/api/super-admin/audit-logs/export.test.ts` — 2 cases.
+31. Create `AuditLogTable.tsx` component.
+32. Create `/sa/audit-logs/page.tsx`.
+33. Create `src/services/audit-logs.ts`.
+34. Update `SuperAdminSidebar.tsx` — add Audit Logs nav item.
+35. Run `npm run test:coverage` — confirm 95%+.
 
 ### Phase 5: Dashboard Analytics
 
-21. Install `recharts`.
-22. Create 3 new stats API routes (revenue, growth, plan-distribution).
-23. Create chart components (`SocietyGrowthChart`, `PlanDistributionChart`, `RevenueCards`).
-24. Update `/sa/dashboard/page.tsx` — add revenue cards, charts, quick actions.
+36. Install `recharts`.
+37. Create 3 new stats API routes (revenue, growth, plan-distribution).
+38. Write `tests/api/super-admin/stats/revenue.test.ts` — 5 cases.
+39. Write `tests/api/super-admin/stats/growth.test.ts` — 2 cases.
+40. Write `tests/api/super-admin/stats/plan-distribution.test.ts` — 2 cases.
+41. Create chart components (`SocietyGrowthChart`, `PlanDistributionChart`, `RevenueCards`).
+42. Update `/sa/dashboard/page.tsx` — add revenue cards, charts, quick actions.
+43. Run `npm run test:coverage` — confirm 95%+.
 
 ### Phase 6: Society Lifecycle
 
-25. Run migration to create `society_status_changes` table.
-26. Add `SocietyStatusChange` model to `schema.prisma`.
-27. Create lifecycle API routes (suspend, reactivate, offboard, status-history).
-28. Create `src/lib/validations/society-lifecycle.ts`.
-29. Create modal/wizard components (`SuspendModal`, `OffboardWizard`, `StatusTimeline`).
-30. Update `/sa/societies/[id]/page.tsx` — replace dropdown with workflow buttons.
+44. Run migration to create `society_status_changes` table.
+45. Add `SocietyStatusChange` model to `schema.prisma`. Update `tests/__mocks__/prisma.ts`.
+46. Create `src/lib/validations/society-lifecycle.ts`.
+47. Create lifecycle API routes (suspend, reactivate, offboard, status-history).
+48. Write `tests/api/super-admin/societies/suspend.test.ts` — 9 cases.
+49. Write `tests/api/super-admin/societies/reactivate.test.ts` — 4 cases.
+50. Write `tests/api/super-admin/societies/offboard.test.ts` — 5 cases.
+51. Write `tests/api/super-admin/societies/status-history.test.ts` — 2 cases.
+52. Create modal/wizard components (`SuspendModal`, `OffboardWizard`, `StatusTimeline`).
+53. Update `/sa/societies/[id]/page.tsx` — replace dropdown with workflow buttons.
+54. Run `npm run test:coverage` — confirm 95%+.
 
 ### Phase 7: Notification Center
 
-31. Create notifications API route (computed alerts).
-32. Create `/sa/notifications/page.tsx`.
-33. Create `src/services/sa-notifications.ts`.
-34. Update `SuperAdminSidebar.tsx` — add Alerts nav item.
+55. Create notifications API route (computed alerts).
+56. Write `tests/api/super-admin/notifications.test.ts` — 7 cases.
+57. Create `/sa/notifications/page.tsx`.
+58. Create `src/services/sa-notifications.ts`.
+59. Update `SuperAdminSidebar.tsx` — add Alerts nav item.
+60. Run `npm run test:coverage` — confirm 95%+.
 
 ### Phase 8: Society Deep-Dive (GOD Mode)
 
-35. **Rewrite `/sa/societies/[id]/page.tsx`** — flat page → tabbed layout (11 tabs).
-36. Create `SocietyTabs.tsx` tab container component.
-37. Create 16 new API routes for society deep-dive (`/api/v1/super-admin/societies/[id]/residents`, `/fees`, `/expenses`, `/events`, `/petitions`, `/reports/[type]`, `/broadcasts`, `/governing-body`, `/migrations`, `/settings`).
-38. Create `src/services/sa-society-deep-dive.ts` client wrappers.
-39. Create 11 tab components:
-    - `OverviewTab.tsx` — enhanced KPIs + subscription + admin team
-    - `ResidentsTab.tsx` — data table + detail drawer (profile, fees, payments, events, petitions)
-    - `FeesTab.tsx` — collection summary + table + payment history
-    - `ExpensesTab.tsx` — summary + category breakdown + expense table
-    - `EventsTab.tsx` — event list + detail drawer (registrations, finances)
-    - `PetitionsTab.tsx` — petition list + detail drawer (signatories, PDF, report download)
-    - `ReportsTab.tsx` — report type/session selector + generate/download
-    - `BroadcastsTab.tsx` — broadcast history table
-    - `GoverningBodyTab.tsx` — designations + members
-    - `MigrationsTab.tsx` — migration batch history
-    - `SettingsTab.tsx` — read-only society config + fee sessions
-40. Test: SA clicks a society → sees all 11 tabs with real data.
+61. Create 16 new API routes for society deep-dive.
+62. Write 13 test files for deep-dive APIs (~40 test cases):
+    - `tests/api/super-admin/societies/[id]/residents.test.ts`
+    - `tests/api/super-admin/societies/[id]/residents/[rid].test.ts`
+    - `tests/api/super-admin/societies/[id]/fees.test.ts`
+    - `tests/api/super-admin/societies/[id]/expenses.test.ts`
+    - `tests/api/super-admin/societies/[id]/events.test.ts`
+    - `tests/api/super-admin/societies/[id]/events/[eid].test.ts`
+    - `tests/api/super-admin/societies/[id]/petitions.test.ts`
+    - `tests/api/super-admin/societies/[id]/petitions/[pid].test.ts`
+    - `tests/api/super-admin/societies/[id]/broadcasts.test.ts`
+    - `tests/api/super-admin/societies/[id]/governing-body.test.ts`
+    - `tests/api/super-admin/societies/[id]/migrations.test.ts`
+    - `tests/api/super-admin/societies/[id]/settings.test.ts`
+    - `tests/api/super-admin/societies/[id]/reports/[type].test.ts`
+63. Create `src/services/sa-society-deep-dive.ts` client wrappers.
+64. **Rewrite `/sa/societies/[id]/page.tsx`** — flat page → tabbed layout (11 tabs).
+65. Create `SocietyTabs.tsx` tab container component.
+66. Create 11 tab components (OverviewTab, ResidentsTab, FeesTab, ExpensesTab, EventsTab, PetitionsTab, ReportsTab, BroadcastsTab, GoverningBodyTab, MigrationsTab, SettingsTab).
+67. Run `npm run test:coverage` — confirm 95%+.
 
 ### Phase 9: Platform-Wide Operational Views
 
-41. Create `/sa/residents/page.tsx` — platform-wide resident directory.
-42. Create `/sa/operations/page.tsx` — operational dashboard.
-43. Create 4 API routes (residents search, operations summary, health scores, activity feed).
-44. Create `SocietyHealthTable.tsx` + `ActivityFeed.tsx` components.
-45. Create `src/services/sa-operations.ts` client wrappers.
-46. Update sidebar — add "Residents" and "Operations" nav items.
+68. Create 4 API routes (residents search, operations summary, health scores, activity feed).
+69. Write 4 test files (~18 test cases):
+    - `tests/api/super-admin/residents.test.ts`
+    - `tests/api/super-admin/operations/summary.test.ts`
+    - `tests/api/super-admin/operations/health.test.ts`
+    - `tests/api/super-admin/operations/activity.test.ts`
+70. Create `src/services/sa-operations.ts` client wrappers.
+71. Create `/sa/residents/page.tsx` + `/sa/operations/page.tsx`.
+72. Create `SocietyHealthTable.tsx` + `ActivityFeed.tsx` components.
+73. Update sidebar — add "Residents" and "Operations" nav items.
+74. Run `npm run test:coverage` — confirm 95%+.
 
 ### Phase 10: Global Search
 
-47. Create `/api/v1/super-admin/search` API route (parallel queries across entities).
-48. Create `GlobalSearchBar.tsx` component (Ctrl+K shortcut, debounced, grouped results).
-49. Create `SearchResults.tsx` dropdown component.
-50. Add search bar to SA layout header.
+75. Create `/api/v1/super-admin/search` API route (parallel queries across entities).
+76. Write `tests/api/super-admin/search.test.ts` — 6 cases.
+77. Create `GlobalSearchBar.tsx` component (Ctrl+K shortcut, debounced, grouped results).
+78. Create `SearchResults.tsx` dropdown component.
+79. Add search bar to SA layout header.
+80. Run `npm run test:coverage` — confirm 95%+.
 
 ### Phase 11: SA-to-Admin Communication
 
-51. Run migration to create `platform_announcements` + `announcement_reads` tables.
-52. Add Prisma models.
-53. Create SA announcement page + API routes (list, create, detail).
-54. Create admin-side API routes (fetch unread, mark read).
-55. Create `AnnouncementBanner.tsx` for admin dashboard.
-56. Add announcement notification badge to admin sidebar.
-57. Create `src/services/announcements.ts` + `src/lib/validations/announcement.ts`.
+81. Run migration to create `platform_announcements` + `announcement_reads` tables.
+82. Add Prisma models. Update `tests/__mocks__/prisma.ts`.
+83. Create SA announcement page + API routes (list, create, detail).
+84. Write `tests/api/super-admin/announcements/route.test.ts` — 7 cases.
+85. Create admin-side API routes (fetch unread, mark read).
+86. Write `tests/api/admin/announcements/route.test.ts` — 4 cases.
+87. Write `tests/api/admin/announcements/[id]/read.test.ts` — 2 cases.
+88. Create `AnnouncementBanner.tsx` for admin dashboard.
+89. Create `src/services/announcements.ts` + `src/lib/validations/announcement.ts`.
+90. Add announcement notification badge to admin sidebar.
+91. Run `npm run test:coverage` — confirm 95%+.
 
 ### Phase 12: Support Requests
 
-58. Run migration to create `service_requests` + `service_request_messages` tables + 3 enums.
-59. Add Prisma models + back-relations on Society, User.
-60. Create Supabase Storage bucket `support-attachments` (private).
-61. Create `src/lib/validations/support.ts` — Zod schemas for request creation, message, status change.
-62. Create `src/services/support.ts` — client fetch wrappers.
-63. Create admin API routes: list, create, detail, post message, reopen, unread count.
-64. Create SA API routes: list, stats, detail, post message/internal note, status change, upload attachment.
-65. Create shared components: `ConversationThread`, `RequestForm`, `StatusBadge`, `PriorityBadge`, `InternalNote`, `StatusTimeline`.
-66. Create admin pages: `/admin/support` (list + create) + `/admin/support/[requestId]` (detail + thread).
-67. Create SA pages: `/sa/support` (queue dashboard + list) + `/sa/support/[requestId]` (detail + actions).
-68. Add "Support" nav item to `AdminSidebar.tsx` with unread badge.
-69. Add "Support" nav item to `SuperAdminSidebar.tsx`.
-70. Create cron route `/api/cron/support-auto-close` — auto-close RESOLVED requests after 7 days.
-71. Add 5 new audit action types for support lifecycle.
-72. Add WhatsApp notification for SA reply and auto-close events.
-73. Test: full flow — admin creates request → SA picks up → exchange messages → SA resolves → auto-close after 7 days.
+92. Run migration to create `service_requests` + `service_request_messages` tables + 3 enums.
+93. Add Prisma models + back-relations. Update `tests/__mocks__/prisma.ts`.
+94. Create Supabase Storage bucket `support-attachments` (private).
+95. Create `src/lib/validations/support.ts` + `src/services/support.ts`.
+96. Create admin API routes: list, create, detail, post message, reopen, unread count.
+97. Write admin-side tests (4 files, ~20 cases):
+    - `tests/api/admin/support/route.test.ts`
+    - `tests/api/admin/support/[id]/messages.test.ts`
+    - `tests/api/admin/support/[id]/reopen.test.ts`
+    - `tests/api/admin/support/unread-count.test.ts`
+98. Create SA API routes: list, stats, detail, post message/internal note, status change, upload attachment.
+99. Write SA-side tests (4 files, ~15 cases):
+    - `tests/api/super-admin/support/route.test.ts`
+    - `tests/api/super-admin/support/stats.test.ts`
+    - `tests/api/super-admin/support/[id]/messages.test.ts`
+    - `tests/api/super-admin/support/[id]/status.test.ts`
+100.  Create cron route `/api/cron/support-auto-close`.
+101.  Write `tests/api/cron/support-auto-close.test.ts` — 4 cases.
+102.  Create shared components: `ConversationThread`, `RequestForm`, `StatusBadge`, `PriorityBadge`, `InternalNote`, `StatusTimeline`.
+103.  Create admin pages: `/admin/support` + `/admin/support/[requestId]`.
+104.  Create SA pages: `/sa/support` + `/sa/support/[requestId]`.
+105.  Add "Support" nav items to both sidebars.
+106.  Add WhatsApp notifications for SA reply and auto-close events.
+107.  Run `npm run test:coverage` — confirm 95%+.
 
 ---
 
@@ -1945,7 +1993,550 @@ const navItems = [
 
 ---
 
-## Verification Scenarios
+## Test Specifications (95% Coverage)
+
+Tests follow the project's existing conventions: Vitest + jsdom, `vi.hoisted()` mocks before imports, `mockPrisma`/`mockSupabaseClient` from `tests/__mocks__/`, React Testing Library for components, `NextRequest` helpers for API routes. Every new feature requires 100% test coverage per `.claude/core_rules.md`.
+
+### Mocking: New Shared Mock — `requireSuperAdmin`
+
+All SA API tests need a hoisted mock for the auth guard. Pattern:
+
+```typescript
+const mockRequireSuperAdmin = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/auth-guard", () => ({ requireSuperAdmin: mockRequireSuperAdmin }));
+
+// In beforeEach — default: authenticated SA
+mockRequireSuperAdmin.mockResolvedValue({
+  data: { superAdminId: "sa-1", authUserId: "auth-sa-1", email: "sa@rwa.com" },
+  error: null,
+});
+
+// For 401/403 tests:
+mockRequireSuperAdmin.mockResolvedValue({
+  data: null,
+  error: new Response(JSON.stringify({ error: { code: "FORBIDDEN" } }), { status: 403 }),
+});
+```
+
+### Phase 1 Tests
+
+#### `tests/lib/auth-guard.test.ts` — Unit tests for `requireSuperAdmin()`
+
+| Test Case                                            | Expected                                                             |
+| ---------------------------------------------------- | -------------------------------------------------------------------- |
+| No Supabase user (not logged in)                     | Returns `{ error: 401 }`                                             |
+| Supabase user exists but not in `super_admins` table | Returns `{ error: 403 }`                                             |
+| Super admin found but `isActive: false`              | Returns `{ error: 403 }`                                             |
+| Active super admin                                   | Returns `{ data: { superAdminId, authUserId, email }, error: null }` |
+
+Mocks: `mockSupabaseClient.auth.getUser()`, `mockPrisma.superAdmin.findUnique()`
+
+#### `tests/api/super-admin/stats.test.ts` — Auth guard integration on existing route
+
+| Test Case                                                      | Expected |
+| -------------------------------------------------------------- | -------- |
+| `requireSuperAdmin()` returns error → route returns that error | 403      |
+| `requireSuperAdmin()` returns SA context → route returns stats | 200      |
+
+Repeat this pattern for 2-3 representative routes to confirm guard is wired:
+
+- `tests/api/super-admin/plans/route.test.ts` (GET + POST)
+- `tests/api/super-admin/discounts/route.test.ts` (GET + POST)
+
+#### `tests/middleware.test.ts` — Add SA timeout cases
+
+| Test Case                                  | Expected                         |
+| ------------------------------------------ | -------------------------------- |
+| `/sa/*` route with expired activity cookie | Redirect to `/super-admin-login` |
+| `/sa/*` route with fresh activity cookie   | Pass through, cookie refreshed   |
+| `/sa/*` route without activity cookie      | Pass through, cookie set         |
+
+### Phase 2 Tests
+
+#### `tests/api/super-admin/plans/route.test.ts` — Verify audit logging on mutations
+
+| Test Case                                                                                         | Expected                    |
+| ------------------------------------------------------------------------------------------------- | --------------------------- |
+| POST creates plan → `logAudit()` called with `SA_PLAN_CREATED`                                    | `logAudit` mock called once |
+| PATCH updates plan → `logAudit()` called with `SA_PLAN_UPDATED`, includes `oldValue` + `newValue` | Correct args                |
+| DELETE archives plan → `logAudit()` called with `SA_PLAN_ARCHIVED`                                | Correct args                |
+| `logAudit` throws → route still returns success (non-blocking)                                    | 200/201                     |
+
+Repeat pattern for:
+
+- `tests/api/super-admin/discounts/route.test.ts`
+- `tests/api/super-admin/billing/payments.test.ts`
+
+### Phase 3 Tests
+
+#### `tests/api/super-admin/settings/profile.test.ts`
+
+| Test Case                                         | Expected |
+| ------------------------------------------------- | -------- |
+| GET → returns SA profile (name, email, createdAt) | 200      |
+| PATCH with valid name → updates SA record         | 200      |
+| PATCH with empty name → validation error          | 422      |
+| PATCH with name > 100 chars → validation error    | 422      |
+| Not SA → 403                                      | 403      |
+
+#### `tests/api/super-admin/settings/change-password.test.ts`
+
+| Test Case                                                     | Expected |
+| ------------------------------------------------------------- | -------- |
+| Valid current + new password → Supabase `updateUser()` called | 200      |
+| Wrong current password → error                                | 400      |
+| New password < 8 chars → validation error                     | 422      |
+| Not SA → 403                                                  | 403      |
+
+#### `tests/api/super-admin/settings/platform-config.test.ts`
+
+| Test Case                                                          | Expected |
+| ------------------------------------------------------------------ | -------- |
+| GET → returns all config key-value pairs                           | 200      |
+| PATCH with valid updates → rows updated, audit logged              | 200      |
+| PATCH with unknown key → ignored or error                          | 400      |
+| PATCH with invalid type (string for number key) → validation error | 422      |
+
+### Phase 4 Tests
+
+#### `tests/api/super-admin/audit-logs/route.test.ts`
+
+| Test Case                                                         | Expected         |
+| ----------------------------------------------------------------- | ---------------- |
+| GET with no filters → returns last 7 days, page 1, limit 50       | 200 + pagination |
+| GET with `?from=...&to=...` → date-filtered results               | 200              |
+| GET with `?societyId=...` → scoped to society                     | 200              |
+| GET with `?actionType=SA_PLAN_CREATED,SA_PLAN_UPDATED` → filtered | 200              |
+| GET with `?page=2&limit=10` → correct offset                      | 200              |
+| Not SA → 403                                                      | 403              |
+
+#### `tests/api/super-admin/audit-logs/export.test.ts`
+
+| Test Case                                         | Expected        |
+| ------------------------------------------------- | --------------- |
+| GET → returns CSV with Content-Disposition header | 200, `text/csv` |
+| Filters applied → CSV contains only matching rows | Correct content |
+
+### Phase 5 Tests
+
+#### `tests/api/super-admin/stats/revenue.test.ts`
+
+| Test Case                                        | Expected            |
+| ------------------------------------------------ | ------------------- |
+| Returns MRR calculated from active subscriptions | 200 + correct MRR   |
+| Returns total revenue this month from payments   | 200 + correct sum   |
+| Returns overdue invoice count                    | 200 + correct count |
+| No active subscriptions → MRR = 0                | 200, `{ mrr: 0 }`   |
+| Not SA → 403                                     | 403                 |
+
+#### `tests/api/super-admin/stats/growth.test.ts`
+
+| Test Case                            | Expected          |
+| ------------------------------------ | ----------------- |
+| Returns 12 monthly data points       | 200 + array of 12 |
+| Months with no societies → count = 0 | Correct zeros     |
+
+#### `tests/api/super-admin/stats/plan-distribution.test.ts`
+
+| Test Case                                           | Expected      |
+| --------------------------------------------------- | ------------- |
+| Returns count per plan for active subscriptions     | 200           |
+| Plans with zero subscriptions included with count 0 | Correct zeros |
+
+### Phase 6 Tests
+
+#### `tests/api/super-admin/societies/suspend.test.ts`
+
+| Test Case                                                                            | Expected                 |
+| ------------------------------------------------------------------------------------ | ------------------------ |
+| Suspend ACTIVE society with reason → status = SUSPENDED, SocietyStatusChange created | 200                      |
+| Suspend with grace period 7 → `gracePeriodEnd` set to now + 7 days                   | Correct date             |
+| Suspend with notify=true → notification sent (mock verified)                         | WhatsApp mock called     |
+| Suspend without reason → validation error                                            | 422                      |
+| Reason < 10 chars → validation error                                                 | 422                      |
+| Suspend already SUSPENDED society → error                                            | 400                      |
+| Suspend OFFBOARDED society → error                                                   | 400                      |
+| Audit logged with `SA_SOCIETY_SUSPENDED`                                             | `logAudit` mock verified |
+| Not SA → 403                                                                         | 403                      |
+
+#### `tests/api/super-admin/societies/reactivate.test.ts`
+
+| Test Case                                      | Expected             |
+| ---------------------------------------------- | -------------------- |
+| Reactivate SUSPENDED society → status = ACTIVE | 200                  |
+| Reactivate non-SUSPENDED society → error       | 400                  |
+| Notification sent to admin                     | WhatsApp mock called |
+| Audit logged                                   | Verified             |
+
+#### `tests/api/super-admin/societies/offboard.test.ts`
+
+| Test Case                                                      | Expected                    |
+| -------------------------------------------------------------- | --------------------------- |
+| Offboard with reason + confirmation code → status = OFFBOARDED | 200                         |
+| Active subscription cancelled                                  | Subscription status updated |
+| Wrong confirmation code → error                                | 400                         |
+| Missing reason → validation error                              | 422                         |
+| Audit logged with `SA_SOCIETY_OFFBOARDED`                      | Verified                    |
+
+#### `tests/api/super-admin/societies/status-history.test.ts`
+
+| Test Case                                                    | Expected  |
+| ------------------------------------------------------------ | --------- |
+| Returns all status changes for society, ordered by date desc | 200       |
+| Empty history → empty array                                  | 200, `[]` |
+
+### Phase 7 Tests
+
+#### `tests/api/super-admin/notifications.test.ts`
+
+| Test Case                                        | Expected       |
+| ------------------------------------------------ | -------------- |
+| Returns trials expiring within 3 days            | Correct subset |
+| Returns expired subscriptions from last 30 days  | Correct subset |
+| Returns overdue invoices                         | Correct subset |
+| Returns recently registered societies (7 days)   | Correct subset |
+| Alerts sorted by priority (HIGH first) then date | Correct order  |
+| No alerts → empty array                          | 200, `[]`      |
+| Not SA → 403                                     | 403            |
+
+### Phase 8 Tests
+
+Each deep-dive API route follows the same pattern: SA auth check + correct data scoping.
+
+#### `tests/api/super-admin/societies/[id]/residents.test.ts`
+
+| Test Case                                   | Expected             |
+| ------------------------------------------- | -------------------- |
+| Returns paginated residents for the society | 200 + pagination     |
+| Filters by status                           | Correct WHERE clause |
+| Search by name/email/phone                  | Correct OR query     |
+| Society not found → 404                     | 404                  |
+| Not SA → 403                                | 403                  |
+
+#### `tests/api/super-admin/societies/[id]/residents/[rid].test.ts`
+
+| Test Case                                                                     | Expected |
+| ----------------------------------------------------------------------------- | -------- |
+| Returns full resident detail (profile + fees + payments + events + petitions) | 200      |
+| Resident not in this society → 404                                            | 404      |
+
+#### `tests/api/super-admin/societies/[id]/fees.test.ts`
+
+| Test Case                                                     | Expected      |
+| ------------------------------------------------------------- | ------------- |
+| Returns fee collection table for current session              | 200           |
+| Session selector filters by fee session year                  | Correct query |
+| Fee summary (total due, collected, rate) calculated correctly | Correct math  |
+
+#### `tests/api/super-admin/societies/[id]/expenses.test.ts`
+
+| Test Case                                            | Expected      |
+| ---------------------------------------------------- | ------------- |
+| Returns paginated expense ledger                     | 200           |
+| Category filter works                                | Correct WHERE |
+| Summary cards (total, balance, top category) correct | Correct math  |
+
+#### `tests/api/super-admin/societies/[id]/events.test.ts`
+
+| Test Case                                   | Expected      |
+| ------------------------------------------- | ------------- |
+| Returns all events with registration counts | 200           |
+| Status filter works                         | Correct WHERE |
+
+#### `tests/api/super-admin/societies/[id]/events/[eid].test.ts`
+
+| Test Case                                                | Expected |
+| -------------------------------------------------------- | -------- |
+| Returns event detail + registrations + financial summary | 200      |
+| Event not in society → 404                               | 404      |
+
+#### `tests/api/super-admin/societies/[id]/petitions.test.ts`
+
+| Test Case                                   | Expected |
+| ------------------------------------------- | -------- |
+| Returns all petitions with signature counts | 200      |
+
+#### `tests/api/super-admin/societies/[id]/petitions/[pid].test.ts`
+
+| Test Case                                              | Expected |
+| ------------------------------------------------------ | -------- |
+| Returns petition detail + signatories with signed URLs | 200      |
+
+#### `tests/api/super-admin/societies/[id]/broadcasts.test.ts`
+
+| Test Case                                      | Expected |
+| ---------------------------------------------- | -------- |
+| Returns broadcast history with message content | 200      |
+
+#### `tests/api/super-admin/societies/[id]/governing-body.test.ts`
+
+| Test Case                               | Expected |
+| --------------------------------------- | -------- |
+| Returns designations + assigned members | 200      |
+
+#### `tests/api/super-admin/societies/[id]/migrations.test.ts`
+
+| Test Case                       | Expected |
+| ------------------------------- | -------- |
+| Returns migration batch history | 200      |
+
+#### `tests/api/super-admin/societies/[id]/settings.test.ts`
+
+| Test Case                                  | Expected |
+| ------------------------------------------ | -------- |
+| Returns full society config + fee sessions | 200      |
+
+#### `tests/api/super-admin/societies/[id]/reports/[type].test.ts`
+
+| Test Case                                           | Expected                  |
+| --------------------------------------------------- | ------------------------- |
+| Generates fee-collection report → returns PDF       | 200, `application/pdf`    |
+| Generates resident-directory report → returns Excel | 200, `application/vnd...` |
+| Invalid report type → 400                           | 400                       |
+
+### Phase 9 Tests
+
+#### `tests/api/super-admin/residents.test.ts`
+
+| Test Case                                                         | Expected         |
+| ----------------------------------------------------------------- | ---------------- |
+| Cross-society search by name → returns matches from all societies | 200              |
+| Filter by society → scoped results                                | Correct WHERE    |
+| Filter by status → correct subset                                 | Correct WHERE    |
+| Search by phone number → matches across societies                 | Correct OR query |
+| Pagination works (page 2, limit 50)                               | Correct offset   |
+
+#### `tests/api/super-admin/operations/summary.test.ts`
+
+| Test Case                                                                             | Expected      |
+| ------------------------------------------------------------------------------------- | ------------- |
+| Returns platform KPIs (total residents, collection rate, expenses, events, petitions) | 200           |
+| Zero societies → all KPIs = 0                                                         | Correct zeros |
+
+#### `tests/api/super-admin/operations/health.test.ts`
+
+| Test Case                                                                    | Expected      |
+| ---------------------------------------------------------------------------- | ------------- |
+| Returns health score per society                                             | 200 + array   |
+| Health score calculation: 100% collection, active admin, growth = high score | ≥ 80          |
+| Health score: 0% collection, inactive admin, no growth = low score           | ≤ 50          |
+| Sorted by health score descending                                            | Correct order |
+
+#### `tests/api/super-admin/operations/activity.test.ts`
+
+| Test Case                                      | Expected      |
+| ---------------------------------------------- | ------------- |
+| Returns recent notable events across societies | 200           |
+| Events sorted by date descending               | Correct order |
+
+### Phase 10 Tests
+
+#### `tests/api/super-admin/search.test.ts`
+
+| Test Case                                             | Expected              |
+| ----------------------------------------------------- | --------------------- |
+| Search "Eden" → returns society + residents matching  | Grouped results       |
+| Search by phone "9876" → returns matching residents   | Correct matches       |
+| Search by reference number → returns matching payment | Correct match         |
+| Empty query → empty results                           | 200, all empty arrays |
+| Max 5 results per category                            | No category exceeds 5 |
+| Not SA → 403                                          | 403                   |
+
+### Phase 11 Tests
+
+#### `tests/api/super-admin/announcements/route.test.ts`
+
+| Test Case                                               | Expected                  |
+| ------------------------------------------------------- | ------------------------- |
+| POST creates announcement (ALL scope)                   | 201                       |
+| POST creates targeted announcement (specific societies) | 201, `societyIds` stored  |
+| POST with URGENT priority                               | 201, `priority: "URGENT"` |
+| Subject too short (< 5 chars) → validation error        | 422                       |
+| Body too short (< 10 chars) → validation error          | 422                       |
+| GET lists all announcements, newest first               | 200                       |
+| Not SA → 403                                            | 403                       |
+
+#### `tests/api/admin/announcements/route.test.ts`
+
+| Test Case                                                  | Expected |
+| ---------------------------------------------------------- | -------- |
+| GET returns unread announcements for admin's society       | 200      |
+| Targeted announcement for different society → not returned | Excluded |
+| All-scope announcement → returned                          | Included |
+| Already-read announcements excluded from unread list       | Excluded |
+
+#### `tests/api/admin/announcements/[id]/read.test.ts`
+
+| Test Case                          | Expected                        |
+| ---------------------------------- | ------------------------------- |
+| POST marks announcement as read    | 200, `AnnouncementRead` created |
+| POST twice (idempotent) → no error | 200                             |
+
+### Phase 12 Tests
+
+#### `tests/api/admin/support/route.test.ts`
+
+| Test Case                                                   | Expected      |
+| ----------------------------------------------------------- | ------------- |
+| POST creates request → status OPEN, auto-incremented number | 201           |
+| POST with all fields (type, priority, subject, description) | 201           |
+| POST missing subject → validation error                     | 422           |
+| POST description < 20 chars → validation error              | 422           |
+| GET lists only this society's requests                      | 200, scoped   |
+| GET with status filter                                      | Correct WHERE |
+| Both FULL_ACCESS and READ_NOTIFY admins can create          | 201 for both  |
+| Not admin → 401                                             | 401           |
+
+#### `tests/api/admin/support/[id]/messages.test.ts`
+
+| Test Case                                                 | Expected |
+| --------------------------------------------------------- | -------- |
+| POST adds message to request → status becomes AWAITING_SA | 201      |
+| POST to CLOSED request → error                            | 400      |
+| POST with attachment (valid file) → stored in Supabase    | 201      |
+| POST with attachment > 5MB → error                        | 400      |
+| POST with > 3 attachments → error                         | 400      |
+
+#### `tests/api/admin/support/[id]/reopen.test.ts`
+
+| Test Case                                           | Expected |
+| --------------------------------------------------- | -------- |
+| Reopen RESOLVED request within 7 days → status OPEN | 200      |
+| Reopen RESOLVED request after 7 days → error        | 400      |
+| Reopen non-RESOLVED request → error                 | 400      |
+
+#### `tests/api/admin/support/unread-count.test.ts`
+
+| Test Case                                                           | Expected            |
+| ------------------------------------------------------------------- | ------------------- |
+| Returns count of requests with new SA replies since last admin view | 200, `{ count: N }` |
+
+#### `tests/api/super-admin/support/route.test.ts`
+
+| Test Case                                        | Expected      |
+| ------------------------------------------------ | ------------- |
+| GET lists ALL requests across societies          | 200           |
+| Filter by society, status, type, priority        | Correct WHERE |
+| Sorted by priority (URGENT first) then updatedAt | Correct order |
+| Not SA → 403                                     | 403           |
+
+#### `tests/api/super-admin/support/stats.test.ts`
+
+| Test Case                                                           | Expected      |
+| ------------------------------------------------------------------- | ------------- |
+| Returns correct counts: open, in_progress, awaiting_sa, resolved_7d | 200           |
+| Avg resolution time calculated from last 30 days                    | Correct math  |
+| Zero requests → all counts 0, avg = null                            | Correct zeros |
+
+#### `tests/api/super-admin/support/[id]/messages.test.ts`
+
+| Test Case                                                  | Expected |
+| ---------------------------------------------------------- | -------- |
+| POST reply → status becomes AWAITING_ADMIN                 | 201      |
+| POST internal note (`isInternal: true`) → status unchanged | 201      |
+| Internal note NOT returned in admin API response           | Verified |
+
+#### `tests/api/super-admin/support/[id]/status.test.ts`
+
+| Test Case                                         | Expected                      |
+| ------------------------------------------------- | ----------------------------- |
+| PATCH status to IN_PROGRESS (pick up)             | 200                           |
+| PATCH status to RESOLVED → `resolvedAt` set       | 200                           |
+| PATCH status to CLOSED → requires reason          | 200 with reason / 422 without |
+| Invalid status transition (CLOSED → OPEN) → error | 400                           |
+| Audit logged on status change                     | `logAudit` verified           |
+
+#### `tests/api/cron/support-auto-close.test.ts`
+
+| Test Case                                                        | Expected           |
+| ---------------------------------------------------------------- | ------------------ |
+| RESOLVED requests older than 7 days → set to CLOSED              | Updated            |
+| RESOLVED requests younger than 7 days → untouched                | Not updated        |
+| Cron secret required                                             | 401 without secret |
+| WhatsApp notification sent to admin for each auto-closed request | Mock verified      |
+
+### Test File Summary
+
+| Phase     | Test Files                      | Test Cases (approx) |
+| --------- | ------------------------------- | ------------------- |
+| 1         | 4 files                         | ~20                 |
+| 2         | 3 files (additions to existing) | ~15                 |
+| 3         | 3 files                         | ~15                 |
+| 4         | 2 files                         | ~12                 |
+| 5         | 3 files                         | ~12                 |
+| 6         | 4 files                         | ~25                 |
+| 7         | 1 file                          | ~8                  |
+| 8         | 13 files                        | ~40                 |
+| 9         | 4 files                         | ~18                 |
+| 10        | 1 file                          | ~8                  |
+| 11        | 3 files                         | ~12                 |
+| 12        | 8 files                         | ~35                 |
+| **Total** | **~49 test files**              | **~220 test cases** |
+
+### Mock Updates Required
+
+Add to `tests/__mocks__/prisma.ts`:
+
+```typescript
+// Phase 1
+superAdmin: {
+  findUnique: vi.fn(),
+  findFirst: vi.fn(),
+  update: vi.fn(),
+},
+// Phase 3
+platformConfig: {
+  findMany: vi.fn(),
+  upsert: vi.fn(),
+},
+// Phase 6
+societyStatusChange: {
+  create: vi.fn(),
+  findMany: vi.fn(),
+},
+// Phase 11
+platformAnnouncement: {
+  create: vi.fn(),
+  findMany: vi.fn(),
+  findUnique: vi.fn(),
+},
+announcementRead: {
+  create: vi.fn(),
+  findFirst: vi.fn(),
+  count: vi.fn(),
+},
+// Phase 12
+serviceRequest: {
+  create: vi.fn(),
+  findMany: vi.fn(),
+  findUnique: vi.fn(),
+  update: vi.fn(),
+  count: vi.fn(),
+},
+serviceRequestMessage: {
+  create: vi.fn(),
+  findMany: vi.fn(),
+},
+```
+
+### Coverage Configuration Update
+
+Add new source paths to `vitest.config.ts` coverage `include`:
+
+```typescript
+include: [
+  // ... existing paths ...
+  "src/lib/auth-guard.ts",          // Phase 1
+  "src/app/api/v1/super-admin/**",  // All SA API routes
+  "src/app/api/v1/admin/support/**",// Phase 12 admin support
+  "src/app/api/v1/admin/announcements/**", // Phase 11 admin announcements
+  "src/app/api/cron/support-auto-close/**", // Phase 12 cron
+],
+```
+
+---
+
+## Verification Scenarios (Manual / E2E)
 
 ### Phase 1: API Authorization
 

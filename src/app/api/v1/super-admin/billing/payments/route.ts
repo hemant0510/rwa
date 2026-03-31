@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { Prisma } from "@prisma/client";
 
 import { internalError, successResponse } from "@/lib/api-helpers";
+import { requireSuperAdmin } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 
 function isMissingTableError(error: unknown) {
@@ -15,6 +16,9 @@ function isMissingTableError(error: unknown) {
 // GET /api/v1/super-admin/billing/payments
 // Lists all subscription payments across all societies
 export async function GET(request: NextRequest) {
+  const auth = await requireSuperAdmin();
+  if (auth.error) return auth.error;
+
   try {
     const { searchParams } = new URL(request.url);
     const page = Math.max(1, Number(searchParams.get("page") || 1));

@@ -1,11 +1,15 @@
 import { NextRequest } from "next/server";
 
 import { internalError, parseBody, successResponse } from "@/lib/api-helpers";
+import { requireSuperAdmin } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { createDiscountSchema } from "@/lib/validations/discount";
 
 // GET /api/v1/super-admin/discounts
 export async function GET() {
+  const auth = await requireSuperAdmin();
+  if (auth.error) return auth.error;
+
   try {
     const discounts = await prisma.planDiscount.findMany({
       orderBy: { createdAt: "desc" },
@@ -28,6 +32,9 @@ export async function GET() {
 
 // POST /api/v1/super-admin/discounts
 export async function POST(request: NextRequest) {
+  const auth = await requireSuperAdmin();
+  if (auth.error) return auth.error;
+
   try {
     const { data, error } = await parseBody(request, createDiscountSchema);
     if (error) return error;
