@@ -10,6 +10,7 @@ import {
   FileSignature,
   FileText,
   LayoutDashboard,
+  LifeBuoy,
   MessageSquare,
   Receipt,
   Settings,
@@ -31,6 +32,7 @@ const navItems = [
   { href: "/admin/broadcast", label: "Broadcast", icon: MessageSquare },
   { href: "/admin/governing-body", label: "Governing Body", icon: Crown },
   { href: "/admin/migration", label: "Migration", icon: Upload },
+  { href: "/admin/support", label: "Support", icon: LifeBuoy },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 

@@ -9,6 +9,8 @@ import {
   Building2,
   LayoutDashboard,
   Layers,
+  LifeBuoy,
+  Megaphone,
   ReceiptIndianRupee,
   ScrollText,
   Settings,
@@ -28,6 +30,8 @@ const navItems = [
   { href: "/sa/discounts", label: "Discounts", icon: Tag },
   { href: "/sa/residents", label: "Residents", icon: Users },
   { href: "/sa/operations", label: "Operations", icon: Activity },
+  { href: "/sa/announcements", label: "Announcements", icon: Megaphone },
+  { href: "/sa/support", label: "Support", icon: LifeBuoy },
   { href: "/sa/audit-logs", label: "Audit Logs", icon: ScrollText },
   { href: "/sa/settings", label: "Settings", icon: Settings },
 ];
