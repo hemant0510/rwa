@@ -75,6 +75,8 @@ export default defineConfig({
         "src/app/api/v1/super-admin/residents/**",
         "src/app/api/v1/super-admin/operations/**",
         "src/app/api/v1/super-admin/search/**",
+        "src/app/api/v1/super-admin/announcements/**",
+        "src/app/api/v1/admin/announcements/**",
       ],
       exclude: [
         "src/lib/prisma.ts",

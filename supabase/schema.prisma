@@ -437,6 +437,7 @@ model User {
   eventPaymentsRecorded    EventPayment[]        @relation("EventPaymentsRecorded")
   petitionsCreated         Petition[]            @relation("PetitionCreatedBy")
   petitionSignatures       PetitionSignature[]   @relation("PetitionSignatures")
+  announcementReads        AnnouncementRead[]
 
   @@unique([societyId, email])
   @@map("users")
@@ -1389,4 +1390,35 @@ model SocietyStatusChange {
 
   @@index([societyId])
   @@map("society_status_changes")
+}
+
+/// Platform announcements from super admin to society admins.
+model PlatformAnnouncement {
+  id         String   @id @default(uuid()) @db.Uuid
+  subject    String   @db.VarChar(200)
+  body       String   @db.Text
+  priority   String   @default("NORMAL") @db.VarChar(10)
+  scope      String   @default("ALL") @db.VarChar(10)
+  societyIds String[] @map("society_ids") @db.Uuid
+  sentVia    String[] @map("sent_via")
+  createdBy  String   @map("created_by") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  reads AnnouncementRead[]
+
+  @@map("platform_announcements")
+}
+
+/// Tracks which users have read which announcements.
+model AnnouncementRead {
+  id             String   @id @default(uuid()) @db.Uuid
+  announcementId String   @map("announcement_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  readAt         DateTime @default(now()) @map("read_at")
+
+  announcement PlatformAnnouncement @relation(fields: [announcementId], references: [id])
+  user         User                 @relation(fields: [userId], references: [id])
+
+  @@unique([announcementId, userId])
+  @@map("announcement_reads")
 }

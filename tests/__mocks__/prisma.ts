@@ -169,6 +169,19 @@ export const mockPrisma = {
     create: vi.fn(),
     findMany: vi.fn(),
   },
+  platformAnnouncement: {
+    findUnique: vi.fn(),
+    findMany: vi.fn(),
+    create: vi.fn(),
+    count: vi.fn(),
+  },
+  announcementRead: {
+    findUnique: vi.fn(),
+    findMany: vi.fn(),
+    create: vi.fn(),
+    upsert: vi.fn(),
+    count: vi.fn(),
+  },
   subscriptionInvoice: {
     findMany: vi.fn(),
     findFirst: vi.fn(),
