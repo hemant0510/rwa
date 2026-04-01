@@ -39,12 +39,14 @@ export const mockPrisma = {
     update: vi.fn(),
     updateMany: vi.fn(),
     deleteMany: vi.fn(),
+    aggregate: vi.fn(),
   },
   feePayment: {
     findMany: vi.fn(),
     create: vi.fn(),
     deleteMany: vi.fn(),
     updateMany: vi.fn(),
+    aggregate: vi.fn(),
   },
   auditLog: {
     create: vi.fn(),
@@ -99,10 +101,25 @@ export const mockPrisma = {
     deleteMany: vi.fn(),
     updateMany: vi.fn(),
   },
+  communityEvent: {
+    findMany: vi.fn(),
+    findUnique: vi.fn(),
+    count: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+  },
+  petition: {
+    findMany: vi.fn(),
+    findUnique: vi.fn(),
+    count: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+  },
   broadcast: {
     findMany: vi.fn(),
     create: vi.fn(),
     deleteMany: vi.fn(),
+    count: vi.fn(),
   },
   adminTerm: {
     findFirst: vi.fn(),

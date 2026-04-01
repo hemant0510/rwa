@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import {
+  Activity,
   Bell,
   Building2,
   LayoutDashboard,
@@ -12,6 +13,7 @@ import {
   ScrollText,
   Settings,
   Tag,
+  Users,
 } from "lucide-react";
 
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -24,6 +26,8 @@ const navItems = [
   { href: "/sa/billing", label: "Billing", icon: ReceiptIndianRupee },
   { href: "/sa/plans", label: "Plans", icon: Layers },
   { href: "/sa/discounts", label: "Discounts", icon: Tag },
+  { href: "/sa/residents", label: "Residents", icon: Users },
+  { href: "/sa/operations", label: "Operations", icon: Activity },
   { href: "/sa/audit-logs", label: "Audit Logs", icon: ScrollText },
   { href: "/sa/settings", label: "Settings", icon: Settings },
 ];
