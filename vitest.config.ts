@@ -76,7 +76,10 @@ export default defineConfig({
         "src/app/api/v1/super-admin/operations/**",
         "src/app/api/v1/super-admin/search/**",
         "src/app/api/v1/super-admin/announcements/**",
+        "src/app/api/v1/super-admin/support/**",
         "src/app/api/v1/admin/announcements/**",
+        "src/app/api/v1/admin/support/**",
+        "src/app/api/cron/support-auto-close/**",
       ],
       exclude: [
         "src/lib/prisma.ts",

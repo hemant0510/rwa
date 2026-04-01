@@ -351,6 +351,7 @@ model Society {
   petitions                Petition[]
   petitionSignatures       PetitionSignature[]
   statusChanges            SocietyStatusChange[]
+  serviceRequests          ServiceRequest[]
 
   @@map("societies")
 }
@@ -438,6 +439,7 @@ model User {
   petitionsCreated         Petition[]            @relation("PetitionCreatedBy")
   petitionSignatures       PetitionSignature[]   @relation("PetitionSignatures")
   announcementReads        AnnouncementRead[]
+  serviceRequestsCreated   ServiceRequest[]      @relation("ServiceRequestCreatedBy")
 
   @@unique([societyId, email])
   @@map("users")
@@ -1421,4 +1423,78 @@ model AnnouncementRead {
 
   @@unique([announcementId, userId])
   @@map("announcement_reads")
+}
+
+/// Support request types.
+enum ServiceRequestType {
+  BUG_REPORT
+  FEATURE_REQUEST
+  BILLING_INQUIRY
+  TECHNICAL_SUPPORT
+  ACCOUNT_ISSUE
+  DATA_REQUEST
+  COMPLIANCE
+  OTHER
+}
+
+/// Support request priority levels.
+enum ServiceRequestPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+/// Support request lifecycle statuses.
+enum ServiceRequestStatus {
+  OPEN
+  IN_PROGRESS
+  AWAITING_ADMIN
+  AWAITING_SA
+  RESOLVED
+  CLOSED
+}
+
+/// Service requests from society admins to super admin.
+model ServiceRequest {
+  id            String                 @id @default(uuid()) @db.Uuid
+  societyId     String                 @map("society_id") @db.Uuid
+  requestNumber Int                    @unique @default(autoincrement()) @map("request_number")
+  type          ServiceRequestType
+  priority      ServiceRequestPriority @default(MEDIUM)
+  status        ServiceRequestStatus   @default(OPEN)
+  subject       String                 @db.VarChar(200)
+  description   String                 @db.Text
+  createdBy     String                 @map("created_by") @db.Uuid
+  resolvedAt    DateTime?              @map("resolved_at")
+  closedAt      DateTime?              @map("closed_at")
+  closedReason  String?                @map("closed_reason") @db.Text
+  createdAt     DateTime               @default(now()) @map("created_at")
+  updatedAt     DateTime               @updatedAt @map("updated_at")
+
+  society       Society                @relation(fields: [societyId], references: [id])
+  createdByUser User                   @relation("ServiceRequestCreatedBy", fields: [createdBy], references: [id])
+  messages      ServiceRequestMessage[]
+
+  @@index([societyId])
+  @@index([status])
+  @@index([priority, updatedAt(sort: Desc)])
+  @@map("service_requests")
+}
+
+/// Messages on service requests (conversation thread).
+model ServiceRequestMessage {
+  id          String   @id @default(uuid()) @db.Uuid
+  requestId   String   @map("request_id") @db.Uuid
+  authorId    String   @map("author_id") @db.Uuid
+  authorRole  String   @map("author_role") @db.VarChar(20)
+  content     String   @db.Text
+  isInternal  Boolean  @default(false) @map("is_internal")
+  attachments String[] @default([])
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  request ServiceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId, createdAt])
+  @@map("service_request_messages")
 }
