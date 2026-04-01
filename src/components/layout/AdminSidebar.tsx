@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { useQuery } from "@tanstack/react-query";
 import {
+  Bell,
   Calendar,
   CreditCard,
   Crown,
@@ -20,6 +22,7 @@ import {
 
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { getUnreadAnnouncements } from "@/services/announcements";
 
 const navItems = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -33,6 +36,7 @@ const navItems = [
   { href: "/admin/governing-body", label: "Governing Body", icon: Crown },
   { href: "/admin/migration", label: "Migration", icon: Upload },
   { href: "/admin/support", label: "Support", icon: LifeBuoy },
+  { href: "/admin/announcements", label: "Announcements", icon: Bell },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
@@ -46,6 +50,14 @@ function SidebarContent({
   const pathname = usePathname();
   const qs = queryString || "";
 
+  const { data: announcements = [] } = useQuery({
+    queryKey: ["admin-announcements"],
+    queryFn: getUnreadAnnouncements,
+    staleTime: 60_000,
+  });
+
+  const unreadCount = announcements.length;
+
   return (
     <div className="flex h-full flex-col">
       <div className="border-b px-6 py-4">
@@ -55,6 +67,7 @@ function SidebarContent({
       <nav className="flex-1 space-y-1 p-3">
         {navItems.map((item) => {
           const isActive = pathname?.includes(item.href);
+          const isAnnouncements = item.href === "/admin/announcements";
           return (
             <Link
               key={item.href}
@@ -67,7 +80,17 @@ function SidebarContent({
               )}
             >
               <item.icon className="h-4 w-4" />
-              {item.label}
+              <span className="flex-1">{item.label}</span>
+              {isAnnouncements && unreadCount > 0 && (
+                <span
+                  className={cn(
+                    "rounded-full px-1.5 py-0.5 text-xs leading-none font-semibold",
+                    isActive ? "bg-primary-foreground text-primary" : "bg-red-500 text-white",
+                  )}
+                >
+                  {unreadCount}
+                </span>
+              )}
             </Link>
           );
         })}

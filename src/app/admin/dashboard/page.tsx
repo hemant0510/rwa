@@ -10,11 +10,13 @@ import {
   CreditCard,
   Clock,
   IndianRupee,
+  Megaphone,
   TrendingUp,
   AlertTriangle,
   Link2,
   Copy,
   Check,
+  X,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -24,6 +26,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Progress } from "@/components/ui/progress";
 import { useSocietyId } from "@/hooks/useSocietyId";
 import { APP_URL } from "@/lib/constants";
+import { getUnreadAnnouncements } from "@/services/announcements";
 import { getExpenseSummary } from "@/services/expenses";
 import { getFeeDashboard } from "@/services/fees";
 import { getResidents } from "@/services/residents";
@@ -31,6 +34,14 @@ import { getResidents } from "@/services/residents";
 export default function AdminDashboardPage() {
   const { societyId, societyCode, saQueryString } = useSocietyId();
   const [copied, setCopied] = useState(false);
+  const [dismissedIds, setDismissedIds] = useState<string[]>([]);
+
+  const { data: announcements = [] } = useQuery({
+    queryKey: ["admin-announcements"],
+    queryFn: getUnreadAnnouncements,
+  });
+
+  const visibleAnnouncements = announcements.filter((a) => !dismissedIds.includes(a.id));
   const registrationUrl = societyCode ? `${APP_URL}/register/${societyCode}` : null;
 
   const { data: residents, isLoading: loadingResidents } = useQuery({
@@ -62,6 +73,30 @@ export default function AdminDashboardPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Dashboard" description="Overview of your society" />
+
+      {/* Platform Announcement Banners */}
+      {visibleAnnouncements.map((ann) => (
+        <div
+          key={ann.id}
+          className={`flex items-start gap-3 rounded-lg border p-4 ${
+            ann.priority === "URGENT"
+              ? "border-red-200 bg-red-50 text-red-900 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200"
+              : "border-blue-200 bg-blue-50 text-blue-900 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-200"
+          }`}
+        >
+          <Megaphone className="mt-0.5 h-4 w-4 shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold">{ann.subject}</p>
+            <p className="mt-0.5 text-sm opacity-90">{ann.body}</p>
+          </div>
+          <button
+            className="shrink-0 opacity-60 hover:opacity-100"
+            onClick={() => setDismissedIds((prev) => [...prev, ann.id])}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      ))}
 
       {registrationUrl && (
         <Card>
