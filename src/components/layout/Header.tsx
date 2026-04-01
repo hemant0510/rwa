@@ -20,6 +20,7 @@ interface HeaderProps {
   onSignOut?: () => void;
   showMenuButton?: boolean;
   societySwitcher?: React.ReactNode;
+  searchBar?: React.ReactNode;
 }
 
 export function Header({
@@ -30,6 +31,7 @@ export function Header({
   onSignOut,
   showMenuButton,
   societySwitcher,
+  searchBar,
 }: HeaderProps) {
   const initials = userName
     .split(" ")
@@ -56,6 +58,7 @@ export function Header({
             )}
           </div>
         </div>
+        {searchBar && <div className="mx-4 hidden flex-1 md:block">{searchBar}</div>}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-9 w-9 rounded-full">

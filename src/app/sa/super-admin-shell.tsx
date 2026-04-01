@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { toast } from "sonner";
 
+import { GlobalSearchBar } from "@/components/features/sa-search/GlobalSearchBar";
 import { Header } from "@/components/layout/Header";
 import { SuperAdminSidebar, SuperAdminMobileSidebar } from "@/components/layout/SuperAdminSidebar";
 import { useAuth } from "@/hooks/useAuth";
@@ -38,6 +39,7 @@ export function SuperAdminShell({ children }: { children: React.ReactNode }) {
           showMenuButton
           onMenuToggle={() => setSidebarOpen(true)}
           onSignOut={signOut}
+          searchBar={<GlobalSearchBar />}
         />
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
       </div>
