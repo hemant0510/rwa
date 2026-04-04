@@ -23,6 +23,9 @@ export const mockStorageBucket = {
     data: { signedUrl: "https://example.com/signed-url" },
     error: null,
   }),
+  getPublicUrl: vi.fn().mockReturnValue({
+    data: { publicUrl: "https://example.com/public-url" },
+  }),
 };
 
 export const mockSupabaseAdmin = {
