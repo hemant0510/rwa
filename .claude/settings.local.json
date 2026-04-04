@@ -1,5 +1,9 @@
 {
   "permissions": {
-    "allow": ["Bash(xargs grep:*)", "Bash(d:/PROJECTS/EDEN/CODE/rwa/supabase/schema.prisma:*)"]
+    "allow": [
+      "Bash(xargs grep:*)",
+      "Bash(d:/PROJECTS/EDEN/CODE/rwa/supabase/schema.prisma:*)",
+      "Bash(/dev/null ls:*)"
+    ]
   }
 }
