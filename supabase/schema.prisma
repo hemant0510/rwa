@@ -88,6 +88,7 @@ enum PaymentMode {
   UPI
   BANK_TRANSFER
   OTHER
+  UPI_CLAIM // fee_payment created from admin-verified resident UPI claim
 }
 
 enum ExpenseStatus {
@@ -318,6 +319,11 @@ model Society {
 
   emailVerificationRequired Boolean      @default(true) @map("email_verification_required")
 
+  // UPI payment setup fields
+  upiId                    String?            @map("upi_id") @db.VarChar(100)
+  upiQrUrl                 String?            @map("upi_qr_url") @db.VarChar(500)
+  upiAccountName           String?            @map("upi_account_name") @db.VarChar(200)
+
   // Relations to all child models
   users                    User[]
   units                    Unit[]
@@ -352,6 +358,8 @@ model Society {
   petitionSignatures       PetitionSignature[]
   statusChanges            SocietyStatusChange[]
   serviceRequests          ServiceRequest[]
+  paymentClaims            PaymentClaim[]
+  subscriptionPaymentClaims SubscriptionPaymentClaim[]
 
   @@map("societies")
 }
@@ -440,6 +448,8 @@ model User {
   petitionSignatures       PetitionSignature[]   @relation("PetitionSignatures")
   announcementReads        AnnouncementRead[]
   serviceRequestsCreated   ServiceRequest[]      @relation("ServiceRequestCreatedBy")
+  paymentClaims            PaymentClaim[]
+  claimsVerified           PaymentClaim[]        @relation("ClaimVerifier")
 
   @@unique([societyId, email])
   @@map("users")
@@ -579,6 +589,7 @@ model MembershipFee {
   society           Society    @relation(fields: [societyId], references: [id])
   exemptedByUser    User?      @relation("FeeExemptedBy", fields: [exemptedBy], references: [id])
   feePayments       FeePayment[]
+  paymentClaims     PaymentClaim[]
 
   @@unique([userId, sessionYear])
   @@map("membership_fees")
@@ -603,14 +614,16 @@ model FeePayment {
   reversalReason       String?      @map("reversal_reason")
   isReversed           Boolean      @default(false) @map("is_reversed")
   correctionWindowEnds DateTime?    @map("correction_window_ends")
+  paymentClaimId       String?      @map("payment_claim_id") @db.Uuid
   createdAt            DateTime     @default(now()) @map("created_at")
 
-  fee                  MembershipFee @relation(fields: [feeId], references: [id])
-  user                 User          @relation("FeePaymentUser", fields: [userId], references: [id])
-  society              Society       @relation(fields: [societyId], references: [id])
-  recorder             User          @relation("FeePaymentRecordedBy", fields: [recordedBy], references: [id])
-  originalPayment      FeePayment?   @relation("PaymentReversal", fields: [reversalOf], references: [id])
-  reversals            FeePayment[]  @relation("PaymentReversal")
+  fee                  MembershipFee  @relation(fields: [feeId], references: [id])
+  user                 User           @relation("FeePaymentUser", fields: [userId], references: [id])
+  society              Society        @relation(fields: [societyId], references: [id])
+  recorder             User           @relation("FeePaymentRecordedBy", fields: [recordedBy], references: [id])
+  originalPayment      FeePayment?    @relation("PaymentReversal", fields: [reversalOf], references: [id])
+  reversals            FeePayment[]   @relation("PaymentReversal")
+  paymentClaim         PaymentClaim?  @relation(fields: [paymentClaimId], references: [id])
 
   @@map("fee_payments")
 }
@@ -1123,9 +1136,10 @@ model SocietySubscription {
   plan          PlatformPlan?      @relation(fields: [planId], references: [id])
   billingOption PlanBillingOption? @relation(fields: [billingOptionId], references: [id])
   discount      PlanDiscount?      @relation(fields: [discountId], references: [id])
-  history       SocietySubscriptionHistory[]
-  payments      SubscriptionPayment[]
-  invoices      SubscriptionInvoice[]
+  history                   SocietySubscriptionHistory[]
+  payments                  SubscriptionPayment[]
+  invoices                  SubscriptionInvoice[]
+  subscriptionPaymentClaims SubscriptionPaymentClaim[]
 
   @@map("society_subscriptions")
 }
@@ -1497,4 +1511,72 @@ model ServiceRequestMessage {
 
   @@index([requestId, createdAt])
   @@map("service_request_messages")
+}
+
+// ═══════════════════════════════════════════════════
+// PAYMENT CLAIMS (UPI QR Flow)
+// ═══════════════════════════════════════════════════
+
+/// PaymentClaim — resident-submitted UPI payment claim awaiting admin verification.
+model PaymentClaim {
+  id              String    @id @default(uuid()) @db.Uuid
+  societyId       String    @map("society_id") @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  membershipFeeId String    @map("membership_fee_id") @db.Uuid
+  claimedAmount   Decimal   @map("claimed_amount") @db.Decimal(10, 2)
+  utrNumber       String    @map("utr_number") @db.VarChar(50)
+  paymentDate     DateTime  @map("payment_date") @db.Date
+  screenshotUrl   String?   @map("screenshot_url") @db.VarChar(500)
+  status          String    @default("PENDING") @db.VarChar(20)
+  verifiedBy      String?   @map("verified_by") @db.Uuid
+  verifiedAt      DateTime? @map("verified_at")
+  rejectionReason String?   @map("rejection_reason")
+  adminNotes      String?   @map("admin_notes")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  society       Society       @relation(fields: [societyId], references: [id])
+  user          User          @relation(fields: [userId], references: [id])
+  membershipFee MembershipFee @relation(fields: [membershipFeeId], references: [id])
+  verifier      User?         @relation("ClaimVerifier", fields: [verifiedBy], references: [id])
+  // Back-relation only — FK lives on FeePayment.paymentClaimId
+  feePayments   FeePayment[]
+
+  @@unique([utrNumber, societyId])
+  @@map("payment_claims")
+}
+
+/// SubscriptionPaymentClaim — admin-submitted UPI subscription payment claim awaiting SA verification.
+model SubscriptionPaymentClaim {
+  id              String    @id @default(uuid()) @db.Uuid
+  societyId       String    @map("society_id") @db.Uuid
+  subscriptionId  String    @map("subscription_id") @db.Uuid
+  amount          Decimal   @db.Decimal(10, 2)
+  utrNumber       String    @map("utr_number") @db.VarChar(50)
+  paymentDate     DateTime  @map("payment_date") @db.Date
+  screenshotUrl   String?   @map("screenshot_url") @db.VarChar(500)
+  status          String    @default("PENDING") @db.VarChar(20)
+  verifiedBy      String?   @map("verified_by") @db.VarChar(100)
+  verifiedAt      DateTime? @map("verified_at")
+  rejectionReason String?   @map("rejection_reason")
+  periodStart     DateTime? @map("period_start") @db.Date
+  periodEnd       DateTime? @map("period_end") @db.Date
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  society      Society             @relation(fields: [societyId], references: [id])
+  subscription SocietySubscription @relation(fields: [subscriptionId], references: [id])
+
+  @@unique([utrNumber])
+  @@map("subscription_payment_claims")
+}
+
+/// PlatformSetting — platform-wide key-value settings managed by Super Admin.
+model PlatformSetting {
+  id           String   @id @default(uuid()) @db.Uuid
+  settingKey   String   @unique @map("setting_key") @db.VarChar(100)
+  settingValue String   @map("setting_value")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("platform_settings")
 }

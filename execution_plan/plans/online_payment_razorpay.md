@@ -1,8 +1,8 @@
-# Online Payments — Razorpay Integration (Phase 6B)
+# Online Payments — Razorpay Integration
 
 > **Scope**: Everything that requires Razorpay — gateway-based resident fee payments (with auto-reconciliation), convenience fee handling, KYC-based society onboarding, Razorpay Route (direct settlement), webhook handler, and Razorpay Subscriptions for platform billing.
 >
-> **Prerequisite**: Phase 6A (UPI QR flow) must be fully deployed before starting this phase. The UPI QR flow is the primary path; Razorpay is additive.
+> **Prerequisite**: `online_payment_upi.md` (UPI QR flow) must be fully deployed before starting this. The UPI QR flow is the primary path; Razorpay is additive on top of it.
 >
 > **Activation**: All Razorpay features are **disabled by default** and only activate when Super Admin configures the required environment variables.
 
@@ -45,7 +45,7 @@ RAZORPAY_MODE=test                           # "test" or "live"
 
 ## Feature Detection (`src/lib/config/payment.ts`)
 
-This file was created in Phase 6A. Phase 6B requires the full object — all fields below:
+`paymentConfig` was introduced in `online_payment_upi.md`. This document extends it — the full object with all Razorpay fields:
 
 ```typescript
 export const paymentConfig = {
@@ -306,7 +306,7 @@ Add 18% GST on total fee. Standard UPI/Card: ₹45 + ₹8.10 = **₹53.10** → 
 
 ### When It Applies
 
-Only when `RAZORPAY_SUBSCRIPTION_KEY_ID` and `RAZORPAY_SUBSCRIPTION_KEY_SECRET` are set. Otherwise, admin uses UPI QR claim flow (Phase 6A).
+Only when `RAZORPAY_SUBSCRIPTION_KEY_ID` and `RAZORPAY_SUBSCRIPTION_KEY_SECRET` are set. Otherwise, admin uses the UPI QR claim flow (see `online_payment_upi.md`).
 
 ### How Razorpay Subscriptions Works
 
@@ -362,15 +362,15 @@ Only when `RAZORPAY_SUBSCRIPTION_KEY_ID` and `RAZORPAY_SUBSCRIPTION_KEY_SECRET` 
 
 ### Enum Update: `PaymentMode`
 
-Phase 6A added `UPI_CLAIM`. Phase 6B adds `ONLINE_GATEWAY`:
+`UPI_CLAIM` was added in `online_payment_upi.md`. This document adds `ONLINE_GATEWAY`:
 
 ```prisma
 enum PaymentMode {
   CASH
   UPI
   BANK_TRANSFER
-  UPI_CLAIM        // Phase 6A
-  ONLINE_GATEWAY   // Phase 6B: payment via Razorpay Gateway
+  UPI_CLAIM        // from online_payment_upi.md
+  ONLINE_GATEWAY   // Razorpay: payment via Razorpay Gateway
 }
 ```
 
@@ -382,7 +382,7 @@ ALTER TYPE "PaymentMode" ADD VALUE 'ONLINE_GATEWAY';
 
 ### New Fields on `societies`
 
-Phase 6B adds Razorpay-specific fields on top of the UPI fields from Phase 6A:
+Adds Razorpay-specific fields on top of the UPI fields from `online_payment_upi.md`:
 
 ```prisma
 // Add to Society model (Razorpay fields):
@@ -411,7 +411,7 @@ ALTER TABLE societies ADD COLUMN gateway_fee_mode VARCHAR(20) DEFAULT 'CONVENIEN
 
 ### New Fields on `fee_payments`
 
-Phase 6A added `payment_claim_id`. Phase 6B adds Razorpay gateway fields:
+`payment_claim_id` was added in `online_payment_upi.md`. This document adds the Razorpay gateway fields:
 
 ```prisma
 // Add to FeePayment model:
@@ -428,7 +428,7 @@ ALTER TABLE fee_payments ADD COLUMN convenience_fee DECIMAL(10,2);
 ALTER TABLE fee_payments ADD COLUMN gateway_total DECIMAL(10,2);
 ```
 
-### New Table: `razorpay_orders` (Phase 6B only)
+### New Table: `razorpay_orders` (Razorpay only)
 
 Tracks Razorpay orders between creation and webhook confirmation. Prevents duplicate webhook processing.
 
@@ -477,7 +477,7 @@ model RazorpayOrder {
 }
 ```
 
-### `platform_settings` New Keys (Phase 6B)
+### `platform_settings` New Keys (Razorpay)
 
 Add to `supabase/seed-master.ts`:
 
@@ -548,7 +548,7 @@ function verifyRazorpaySignature(body: string, signature: string, secret: string
 
 ---
 
-## Validation Schemas (`src/lib/validations/payment-setup.ts` — Phase 6B additions)
+## Validation Schemas (`src/lib/validations/payment-setup.ts` — Razorpay additions)
 
 ```typescript
 // Razorpay KYC submission
@@ -579,7 +579,7 @@ export const createOrderSchema = z.object({
 
 ---
 
-## TypeScript Types (`src/types/payment.ts` — Phase 6B additions)
+## TypeScript Types (`src/types/payment.ts` — Razorpay additions)
 
 ```typescript
 // Add to existing types/payment.ts:
@@ -777,7 +777,7 @@ Behaviour:
 - When both UPI and Razorpay available: renders two cards side by side
 - UPI card: "Free" badge, links to `/r/payments/pay?feeId=`
 - Razorpay card: shows convenience fee breakdown, "Pay now" → triggers `RazorpayCheckout`
-- When only UPI: renders `UpiQrDisplay` directly (from Phase 6A)
+- When only UPI: renders `UpiQrDisplay` directly (from `online_payment_upi.md`)
 - When only Razorpay: renders Razorpay card only
 - When neither: shows "Contact your admin" message
 
@@ -804,7 +804,7 @@ Behaviour:
 
 ---
 
-## WhatsApp Notifications (Phase 6B additions)
+## WhatsApp Notifications (Razorpay additions)
 
 | Event                                 | Recipient | Template Name                      | Params                                 |
 | ------------------------------------- | --------- | ---------------------------------- | -------------------------------------- |
@@ -818,7 +818,7 @@ Behaviour:
 
 ---
 
-## Audit Actions (add to `src/lib/audit.ts` — Phase 6B additions)
+## Audit Actions (add to `src/lib/audit.ts` — Razorpay additions)
 
 ```typescript
 | "RAZORPAY_KYC_SUBMITTED"
@@ -883,7 +883,7 @@ Behaviour:
 
 ---
 
-## UI Pages Summary (Phase 6B — new or extended)
+## UI Pages Summary (new or extended)
 
 | Page                            | Path                            | Who      | Status |
 | ------------------------------- | ------------------------------- | -------- | ------ |
@@ -944,7 +944,7 @@ Behaviour:
 
 ---
 
-## Implementation Order (Phase 6B)
+## Implementation Order
 
 1. Extend `paymentConfig` in `src/lib/config/payment.ts` with full Razorpay fields (update existing file)
 2. Schema migration: add `ONLINE_GATEWAY` to `PaymentMode`; add Razorpay fields to `societies`; add gateway fields to `fee_payments`; create `razorpay_orders` table + Prisma model

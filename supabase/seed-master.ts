@@ -255,12 +255,24 @@ async function main() {
   console.log(`  Platform Plans: ${planCount} created`);
   console.log(`  Billing Options: ${billingCount} created`);
 
+  // ─── 3. Platform Settings (UPI) ──────────────────
+  await prisma.platformSetting.createMany({
+    data: [
+      { settingKey: "platform_upi_id", settingValue: "" },
+      { settingKey: "platform_upi_qr_url", settingValue: "" },
+      { settingKey: "platform_upi_account_name", settingValue: "" },
+    ],
+    skipDuplicates: true,
+  });
+  console.log("  Platform Settings: UPI keys seeded");
+
   // ─── Summary ──────────────────────────────────────
   console.log("\nMaster data setup complete!");
   console.log("\n  Tables seeded:");
   console.log("    - super_admins (1 record)");
   console.log(`    - platform_plans (${planCount} records)`);
   console.log(`    - plan_billing_options (${billingCount} records)`);
+  console.log("    - platform_settings (3 UPI keys)");
   console.log("\n  Tables NOT seeded (created via app flows):");
   console.log("    - societies, users, units (onboarding flow)");
   console.log("    - designations (created per-society by admin)");
