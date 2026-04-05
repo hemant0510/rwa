@@ -80,6 +80,9 @@ export default defineConfig({
         "src/app/api/v1/admin/announcements/**",
         "src/app/api/v1/admin/support/**",
         "src/app/api/cron/support-auto-close/**",
+        "src/app/api/v1/societies/[id]/payment-setup/**",
+        "src/app/api/v1/societies/[id]/payment-claims/**",
+        "src/app/api/v1/residents/me/payment-claims/**",
       ],
       exclude: [
         "src/lib/prisma.ts",

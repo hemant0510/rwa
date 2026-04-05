@@ -41,13 +41,6 @@ export const mockPrisma = {
     deleteMany: vi.fn(),
     aggregate: vi.fn(),
   },
-  feePayment: {
-    findMany: vi.fn(),
-    create: vi.fn(),
-    deleteMany: vi.fn(),
-    updateMany: vi.fn(),
-    aggregate: vi.fn(),
-  },
   auditLog: {
     create: vi.fn(),
     deleteMany: vi.fn(),
@@ -203,6 +196,22 @@ export const mockPrisma = {
     create: vi.fn(),
     update: vi.fn(),
     updateMany: vi.fn(),
+    count: vi.fn(),
+  },
+  paymentClaim: {
+    findUnique: vi.fn(),
+    findFirst: vi.fn(),
+    findMany: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    count: vi.fn(),
+  },
+  feePayment: {
+    findMany: vi.fn(),
+    create: vi.fn(),
+    deleteMany: vi.fn(),
+    updateMany: vi.fn(),
+    aggregate: vi.fn(),
     count: vi.fn(),
   },
   $transaction: vi.fn((arg: unknown) => {
