@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 
+import Link from "next/link";
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, CalendarPlus, Loader2 } from "lucide-react";
+import { AlertTriangle, CalendarPlus, ChevronRight, Loader2, QrCode } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -137,6 +139,24 @@ export default function AdminSettingsPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Settings" description="Manage your society settings" />
+
+      {/* Payment Setup Card */}
+      <Link href="/admin/settings/payment-setup">
+        <Card className="hover:bg-muted/50 cursor-pointer transition-colors">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div className="flex items-center gap-3">
+              <QrCode className="text-muted-foreground h-5 w-5" />
+              <div>
+                <CardTitle className="text-base">Payment Setup</CardTitle>
+                <CardDescription>
+                  Configure UPI ID and QR code for online fee collection
+                </CardDescription>
+              </div>
+            </div>
+            <ChevronRight className="text-muted-foreground h-4 w-4" />
+          </CardHeader>
+        </Card>
+      </Link>
 
       {/* Email Verification Card */}
       <Card>
