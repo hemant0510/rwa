@@ -122,15 +122,19 @@ Imports should follow this order (enforced by ESLint):
 - **Minimum coverage threshold: 95%** — pre-commit must block if overall coverage drops below 95%
 - **New features must have 100% test coverage** — every new file/feature added must be fully tested before commit is allowed
 - **If coverage drops on commit**: Claude must automatically generate missing test cases for the new feature before the commit can proceed — do not skip or bypass
-- Test files live alongside source files or in a `__tests__/` folder mirroring the `src/` structure
-- Use the project's configured test runner (check `package.json` scripts); default to **Vitest** for unit/integration tests
 - Test naming: `ComponentName.test.tsx` for components, `hookName.test.ts` for hooks, `util.test.ts` for utilities
 - Every API route handler must have at least one happy-path and one error-path test
-- Mock Prisma using `vitest-mock-extended` or similar — never hit a real DB in unit tests
-- For DB integration tests, use a separate test database seeded with `supabase/seed.ts` data
+- Vitest is the configured test runner — zero configuration needed
+- Test files live in `tests/` mirroring src/ (no underscores — NOT `__tests__/`)
+- Run one file: `npx vitest run tests/path/to/file.test.ts`
+- API route tests MUST use `vi.hoisted()` — see `/write-tests` for verbatim pattern
+- Always `import { mockPrisma } from "../__mocks__/prisma"` — never declare inline
+- Always `import { mockStorageBucket, mockSupabaseAdmin } from "../__mocks__/supabase"` for storage tests
+- `$transaction` is already in the shared mock — do not add it to new model entries
 
 ## 13. Database Rules
 
+- **NEVER use `npm run db:push` or `npm run db:migrate`** — they use the pooler (port 6543) which times out on DDL. Use `/db-change` for the correct direct-connection sequence.
 - **Master/platform data belongs in `supabase/seed-master.ts`** — this includes: SuperAdmin accounts, platform plans (`PlatformPlan`), billing options (`PlanBillingOption`), and any other platform-wide lookup/config tables
 - **`supabase/seed.ts`** is for dev/demo data only (sample societies, residents, fees) — never put platform master data here
 - **Never hardcode SuperAdmin credentials or IDs in application code** — they must come from `seed-master.ts` or environment variables

@@ -3,12 +3,22 @@ import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockGetUnreadAnnouncements = vi.hoisted(() => vi.fn());
+const mockGetAdminPendingClaimsCount = vi.hoisted(() => vi.fn());
+const mockUseAuth = vi.hoisted(() => vi.fn());
+
 vi.mock("@/services/announcements", () => ({
   getUnreadAnnouncements: mockGetUnreadAnnouncements,
 }));
+vi.mock("@/services/admin-payment-claims", () => ({
+  getAdminPendingClaimsCount: mockGetAdminPendingClaimsCount,
+}));
+vi.mock("@/hooks/useAuth", () => ({
+  useAuth: mockUseAuth,
+}));
 
+const mockUsePathname = vi.hoisted(() => vi.fn(() => "/admin/dashboard"));
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/admin/dashboard",
+  usePathname: mockUsePathname,
 }));
 
 import { AdminSidebar, AdminMobileSidebar } from "@/components/layout/AdminSidebar";
@@ -24,6 +34,9 @@ function renderWithQC(ui: React.ReactElement) {
 
 beforeEach(() => {
   mockGetUnreadAnnouncements.mockResolvedValue([]);
+  mockGetAdminPendingClaimsCount.mockResolvedValue({ count: 0 });
+  mockUseAuth.mockReturnValue({ user: { societyId: "soc-1" } });
+  mockUsePathname.mockReturnValue("/admin/dashboard");
 });
 
 describe("AdminSidebar", () => {
@@ -64,6 +77,56 @@ describe("AdminSidebar", () => {
     renderWithQC(<AdminSidebar societyName="Test" queryString="?sid=soc-1&sname=Test" />);
     const dashboardLink = screen.getByText("Dashboard").closest("a");
     expect(dashboardLink?.getAttribute("href")).toContain("?sid=soc-1&sname=Test");
+  });
+
+  it("shows pending claims badge on Fees when count > 0", async () => {
+    mockGetAdminPendingClaimsCount.mockResolvedValue({ count: 3 });
+    renderWithQC(<AdminSidebar societyName="Test" queryString="?sid=soc-1" />);
+    expect(await screen.findByText("3")).toBeInTheDocument();
+  });
+
+  it("shows announcements badge when unread count > 0", async () => {
+    mockGetUnreadAnnouncements.mockResolvedValue([{ id: "1" }, { id: "2" }]);
+    renderWithQC(<AdminSidebar societyName="Test" />);
+    expect(await screen.findByText("2")).toBeInTheDocument();
+  });
+
+  it("does not show fees badge when pending count is 0", async () => {
+    mockGetAdminPendingClaimsCount.mockResolvedValue({ count: 0 });
+    renderWithQC(<AdminSidebar societyName="Test" queryString="?sid=soc-1" />);
+    // Allow queries to settle
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByText("0")).not.toBeInTheDocument();
+  });
+
+  it("resolves societyId from user when no sid in queryString", async () => {
+    mockGetAdminPendingClaimsCount.mockResolvedValue({ count: 2 });
+    // No queryString — should fall back to user?.societyId from useAuth
+    renderWithQC(<AdminSidebar societyName="Test" />);
+    expect(await screen.findByText("2")).toBeInTheDocument();
+  });
+
+  it("uses empty societyId when user has no societyId and no queryString", () => {
+    mockUseAuth.mockReturnValueOnce({ user: {} }); // user exists but no societyId
+    renderWithQC(<AdminSidebar societyName="Test" />);
+    // query is disabled (societyId is "") — no badge renders
+    expect(screen.queryByText(/^\d+$/)).not.toBeInTheDocument();
+  });
+
+  it("shows fees badge with active styling when on fees page", async () => {
+    mockUsePathname.mockReturnValue("/admin/fees");
+    mockGetAdminPendingClaimsCount.mockResolvedValue({ count: 4 });
+    renderWithQC(<AdminSidebar societyName="Test" queryString="?sid=soc-1" />);
+    const badge = await screen.findByText("4");
+    expect(badge.className).toContain("bg-primary-foreground");
+  });
+
+  it("shows announcements badge with active styling when on announcements page", async () => {
+    mockUsePathname.mockReturnValue("/admin/announcements");
+    mockGetUnreadAnnouncements.mockResolvedValue([{ id: "1" }, { id: "2" }, { id: "3" }]);
+    renderWithQC(<AdminSidebar societyName="Test" />);
+    const badge = await screen.findByText("3");
+    expect(badge.className).toContain("bg-primary-foreground");
   });
 });
 

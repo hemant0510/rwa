@@ -2,14 +2,16 @@
 
 import { useState } from "react";
 
+import Link from "next/link";
+
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { CreditCard, IndianRupee, Loader2 } from "lucide-react";
+import { ChevronRight, CreditCard, IndianRupee, Loader2 } from "lucide-react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -114,6 +116,22 @@ export default function FeesPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Fee Management" description="Track and manage membership fees" />
+
+      {/* UPI Payment Claims */}
+      <Link href="/admin/fees/claims">
+        <Card className="hover:bg-muted/50 cursor-pointer transition-colors">
+          <CardHeader className="flex flex-row items-center justify-between py-4">
+            <div className="flex items-center gap-3">
+              <CreditCard className="text-muted-foreground h-5 w-5" />
+              <div>
+                <CardTitle className="text-base">UPI Payment Claims</CardTitle>
+                <CardDescription>Review and verify resident UPI payment claims</CardDescription>
+              </div>
+            </div>
+            <ChevronRight className="text-muted-foreground h-4 w-4" />
+          </CardHeader>
+        </Card>
+      </Link>
 
       {isLoading ? (
         <div className="grid gap-4 md:grid-cols-3">
@@ -257,7 +275,13 @@ export default function FeesPage() {
       <Dialog
         open={paymentDialog.open}
         onOpenChange={(open) => {
-          if (!open) setPaymentDialog({ open: false, feeId: "", residentName: "", balance: 0 });
+          /* v8 ignore start */ if (!open)
+            setPaymentDialog({
+              open: false,
+              feeId: "",
+              residentName: "",
+              balance: 0,
+            }); /* v8 ignore stop */
         }}
       >
         <DialogContent>

@@ -1,65 +1,69 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 ## Project Overview
 
-Eden Estate RWA (Resident Welfare Association) management application built with Next.js. The app manages resident data, membership forms, financial collections, and community operations for Eden Estate society.
+Eden Estate RWA management app — Next.js 16, React 19, TypeScript strict, Tailwind v4, Prisma, Supabase.
 
 ## Commands
 
 ```bash
-npm install          # Install dependencies
-npm run dev          # Start dev server (http://localhost:3000)
-npm run build        # Production build
-npm start            # Start production server
-npm run lint         # Run ESLint (eslint-config-next with core-web-vitals + typescript)
+npm run dev              # Dev server — http://localhost:3000
+npm run build            # Production build (prisma generate + next build)
+npm run lint             # ESLint — zero errors required before commit
+npm run format           # Prettier
+npx tsc --noEmit         # Fast type check (~5s) — use during dev instead of build
+npm run test             # Full test suite (Vitest, no coverage)
+npm run test:coverage    # Full test suite + V8 coverage report
+npm run test:staged      # Tests for staged files only (used by pre-commit hook)
+npm run db:generate      # Regenerate Prisma client after schema changes
+npm run db:seed:master   # Seed platform master data
+npm run db:seed:dev      # Seed dev/demo data
 ```
-
-No test framework is configured yet.
 
 ## Architecture
 
-- **Framework**: Next.js 16 with App Router, React 19, TypeScript (strict mode)
+- **Framework**: Next.js 16 App Router, React 19, TypeScript strict
 - **Styling**: Tailwind CSS v4 via PostCSS
-- **Path alias**: `@/*` maps to `./src/*`
-- **Font**: Uses `next/font` with Geist font family
+- **DB**: Prisma + Supabase (`supabase/schema.prisma`; mocks in `tests/__mocks__/`)
+- **Path alias**: `@/*` → `./src/*`
 
 ### Directory Structure
 
 ```
-src/app/             # App Router — pages, layouts, global styles
-external_docs/       # RWA reference documents (forms, spreadsheets, requirements)
-public/              # Static assets
+src/app/            # Pages, layouts, API route handlers (App Router)
+src/components/     # ui/ primitives + features/ composed components
+src/hooks/          # Custom React hooks
+src/lib/            # Config, utils, Prisma client, validations
+src/services/       # Client-side fetch wrappers
+src/types/          # Shared TypeScript types
+tests/              # Mirrors src/ structure; __mocks__/ for Prisma & Supabase
+supabase/           # schema.prisma, migrations/, seed files
+execution_plan/     # Build plans — read only the target group section, not the full file
 ```
 
-## Code Quality Toolchain
+## Slash Commands — always use these for implementation work
 
-- **ESLint** — core-web-vitals + typescript rulesets (flat config in `eslint.config.mjs`)
-- **Prettier** — auto-formatting (config in `.prettierrc`)
-- **Husky + lint-staged** — pre-commit hook runs lint + format on staged files only
-- **TypeScript** — strict mode enabled, no `any` allowed
+- `/implement-group <N> <plan-file>` — extract spec → build → test immediately → audit → report
+- `/verify-group <N> <plan-file>` — audit existing implementation, find and fix all gaps
+- `/write-tests <file>` — write tests with correct patterns (vi.hoisted / global.fetch / renderHook)
+- `/quality-gate` — lint → vitest run → tsc, in correct order for the context
+- `/db-change` — safe schema migration (direct connection, never pooler)
+- `/dev` — start dev server
 
-```bash
-npm run lint         # Run ESLint
-npm run format       # Run Prettier
-npm run format:check # Check formatting without writing
-```
+## Code Quality
+
+- **ESLint** flat config — zero errors required; warnings OK if pre-existing
+- **Prettier** — auto-runs on staged files via Husky
+- **Vitest** — 95% lines/branches/functions/statements per file
+- **Shared mocks**: always `import { mockPrisma } from "../__mocks__/prisma"` — never recreate inline
+- **Pre-commit hook**: `scripts/test-staged.mjs` — targeted tests for staged TS files only
 
 ## Core Coding Rules
 
-**All coding standards are defined in [.claude/core_rules.md](.claude/core_rules.md).** This includes:
-
-- Component structure, hooks, and state management patterns
-- TypeScript strictness and type conventions
-- File/folder organization and naming conventions
-- Import ordering, error handling, performance, and styling rules
-
-Read that file before writing or reviewing any code.
+All standards: [.claude/core_rules.md](.claude/core_rules.md) — read before writing any code.
 
 ## Reference Documents
 
-`external_docs/RWA_Connect_MVP_v1.0.docx` — MVP spec (what to build first, 8-12 weeks).
-`external_docs/RWA_Connect_Full_Spec_v3.0.docx` — Full product vision (all phases, worldwide expansion).
-`execution_plan/MVP/` — Build-ready MVP plan with phases, tasks, DB schema, and UI wireframes.
-`execution_plan/full_spec/` — Complete product roadmap from v3.0 spec (8 phases, 12-18 months).
+- `execution_plan/plans/` — feature implementation plans (grep for group headers first)
+- `external_docs/RWA_Connect_MVP_v1.0.docx` — MVP spec
+- `external_docs/RWA_Connect_Full_Spec_v3.0.docx` — full product vision

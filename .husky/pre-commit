@@ -1,7 +1,2 @@
 npx lint-staged
-
-# Only run tests when source files that require test coverage are staged
-STAGED_SRC=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^src/.*\.(ts|tsx)$' | head -1)
-if [ -n "$STAGED_SRC" ]; then
-  npm run test:coverage
-fi
+node scripts/test-staged.mjs

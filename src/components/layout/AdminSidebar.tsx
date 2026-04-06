@@ -21,7 +21,9 @@ import {
 } from "lucide-react";
 
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+import { getAdminPendingClaimsCount } from "@/services/admin-payment-claims";
 import { getUnreadAnnouncements } from "@/services/announcements";
 
 const navItems = [
@@ -49,6 +51,9 @@ function SidebarContent({
 }) {
   const pathname = usePathname();
   const qs = queryString || "";
+  const { user } = useAuth();
+  const sid = queryString ? new URLSearchParams(queryString.replace(/^\?/, "")).get("sid") : null;
+  const societyId = sid ?? user?.societyId ?? "";
 
   const { data: announcements = [] } = useQuery({
     queryKey: ["admin-announcements"],
@@ -56,7 +61,15 @@ function SidebarContent({
     staleTime: 60_000,
   });
 
+  const { data: pendingClaimsData } = useQuery({
+    queryKey: ["fees-pending-count", societyId],
+    queryFn: () => getAdminPendingClaimsCount(societyId),
+    staleTime: 30_000,
+    enabled: !!societyId,
+  });
+
   const unreadCount = announcements.length;
+  const pendingClaimsCount = pendingClaimsData?.count ?? 0;
 
   return (
     <div className="flex h-full flex-col">
@@ -68,6 +81,7 @@ function SidebarContent({
         {navItems.map((item) => {
           const isActive = pathname?.includes(item.href);
           const isAnnouncements = item.href === "/admin/announcements";
+          const isFees = item.href === "/admin/fees";
           return (
             <Link
               key={item.href}
@@ -89,6 +103,18 @@ function SidebarContent({
                   )}
                 >
                   {unreadCount}
+                </span>
+              )}
+              {isFees && pendingClaimsCount > 0 && (
+                <span
+                  className={cn(
+                    "rounded-full px-1.5 py-0.5 text-xs leading-none font-semibold",
+                    isActive
+                      ? "bg-primary-foreground text-primary"
+                      : "bg-destructive text-destructive-foreground",
+                  )}
+                >
+                  {pendingClaimsCount}
                 </span>
               )}
             </Link>
