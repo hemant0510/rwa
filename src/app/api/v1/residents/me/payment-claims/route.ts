@@ -7,9 +7,11 @@ import {
   successResponse,
   unauthorizedError,
 } from "@/lib/api-helpers";
+import { logAudit } from "@/lib/audit";
 import { getCurrentUser } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
 import { paymentClaimSchema } from "@/lib/validations/payment-claim";
+import { sendAdminPaymentClaimReceived } from "@/lib/whatsapp";
 
 /** GET /api/v1/residents/me/payment-claims — list own claims */
 export async function GET() {
@@ -129,6 +131,38 @@ export async function POST(request: NextRequest) {
         updatedAt: true,
       },
     });
+
+    void logAudit({
+      actionType: "PAYMENT_CLAIM_SUBMITTED",
+      userId: resident.userId,
+      societyId: resident.societyId,
+      entityType: "PaymentClaim",
+      entityId: claim.id,
+      newValue: { claimedAmount: Number(claim.claimedAmount), utrNumber: claim.utrNumber },
+    });
+
+    void (async () => {
+      const adminUser = await prisma.user.findFirst({
+        where: { societyId: resident.societyId, role: "RWA_ADMIN" },
+        select: { mobile: true },
+      });
+      if (adminUser?.mobile) {
+        const residentUser = await prisma.user.findUnique({
+          where: { id: resident.userId },
+          select: {
+            name: true,
+            userUnits: { take: 1, select: { unit: { select: { displayLabel: true } } } },
+          },
+        });
+        await sendAdminPaymentClaimReceived(
+          adminUser.mobile,
+          residentUser?.name ?? "Resident",
+          residentUser?.userUnits?.[0]?.unit?.displayLabel ?? "N/A",
+          `₹${Number(claim.claimedAmount).toLocaleString("en-IN")}`,
+          claim.utrNumber,
+        );
+      }
+    })();
 
     return successResponse(
       { claim: { ...claim, claimedAmount: Number(claim.claimedAmount) } },

@@ -7,6 +7,8 @@ import {
   unauthorizedError,
   validationError,
 } from "@/lib/api-helpers";
+import { logAudit } from "@/lib/audit";
+import { sendEmail } from "@/lib/email";
 import { getFullAccessAdmin } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
 import { subscriptionClaimSchema } from "@/lib/validations/payment-claim";
@@ -110,6 +112,30 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         status: "PENDING",
       },
     });
+
+    void logAudit({
+      actionType: "SUBSCRIPTION_CLAIM_SUBMITTED",
+      userId: admin.userId,
+      societyId,
+      entityType: "SubscriptionPaymentClaim",
+      entityId: claim.id,
+      newValue: { amount, utrNumber: normalizedUtr },
+    });
+
+    void (async () => {
+      const saEmail = process.env.SUPER_ADMIN_NOTIFICATION_EMAIL;
+      if (saEmail) {
+        const society = await prisma.society.findUnique({
+          where: { id: societyId },
+          select: { name: true },
+        });
+        await sendEmail(
+          saEmail,
+          "Sub Payment Claim",
+          `<p>Society: ${society?.name ?? societyId}</p><p>Amount: ₹${amount.toLocaleString("en-IN")}</p><p>UTR: ${normalizedUtr}</p>`,
+        );
+      }
+    })();
 
     return successResponse({ claim }, 201);
   } catch (err) {

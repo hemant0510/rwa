@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
 
     for (const [societyId, count] of Object.entries(counts24h)) {
       const admin = await prisma.user.findFirst({
-        where: { societyId, role: "ADMIN" },
+        where: { societyId, role: "RWA_ADMIN" },
         select: { mobile: true },
       });
       if (admin?.mobile) {
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
 
     for (const [societyId, count] of Object.entries(counts48h)) {
       const admin = await prisma.user.findFirst({
-        where: { societyId, role: "ADMIN" },
+        where: { societyId, role: "RWA_ADMIN" },
         select: { mobile: true },
       });
       if (admin?.mobile) {

@@ -9,9 +9,11 @@ import {
   successResponse,
   unauthorizedError,
 } from "@/lib/api-helpers";
+import { logAudit } from "@/lib/audit";
 import { generateReceiptNo } from "@/lib/fee-calculator";
 import { getFullAccessAdmin } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
+import { sendResidentPaymentConfirmed } from "@/lib/whatsapp";
 
 const verifySchema = z.object({
   adminNotes: z.string().optional(),
@@ -34,7 +36,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   const result = await prisma.$transaction(async (tx) => {
     const claim = await tx.paymentClaim.findUnique({
       where: { id: claimId },
-      include: { society: true, membershipFee: true },
+      include: { society: true, membershipFee: true, user: { select: { mobile: true } } },
     });
 
     if (!claim || claim.societyId !== societyId) return { notFound: true };
@@ -88,7 +90,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       data: { status: userStatus },
     });
 
-    return { claim: updated, feePayment, receiptNo, alreadyProcessed: false, notFound: false };
+    return {
+      claim: updated,
+      feePayment,
+      receiptNo,
+      userMobile: claim.user?.mobile ?? null,
+      claimedAmount: Number(claim.claimedAmount),
+      alreadyProcessed: false,
+      notFound: false,
+    };
   });
 
   if (result.notFound) return notFoundError("Claim not found");
@@ -98,6 +108,23 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       message: "This claim has already been verified or rejected",
       status: 409,
     });
+  }
+
+  void logAudit({
+    actionType: "PAYMENT_CLAIM_VERIFIED",
+    userId: admin.userId,
+    societyId,
+    entityType: "PaymentClaim",
+    entityId: claimId,
+    newValue: { status: "VERIFIED", receiptNo: result.receiptNo },
+  });
+
+  if (result.userMobile) {
+    void sendResidentPaymentConfirmed(
+      result.userMobile,
+      `₹${result.claimedAmount.toLocaleString("en-IN")}`,
+      result.receiptNo!,
+    );
   }
 
   return successResponse({ claim: result.claim, receiptNo: result.receiptNo });

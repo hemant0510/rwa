@@ -9,8 +9,10 @@ import {
   successResponse,
   unauthorizedError,
 } from "@/lib/api-helpers";
+import { logAudit } from "@/lib/audit";
 import { getFullAccessAdmin } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
+import { sendResidentPaymentRejected } from "@/lib/whatsapp";
 
 const rejectSchema = z.object({
   rejectionReason: z.string().min(10, "Rejection reason must be at least 10 characters"),
@@ -31,6 +33,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
   const claim = await prisma.paymentClaim.findUnique({
     where: { id: claimId },
+    include: { user: { select: { mobile: true } } },
   });
 
   if (!claim || claim.societyId !== societyId) return notFoundError("Claim not found");
@@ -51,6 +54,23 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       verifiedAt: new Date(),
     },
   });
+
+  void logAudit({
+    actionType: "PAYMENT_CLAIM_REJECTED",
+    userId: admin.userId,
+    societyId,
+    entityType: "PaymentClaim",
+    entityId: claimId,
+    newValue: { status: "REJECTED", rejectionReason: data.rejectionReason },
+  });
+
+  if (claim.user?.mobile) {
+    void sendResidentPaymentRejected(
+      claim.user.mobile,
+      `₹${Number(updated.claimedAmount).toLocaleString("en-IN")}`,
+      data.rejectionReason,
+    );
+  }
 
   return successResponse({ claim: updated });
 }

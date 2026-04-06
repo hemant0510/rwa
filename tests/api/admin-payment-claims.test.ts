@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockGetFullAccessAdmin = vi.hoisted(() => vi.fn());
 const mockGenerateReceiptNo = vi.hoisted(() => vi.fn());
+const mockSendResidentPaymentConfirmed = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+const mockSendResidentPaymentRejected = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 
 vi.mock("@/lib/get-current-user", () => ({
   getCurrentUser: vi.fn(),
@@ -11,6 +13,10 @@ vi.mock("@/lib/get-current-user", () => ({
 }));
 vi.mock("@/lib/fee-calculator", () => ({
   generateReceiptNo: mockGenerateReceiptNo,
+}));
+vi.mock("@/lib/whatsapp", () => ({
+  sendResidentPaymentConfirmed: mockSendResidentPaymentConfirmed,
+  sendResidentPaymentRejected: mockSendResidentPaymentRejected,
 }));
 
 // eslint-disable-next-line import/order
@@ -353,6 +359,34 @@ describe("PATCH /api/v1/societies/[id]/payment-claims/[claimId]/verify", () => {
       expect.objectContaining({ data: { status: "ACTIVE_PARTIAL" } }),
     );
   });
+
+  it("returns 422 when adminNotes is not a string", async () => {
+    const res = await verifyRoute(
+      makePatchRequest(
+        { adminNotes: 123 },
+        `/api/v1/societies/${SOCIETY_ID}/payment-claims/${CLAIM_ID}/verify`,
+      ),
+      makeClaimParams(),
+    );
+    expect(res.status).toBe(422);
+  });
+
+  it("sends WhatsApp confirmation to resident when resident has mobile", async () => {
+    mockPrisma.paymentClaim.findUnique.mockResolvedValue({
+      ...mockClaim,
+      user: { mobile: "9876543210" },
+    });
+    const res = await verifyRoute(
+      makePatchRequest({}, `/api/v1/societies/${SOCIETY_ID}/payment-claims/${CLAIM_ID}/verify`),
+      makeClaimParams(),
+    );
+    expect(res.status).toBe(200);
+    expect(mockSendResidentPaymentConfirmed).toHaveBeenCalledWith(
+      "9876543210",
+      expect.stringContaining("₹"),
+      "EE-2026-R0001",
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -451,6 +485,26 @@ describe("PATCH /api/v1/societies/[id]/payment-claims/[claimId]/reject", () => {
           verifiedBy: ADMIN_ID,
         }),
       }),
+    );
+  });
+
+  it("sends WhatsApp rejection to resident when resident has mobile", async () => {
+    mockPrisma.paymentClaim.findUnique.mockResolvedValue({
+      ...mockClaim,
+      user: { mobile: "9876543210" },
+    });
+    const res = await rejectRoute(
+      makePatchRequest(
+        { rejectionReason: "UTR not found in bank statement" },
+        `/api/v1/societies/${SOCIETY_ID}/payment-claims/${CLAIM_ID}/reject`,
+      ),
+      makeClaimParams(),
+    );
+    expect(res.status).toBe(200);
+    expect(mockSendResidentPaymentRejected).toHaveBeenCalledWith(
+      "9876543210",
+      expect.stringContaining("₹"),
+      "UTR not found in bank statement",
     );
   });
 });

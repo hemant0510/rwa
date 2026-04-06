@@ -15,6 +15,12 @@ vi.mock("@/lib/supabase/ensure-bucket", () => ({
   ensureBucket: vi.fn().mockResolvedValue(undefined),
 }));
 
+const mockSendAdminPaymentClaimReceived = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+
+vi.mock("@/lib/whatsapp", () => ({
+  sendAdminPaymentClaimReceived: mockSendAdminPaymentClaimReceived,
+}));
+
 // eslint-disable-next-line import/order
 import { GET, POST } from "@/app/api/v1/residents/me/payment-claims/route";
 // eslint-disable-next-line import/order
@@ -136,6 +142,8 @@ describe("POST /api/v1/residents/me/payment-claims", () => {
     mockPrisma.society.findUnique.mockResolvedValue(mockSociety);
     mockPrisma.paymentClaim.findFirst.mockResolvedValue(null);
     mockPrisma.paymentClaim.create.mockResolvedValue(mockClaim);
+    mockPrisma.user.findFirst.mockResolvedValue(null); // no admin notification by default
+    mockPrisma.user.findUnique.mockResolvedValue(null);
   });
 
   it("returns 401 when not authenticated", async () => {
@@ -207,6 +215,37 @@ describe("POST /api/v1/residents/me/payment-claims", () => {
     mockPrisma.paymentClaim.create.mockRejectedValue(new Error("DB error"));
     const res = await POST(makeRequest("POST", validBody));
     expect(res.status).toBe(500);
+  });
+
+  it("sends WhatsApp notification to admin when admin has mobile", async () => {
+    mockPrisma.user.findFirst.mockResolvedValue({ mobile: "9876543210" });
+    mockPrisma.user.findUnique.mockResolvedValue({
+      name: "John Doe",
+      userUnits: [{ unit: { displayLabel: "A-101" } }],
+    });
+    await POST(makeRequest("POST", validBody));
+    await Promise.resolve(); // flush IIFE microtasks
+    expect(mockSendAdminPaymentClaimReceived).toHaveBeenCalledWith(
+      "9876543210",
+      "John Doe",
+      "A-101",
+      expect.stringContaining("₹"),
+      "ABCD1234567890",
+    );
+  });
+
+  it("uses fallbacks when resident has no name or unit", async () => {
+    mockPrisma.user.findFirst.mockResolvedValue({ mobile: "9876543210" });
+    mockPrisma.user.findUnique.mockResolvedValue({ name: null, userUnits: [] });
+    await POST(makeRequest("POST", validBody));
+    await Promise.resolve();
+    expect(mockSendAdminPaymentClaimReceived).toHaveBeenCalledWith(
+      "9876543210",
+      "Resident",
+      "N/A",
+      expect.stringContaining("₹"),
+      "ABCD1234567890",
+    );
   });
 });
 

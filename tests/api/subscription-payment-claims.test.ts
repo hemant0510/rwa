@@ -4,6 +4,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockGetFullAccessAdmin = vi.hoisted(() => vi.fn());
 const mockRequireSuperAdmin = vi.hoisted(() => vi.fn());
+const mockSendEmail = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+const mockSendAdminSubPaymentConfirmed = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+const mockSendAdminSubPaymentRejected = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 
 vi.mock("@/lib/get-current-user", () => ({
   getFullAccessAdmin: mockGetFullAccessAdmin,
@@ -11,6 +14,15 @@ vi.mock("@/lib/get-current-user", () => ({
 
 vi.mock("@/lib/auth-guard", () => ({
   requireSuperAdmin: mockRequireSuperAdmin,
+}));
+
+vi.mock("@/lib/email", () => ({
+  sendEmail: mockSendEmail,
+}));
+
+vi.mock("@/lib/whatsapp", () => ({
+  sendAdminSubPaymentConfirmed: mockSendAdminSubPaymentConfirmed,
+  sendAdminSubPaymentRejected: mockSendAdminSubPaymentRejected,
 }));
 
 // eslint-disable-next-line import/order
@@ -305,6 +317,44 @@ describe("POST /societies/[id]/subscription-payment-claims", () => {
     const res = await adminPost(req, makeAdminParams());
     expect(res.status).toBe(500);
   });
+
+  it("sends SA email notification when SUPER_ADMIN_NOTIFICATION_EMAIL is set", async () => {
+    const originalEmail = process.env.SUPER_ADMIN_NOTIFICATION_EMAIL;
+    process.env.SUPER_ADMIN_NOTIFICATION_EMAIL = "sa@example.com";
+    mockPrisma.society.findUnique.mockResolvedValue({ name: "Eden Estate" });
+    const req = makeJsonRequest(
+      `http://localhost/api/v1/societies/${SOCIETY_ID}/subscription-payment-claims`,
+      "POST",
+      validClaimBody,
+    );
+    await adminPost(req, makeAdminParams());
+    await Promise.resolve(); // flush IIFE microtasks
+    expect(mockSendEmail).toHaveBeenCalledWith(
+      "sa@example.com",
+      expect.any(String),
+      expect.stringContaining("Eden Estate"),
+    );
+    process.env.SUPER_ADMIN_NOTIFICATION_EMAIL = originalEmail;
+  });
+
+  it("falls back to societyId in email body when society not found", async () => {
+    const originalEmail = process.env.SUPER_ADMIN_NOTIFICATION_EMAIL;
+    process.env.SUPER_ADMIN_NOTIFICATION_EMAIL = "sa@example.com";
+    mockPrisma.society.findUnique.mockResolvedValue(null);
+    const req = makeJsonRequest(
+      `http://localhost/api/v1/societies/${SOCIETY_ID}/subscription-payment-claims`,
+      "POST",
+      validClaimBody,
+    );
+    await adminPost(req, makeAdminParams());
+    await Promise.resolve();
+    expect(mockSendEmail).toHaveBeenCalledWith(
+      "sa@example.com",
+      expect.any(String),
+      expect.stringContaining(SOCIETY_ID),
+    );
+    process.env.SUPER_ADMIN_NOTIFICATION_EMAIL = originalEmail;
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -528,6 +578,52 @@ describe("PATCH /super-admin/subscription-payment-claims/[claimId]/verify", () =
     const res = await verifyPatch(req, makeClaimParams());
     expect(res.status).toBe(500);
   });
+
+  it("sends WhatsApp confirmation to admin when admin has mobile", async () => {
+    mockPrisma.subscriptionPaymentClaim.findUnique.mockResolvedValue(mockClaim);
+    mockPrisma.subscriptionPaymentClaim.update.mockResolvedValue({
+      ...mockClaim,
+      status: "VERIFIED",
+    });
+    mockPrisma.subscriptionPayment.count.mockResolvedValue(0);
+    mockPrisma.subscriptionPayment.create.mockResolvedValue({});
+    mockPrisma.societySubscription.update.mockResolvedValue({});
+    mockPrisma.societySubscriptionHistory.create.mockResolvedValue({});
+    mockPrisma.user.findFirst.mockResolvedValue({ mobile: "9876543210" });
+    const req = new Request("http://localhost", { method: "PATCH" });
+    await verifyPatch(req, makeClaimParams());
+    await Promise.resolve(); // flush IIFE microtasks
+    expect(mockSendAdminSubPaymentConfirmed).toHaveBeenCalledWith(
+      "9876543210",
+      expect.stringContaining("₹"),
+      expect.any(String),
+      expect.any(String),
+    );
+  });
+
+  it("uses N/A for period dates when updated claim has null dates", async () => {
+    mockPrisma.subscriptionPaymentClaim.findUnique.mockResolvedValue(mockClaim);
+    mockPrisma.subscriptionPaymentClaim.update.mockResolvedValue({
+      ...mockClaim,
+      status: "VERIFIED",
+      periodStart: null,
+      periodEnd: null,
+    });
+    mockPrisma.subscriptionPayment.count.mockResolvedValue(0);
+    mockPrisma.subscriptionPayment.create.mockResolvedValue({});
+    mockPrisma.societySubscription.update.mockResolvedValue({});
+    mockPrisma.societySubscriptionHistory.create.mockResolvedValue({});
+    mockPrisma.user.findFirst.mockResolvedValue({ mobile: "9876543210" });
+    const req = new Request("http://localhost", { method: "PATCH" });
+    await verifyPatch(req, makeClaimParams());
+    await Promise.resolve();
+    expect(mockSendAdminSubPaymentConfirmed).toHaveBeenCalledWith(
+      "9876543210",
+      expect.stringContaining("₹"),
+      "N/A",
+      "N/A",
+    );
+  });
 });
 
 describe("PATCH /super-admin/subscription-payment-claims/[claimId]/reject", () => {
@@ -638,5 +734,43 @@ describe("PATCH /super-admin/subscription-payment-claims/[claimId]/reject", () =
     });
     const res = await rejectPatch(req, makeClaimParams());
     expect(res.status).toBe(500);
+  });
+
+  it("sends WhatsApp rejection to admin when admin has mobile", async () => {
+    mockPrisma.subscriptionPaymentClaim.findUnique.mockResolvedValue(mockClaim);
+    mockPrisma.subscriptionPaymentClaim.update.mockResolvedValue({
+      ...mockClaim,
+      status: "REJECTED",
+    });
+    mockPrisma.user.findFirst.mockResolvedValue({ mobile: "9876543210" });
+    const req = new Request("http://localhost", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rejectionReason: "UTR not matching bank records" }),
+    });
+    await rejectPatch(req, makeClaimParams());
+    await Promise.resolve(); // flush IIFE microtasks
+    expect(mockSendAdminSubPaymentRejected).toHaveBeenCalledWith(
+      "9876543210",
+      expect.stringContaining("₹"),
+      "UTR not matching bank records",
+    );
+  });
+
+  it("skips WhatsApp when admin has no mobile", async () => {
+    mockPrisma.subscriptionPaymentClaim.findUnique.mockResolvedValue(mockClaim);
+    mockPrisma.subscriptionPaymentClaim.update.mockResolvedValue({
+      ...mockClaim,
+      status: "REJECTED",
+    });
+    mockPrisma.user.findFirst.mockResolvedValue({ mobile: null });
+    const req = new Request("http://localhost", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rejectionReason: "UTR not matching bank records" }),
+    });
+    await rejectPatch(req, makeClaimParams());
+    await Promise.resolve();
+    expect(mockSendAdminSubPaymentRejected).not.toHaveBeenCalled();
   });
 });

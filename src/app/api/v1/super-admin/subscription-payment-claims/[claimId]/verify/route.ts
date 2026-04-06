@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 
 import { errorResponse, internalError, successResponse } from "@/lib/api-helpers";
+import { logAudit } from "@/lib/audit";
 import { requireSuperAdmin } from "@/lib/auth-guard";
 import { generateInvoiceNo } from "@/lib/billing";
 import { prisma } from "@/lib/prisma";
+import { sendAdminSubPaymentConfirmed } from "@/lib/whatsapp";
 
 type RouteParams = { params: Promise<{ claimId: string }> };
 
@@ -105,7 +107,35 @@ export async function PATCH(_request: Request, { params }: RouteParams) {
       });
     }
 
-    return successResponse({ claim: result.claim });
+    // All error branches handled above — claim is guaranteed present
+    const verifiedClaim = result.claim!;
+
+    void logAudit({
+      actionType: "SUBSCRIPTION_CLAIM_VERIFIED",
+      userId: auth.data!.superAdminId,
+      societyId: verifiedClaim.societyId,
+      entityType: "SubscriptionPaymentClaim",
+      entityId: claimId,
+      newValue: { status: "VERIFIED" },
+    });
+
+    void (async () => {
+      const adminUser = await prisma.user.findFirst({
+        where: { societyId: verifiedClaim.societyId, role: "RWA_ADMIN" },
+        select: { mobile: true },
+      });
+      if (adminUser?.mobile) {
+        const c = verifiedClaim;
+        await sendAdminSubPaymentConfirmed(
+          adminUser.mobile,
+          `₹${Number(c.amount).toLocaleString("en-IN")}`,
+          c.periodStart ? new Date(c.periodStart).toLocaleDateString("en-IN") : "N/A",
+          c.periodEnd ? new Date(c.periodEnd).toLocaleDateString("en-IN") : "N/A",
+        );
+      }
+    })();
+
+    return successResponse({ claim: verifiedClaim });
   } catch (err) {
     console.error("[SA Sub Claim Verify]", err);
     return internalError();

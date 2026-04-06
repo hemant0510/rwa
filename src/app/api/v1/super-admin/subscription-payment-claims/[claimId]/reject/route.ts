@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 
 import { errorResponse, internalError, successResponse, validationError } from "@/lib/api-helpers";
+import { logAudit } from "@/lib/audit";
 import { requireSuperAdmin } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { rejectClaimSchema } from "@/lib/validations/payment-claim";
+import { sendAdminSubPaymentRejected } from "@/lib/whatsapp";
 
 type RouteParams = { params: Promise<{ claimId: string }> };
 
@@ -47,6 +49,29 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         verifiedAt: new Date(),
       },
     });
+
+    void logAudit({
+      actionType: "SUBSCRIPTION_CLAIM_REJECTED",
+      userId: auth.data!.superAdminId,
+      societyId: updated.societyId,
+      entityType: "SubscriptionPaymentClaim",
+      entityId: claimId,
+      newValue: { status: "REJECTED", rejectionReason: result.data.rejectionReason },
+    });
+
+    void (async () => {
+      const adminUser = await prisma.user.findFirst({
+        where: { societyId: updated.societyId, role: "RWA_ADMIN" },
+        select: { mobile: true },
+      });
+      if (adminUser?.mobile) {
+        await sendAdminSubPaymentRejected(
+          adminUser.mobile,
+          `₹${Number(updated.amount).toLocaleString("en-IN")}`,
+          result.data.rejectionReason,
+        );
+      }
+    })();
 
     return successResponse({ claim: updated });
   } catch (err) {
