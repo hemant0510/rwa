@@ -10,8 +10,15 @@ import ResidentPaymentsPage from "@/app/r/payments/page";
 // Mocks
 // ---------------------------------------------------------------------------
 
-const { mockFetch } = vi.hoisted(() => ({ mockFetch: vi.fn() }));
+const { mockFetch, mockGetMyPaymentClaims } = vi.hoisted(() => ({
+  mockFetch: vi.fn(),
+  mockGetMyPaymentClaims: vi.fn(),
+}));
 globalThis.fetch = mockFetch;
+
+vi.mock("@/services/payment-claims", () => ({
+  getMyPaymentClaims: mockGetMyPaymentClaims,
+}));
 
 vi.mock("@/components/ui/LoadingSkeleton", () => ({
   PageSkeleton: () => <div data-testid="page-skeleton" />,
@@ -80,12 +87,35 @@ function makePayment(overrides: Record<string, unknown> = {}) {
 describe("ResidentPaymentsPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetMyPaymentClaims.mockResolvedValue({ claims: [] });
   });
+
+  function makeClaim(overrides: Record<string, unknown> = {}) {
+    return {
+      id: "claim-1",
+      membershipFeeId: "fee-1",
+      claimedAmount: 1200,
+      utrNumber: "UTR123",
+      paymentDate: "2025-04-10T00:00:00.000Z",
+      screenshotUrl: null,
+      status: "PENDING",
+      rejectionReason: null,
+      ...overrides,
+    };
+  }
 
   // --- Loading state ---
 
-  it("shows loading skeleton while fetching", () => {
+  it("shows loading skeleton while fees are fetching", () => {
     mockFetch.mockReturnValue(new Promise(() => {})); // never resolves
+    mockGetMyPaymentClaims.mockReturnValue(new Promise(() => {}));
+    renderPage();
+    expect(screen.getByTestId("page-skeleton")).toBeInTheDocument();
+  });
+
+  it("shows loading skeleton while claims are fetching", () => {
+    mockFetchSuccess([]);
+    mockGetMyPaymentClaims.mockReturnValue(new Promise(() => {})); // never resolves
     renderPage();
     expect(screen.getByTestId("page-skeleton")).toBeInTheDocument();
   });
@@ -366,6 +396,179 @@ describe("ResidentPaymentsPage", () => {
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith("/api/v1/residents/me/fees");
+    });
+  });
+
+  // --- Claim status badges ---
+
+  it("shows PENDING claim status badge for a fee", async () => {
+    mockFetchSuccess([makeFee({ id: "fee-1" })]);
+    mockGetMyPaymentClaims.mockResolvedValue({ claims: [makeClaim({ status: "PENDING" })] });
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("PENDING")).toBeInTheDocument();
+    });
+  });
+
+  it("shows VERIFIED claim status badge for a fee", async () => {
+    mockFetchSuccess([makeFee({ id: "fee-1" })]);
+    mockGetMyPaymentClaims.mockResolvedValue({ claims: [makeClaim({ status: "VERIFIED" })] });
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("VERIFIED")).toBeInTheDocument();
+    });
+  });
+
+  it("shows REJECTED claim status badge for a fee", async () => {
+    mockFetchSuccess([makeFee({ id: "fee-1" })]);
+    mockGetMyPaymentClaims.mockResolvedValue({ claims: [makeClaim({ status: "REJECTED" })] });
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("REJECTED")).toBeInTheDocument();
+    });
+  });
+
+  it("shows Re-submit button for REJECTED claim", async () => {
+    mockFetchSuccess([makeFee({ id: "fee-1" })]);
+    mockGetMyPaymentClaims.mockResolvedValue({ claims: [makeClaim({ status: "REJECTED" })] });
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole("link", { name: "Re-submit" })).toBeInTheDocument();
+    });
+  });
+
+  it("Re-submit button links to confirm page with correct feeId", async () => {
+    mockFetchSuccess([makeFee({ id: "fee-1" })]);
+    mockGetMyPaymentClaims.mockResolvedValue({ claims: [makeClaim({ status: "REJECTED" })] });
+    renderPage();
+
+    await waitFor(() => {
+      const link = screen.getByRole("link", { name: "Re-submit" });
+      expect(link).toHaveAttribute("href", "/r/payments/confirm?feeId=fee-1");
+    });
+  });
+
+  it("does not show Re-submit button for PENDING claim", async () => {
+    mockFetchSuccess([makeFee({ id: "fee-1" })]);
+    mockGetMyPaymentClaims.mockResolvedValue({ claims: [makeClaim({ status: "PENDING" })] });
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.queryByRole("link", { name: "Re-submit" })).not.toBeInTheDocument();
+    });
+  });
+
+  it("does not show Re-submit button for VERIFIED claim", async () => {
+    mockFetchSuccess([makeFee({ id: "fee-1" })]);
+    mockGetMyPaymentClaims.mockResolvedValue({ claims: [makeClaim({ status: "VERIFIED" })] });
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.queryByRole("link", { name: "Re-submit" })).not.toBeInTheDocument();
+    });
+  });
+
+  it("shows rejection reason text for REJECTED claim with reason", async () => {
+    mockFetchSuccess([makeFee({ id: "fee-1" })]);
+    mockGetMyPaymentClaims.mockResolvedValue({
+      claims: [makeClaim({ status: "REJECTED", rejectionReason: "UTR does not match" })],
+    });
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("UTR does not match")).toBeInTheDocument();
+    });
+  });
+
+  it("does not show rejection reason when claim is PENDING", async () => {
+    mockFetchSuccess([makeFee({ id: "fee-1" })]);
+    mockGetMyPaymentClaims.mockResolvedValue({
+      claims: [makeClaim({ status: "PENDING", rejectionReason: "should not show" })],
+    });
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.queryByText("should not show")).not.toBeInTheDocument();
+    });
+  });
+
+  it("shows Payment Claims section label when claims exist", async () => {
+    mockFetchSuccess([makeFee({ id: "fee-1" })]);
+    mockGetMyPaymentClaims.mockResolvedValue({ claims: [makeClaim()] });
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText(/Payment Claims/i)).toBeInTheDocument();
+    });
+  });
+
+  it("does not show Payment Claims section when no claims", async () => {
+    mockFetchSuccess([makeFee({ id: "fee-1" })]);
+    mockGetMyPaymentClaims.mockResolvedValue({ claims: [] });
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Payment Claims/i)).not.toBeInTheDocument();
+    });
+  });
+
+  it("only shows claims for the matching fee", async () => {
+    mockFetchSuccess([
+      makeFee({ id: "fee-1", sessionYear: "2025-26" }),
+      makeFee({ id: "fee-2", sessionYear: "2024-25" }),
+    ]);
+    mockGetMyPaymentClaims.mockResolvedValue({
+      claims: [makeClaim({ id: "claim-1", membershipFeeId: "fee-1", status: "VERIFIED" })],
+    });
+    renderPage();
+
+    await waitFor(() => {
+      // VERIFIED badge present (for fee-1)
+      expect(screen.getByText("VERIFIED")).toBeInTheDocument();
+      // Only one Payment Claims section (fee-2 has none)
+      expect(screen.getAllByText(/Payment Claims/i)).toHaveLength(1);
+    });
+  });
+
+  it("shows multiple claims for the same fee", async () => {
+    mockFetchSuccess([makeFee({ id: "fee-1" })]);
+    mockGetMyPaymentClaims.mockResolvedValue({
+      claims: [
+        makeClaim({ id: "claim-1", membershipFeeId: "fee-1", status: "REJECTED" }),
+        makeClaim({ id: "claim-2", membershipFeeId: "fee-1", status: "PENDING" }),
+      ],
+    });
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("REJECTED")).toBeInTheDocument();
+      expect(screen.getByText("PENDING")).toBeInTheDocument();
+    });
+  });
+
+  it("treats missing claims key in response as empty list", async () => {
+    mockFetchSuccess([makeFee({ id: "fee-1" })]);
+    mockGetMyPaymentClaims.mockResolvedValue({} as { claims: never[] });
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Payment Claims/i)).not.toBeInTheDocument();
+    });
+  });
+
+  it("renders claim badge without crashing for unknown claim status", async () => {
+    mockFetchSuccess([makeFee({ id: "fee-1" })]);
+    mockGetMyPaymentClaims.mockResolvedValue({
+      claims: [makeClaim({ status: "UNKNOWN_STATUS" })],
+    });
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("UNKNOWN_STATUS")).toBeInTheDocument();
     });
   });
 });
