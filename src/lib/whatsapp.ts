@@ -232,6 +232,79 @@ export async function sendSocietyReactivated(
   ]);
 }
 
+export async function sendAdminPaymentClaimReceived(
+  mobile: string,
+  residentName: string,
+  flatNo: string,
+  amount: string,
+  utrNumber: string,
+) {
+  return sendTemplateMessage(mobile, "admin_payment_claim_received", [
+    { name: "1", value: residentName },
+    { name: "2", value: flatNo },
+    { name: "3", value: amount },
+    { name: "4", value: utrNumber },
+  ]);
+}
+
+export async function sendResidentPaymentConfirmed(
+  mobile: string,
+  amount: string,
+  receiptNo: string,
+) {
+  return sendTemplateMessage(mobile, "resident_payment_confirmed", [
+    { name: "1", value: amount },
+    { name: "2", value: receiptNo },
+  ]);
+}
+
+export async function sendResidentPaymentRejected(
+  mobile: string,
+  amount: string,
+  rejectionReason: string,
+) {
+  return sendTemplateMessage(mobile, "resident_payment_rejected", [
+    { name: "1", value: amount },
+    { name: "2", value: rejectionReason },
+  ]);
+}
+
+export async function sendAdminClaimReminder24h(mobile: string, pendingCount: string) {
+  return sendTemplateMessage(mobile, "admin_claim_reminder_24h", [
+    { name: "1", value: pendingCount },
+  ]);
+}
+
+export async function sendAdminClaimReminder48h(mobile: string, pendingCount: string) {
+  return sendTemplateMessage(mobile, "admin_claim_reminder_48h", [
+    { name: "1", value: pendingCount },
+  ]);
+}
+
+export async function sendAdminSubPaymentConfirmed(
+  mobile: string,
+  amount: string,
+  periodStart: string,
+  periodEnd: string,
+) {
+  return sendTemplateMessage(mobile, "admin_sub_payment_confirmed", [
+    { name: "1", value: amount },
+    { name: "2", value: periodStart },
+    { name: "3", value: periodEnd },
+  ]);
+}
+
+export async function sendAdminSubPaymentRejected(
+  mobile: string,
+  amount: string,
+  rejectionReason: string,
+) {
+  return sendTemplateMessage(mobile, "admin_sub_payment_rejected", [
+    { name: "1", value: amount },
+    { name: "2", value: rejectionReason },
+  ]);
+}
+
 export async function sendSocietyOffboarded(
   mobile: string,
   adminName: string,

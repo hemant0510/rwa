@@ -88,6 +88,8 @@ export default defineConfig({
         "src/app/api/v1/societies/[id]/subscription-payment-claims/**",
         "src/components/layout/SuperAdminSidebar.tsx",
         "src/app/admin/fees/claims/page.tsx",
+        "src/app/api/cron/payment-claim-reminders/**",
+        "src/app/api/v1/config/payment-features/**",
       ],
       exclude: [
         "src/lib/prisma.ts",
