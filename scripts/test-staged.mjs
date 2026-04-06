@@ -58,6 +58,7 @@ const SKIP_COVERAGE = [
   /^src\/lib\/prisma\.ts$/, // Prisma client singleton
   /^src\/lib\/supabase\//, // Supabase client helpers
   /^src\/lib\/whatsapp\.ts$/, // External messaging client
+  /^next\.config\.(ts|js)$/, // Next.js config — no testable runtime logic
 ];
 
 const coverableFiles = sourceFiles.filter((f) => !SKIP_COVERAGE.some((pat) => pat.test(f)));
