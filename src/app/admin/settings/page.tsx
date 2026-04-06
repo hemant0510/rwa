@@ -5,7 +5,14 @@ import { useState } from "react";
 import Link from "next/link";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, CalendarPlus, ChevronRight, Loader2, QrCode } from "lucide-react";
+import {
+  AlertTriangle,
+  CalendarPlus,
+  ChevronRight,
+  CreditCard,
+  Loader2,
+  QrCode,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -139,6 +146,24 @@ export default function AdminSettingsPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Settings" description="Manage your society settings" />
+
+      {/* Subscription Payment Card */}
+      <Link href="/admin/settings/subscription">
+        <Card className="hover:bg-muted/50 cursor-pointer transition-colors">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div className="flex items-center gap-3">
+              <CreditCard className="text-muted-foreground h-5 w-5" />
+              <div>
+                <CardTitle className="text-base">Subscription Payment</CardTitle>
+                <CardDescription>
+                  Pay your society&apos;s platform subscription via UPI
+                </CardDescription>
+              </div>
+            </div>
+            <ChevronRight className="text-muted-foreground h-4 w-4" />
+          </CardHeader>
+        </Card>
+      </Link>
 
       {/* Payment Setup Card */}
       <Link href="/admin/settings/payment-setup">

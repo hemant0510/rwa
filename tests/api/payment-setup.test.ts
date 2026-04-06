@@ -101,10 +101,24 @@ describe("GET /api/v1/societies/[id]/payment-setup", () => {
     expect(res.status).toBe(404);
   });
 
-  it("returns 404 when society belongs to a different admin", async () => {
+  it("returns 404 when user belongs to a different society", async () => {
     mockGetCurrentUser.mockResolvedValue({ ...mockAdmin, societyId: "other-soc" });
     const res = await GET(makeGetRequest(), makeParams());
     expect(res.status).toBe(404);
+  });
+
+  it("returns 200 for a resident of the same society", async () => {
+    mockGetCurrentUser.mockResolvedValue({
+      userId: "resident-1",
+      authUserId: "auth-2",
+      societyId: SOCIETY_ID,
+      role: "RESIDENT",
+      adminPermission: null,
+    });
+    const res = await GET(makeGetRequest(), makeParams());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.upiId).toBe("edenestate@sbi");
   });
 
   it("returns 200 with UPI fields on success", async () => {

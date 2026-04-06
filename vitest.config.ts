@@ -90,6 +90,8 @@ export default defineConfig({
         "src/app/admin/fees/claims/page.tsx",
         "src/app/api/cron/payment-claim-reminders/**",
         "src/app/api/v1/config/payment-features/**",
+        "src/app/api/v1/societies/[id]/platform-payment-info/**",
+        "src/app/admin/settings/subscription/page.tsx",
       ],
       exclude: [
         "src/lib/prisma.ts",

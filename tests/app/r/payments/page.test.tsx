@@ -571,4 +571,82 @@ describe("ResidentPaymentsPage", () => {
       expect(screen.getByText("UNKNOWN_STATUS")).toBeInTheDocument();
     });
   });
+
+  // --- Pay via UPI button ---
+
+  it("shows Pay via UPI button for PENDING fee with no claims", async () => {
+    mockFetchSuccess([makeFee({ id: "fee-1", status: "PENDING" })]);
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole("link", { name: "Pay via UPI" })).toBeInTheDocument();
+    });
+  });
+
+  it("shows Pay via UPI button for OVERDUE fee with no claims", async () => {
+    mockFetchSuccess([makeFee({ id: "fee-1", status: "OVERDUE" })]);
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole("link", { name: "Pay via UPI" })).toBeInTheDocument();
+    });
+  });
+
+  it("Pay via UPI button links to pay page with correct feeId", async () => {
+    mockFetchSuccess([makeFee({ id: "fee-1", status: "PENDING" })]);
+    renderPage();
+
+    await waitFor(() => {
+      const link = screen.getByRole("link", { name: "Pay via UPI" });
+      expect(link).toHaveAttribute("href", "/r/payments/pay?feeId=fee-1");
+    });
+  });
+
+  it("does not show Pay via UPI button for PAID fee", async () => {
+    mockFetchSuccess([makeFee({ id: "fee-1", status: "PAID" })]);
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.queryByRole("link", { name: "Pay via UPI" })).not.toBeInTheDocument();
+    });
+  });
+
+  it("does not show Pay via UPI button for EXEMPTED fee", async () => {
+    mockFetchSuccess([makeFee({ id: "fee-1", status: "EXEMPTED" })]);
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.queryByRole("link", { name: "Pay via UPI" })).not.toBeInTheDocument();
+    });
+  });
+
+  it("does not show Pay via UPI button when a PENDING claim exists", async () => {
+    mockFetchSuccess([makeFee({ id: "fee-1", status: "PENDING" })]);
+    mockGetMyPaymentClaims.mockResolvedValue({ claims: [makeClaim({ status: "PENDING" })] });
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.queryByRole("link", { name: "Pay via UPI" })).not.toBeInTheDocument();
+    });
+  });
+
+  it("does not show Pay via UPI button when a VERIFIED claim exists", async () => {
+    mockFetchSuccess([makeFee({ id: "fee-1", status: "PARTIAL" })]);
+    mockGetMyPaymentClaims.mockResolvedValue({ claims: [makeClaim({ status: "VERIFIED" })] });
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.queryByRole("link", { name: "Pay via UPI" })).not.toBeInTheDocument();
+    });
+  });
+
+  it("shows Pay via UPI button when only REJECTED claims exist", async () => {
+    mockFetchSuccess([makeFee({ id: "fee-1", status: "PENDING" })]);
+    mockGetMyPaymentClaims.mockResolvedValue({ claims: [makeClaim({ status: "REJECTED" })] });
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole("link", { name: "Pay via UPI" })).toBeInTheDocument();
+    });
+  });
 });

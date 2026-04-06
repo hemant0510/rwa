@@ -167,6 +167,14 @@ export default function ResidentPaymentsPage() {
                   </div>
                 )}
 
+                {fee.status !== "PAID" &&
+                  fee.status !== "EXEMPTED" &&
+                  !feeClaims.some((c) => c.status === "PENDING" || c.status === "VERIFIED") && (
+                    <Button asChild className="mt-1 w-full">
+                      <Link href={`/r/payments/pay?feeId=${fee.id}`}>Pay via UPI</Link>
+                    </Button>
+                  )}
+
                 {fee.payments.length > 0 && (
                   <div className="space-y-2 pt-1">
                     <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
