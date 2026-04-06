@@ -150,6 +150,7 @@ export const mockPrisma = {
   },
   societySubscription: {
     findUnique: vi.fn(),
+    findFirst: vi.fn(),
     findMany: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
@@ -212,6 +213,26 @@ export const mockPrisma = {
     deleteMany: vi.fn(),
     updateMany: vi.fn(),
     aggregate: vi.fn(),
+    count: vi.fn(),
+  },
+  subscriptionPaymentClaim: {
+    findUnique: vi.fn(),
+    findFirst: vi.fn(),
+    findMany: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    count: vi.fn(),
+  },
+  platformSetting: {
+    findUnique: vi.fn(),
+    findFirst: vi.fn(),
+    findMany: vi.fn(),
+    update: vi.fn(),
+    upsert: vi.fn(),
+  },
+  subscriptionPayment: {
+    findMany: vi.fn(),
+    create: vi.fn(),
     count: vi.fn(),
   },
   $transaction: vi.fn((arg: unknown) => {

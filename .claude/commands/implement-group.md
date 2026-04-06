@@ -68,6 +68,8 @@ For each source file in the group:
 4. **Add this test file path to a running list** (this list is used in Step 6)
 5. Mark the task complete in TodoWrite
 
+**Every source file MUST have a test** — API routes, services, components, pages, and sidebar/layout files. No exceptions. If you create or modify a source file without writing/updating its test, the pre-commit hook will fail with 0% coverage.
+
 **Note on shared test files**: Some source files share one test file (e.g., a route + its upload sub-route both tested in `resident-payment-claims.test.ts`). Check if a test already exists for this source before creating a new one.
 
 **Large group handling**: If a group has more than 5 source files, split it into two sub-sessions:
@@ -87,13 +89,33 @@ After all source files exist, open `vitest.config.ts` and check the `coverage.in
 
 ## Step 6 — Run the group quality gate
 
-Using the test-files list built in Step 4:
+Using the source-files and test-files lists built in Step 4, run these **three checks in order**:
 
 ```bash
-npm run lint                              # zero errors required
-npx vitest run <test-files from Step 4>   # NOT test:staged — files aren't staged yet
-npx tsc --noEmit                          # fast type check (not npm run build)
+# 1. Lint — zero errors required
+npm run lint
+
+# 2. Type check — fast (~5s), NOT npm run build
+npx tsc --noEmit
+
+# 3. Coverage — the EXACT check the pre-commit hook runs
+#    This is the most important step. Uses `vitest related` to find tests
+#    for all source files, then enforces 95% per file.
+npx vitest related <all-source-files> --run \
+  --coverage --coverage.provider=v8 --coverage.reporter=text \
+  --coverage.include=<source-file-1> \
+  --coverage.include=<source-file-2> \
+  ... \
+  --coverage.thresholds.perFile=true \
+  --coverage.thresholds.lines=95 \
+  --coverage.thresholds.branches=95 \
+  --coverage.thresholds.functions=95 \
+  --coverage.thresholds.statements=95
 ```
+
+**CRITICAL**: If any file shows below 95% on any metric, add tests for the uncovered branches/lines **now**. Do not defer to Step 7. The pre-commit hook runs this exact check — if you skip it here, the commit will fail.
+
+**Re-run lint after any test additions or fixes**: If coverage failures required adding/modifying test files, re-run `npm run lint` before moving on — new files may have unused imports or other lint errors.
 
 Fix every failure before proceeding. Never skip forward with a failure open.
 
@@ -158,11 +180,24 @@ Read wireframe diagrams element by element. Every labeled item must exist in the
 
 ```
 ✅/❌ All new source files added to vitest.config.ts coverage.include
+✅/❌ Every new/modified source file has a corresponding test file
 ✅/❌ All test files pass: npx vitest run <each file individually>
-✅/❌ 95%+ lines/branches/functions/statements per source file
+✅/❌ 95%+ coverage per file — run this exact command to verify:
 ```
 
-Any ❌ → fix immediately. Do not report "complete" with open items.
+```bash
+npx vitest run <test-files> \
+  --coverage \
+  --coverage.include=<source-file-1> \
+  --coverage.include=<source-file-2> \
+  --coverage.thresholds.perFile=true \
+  --coverage.thresholds.lines=95 \
+  --coverage.thresholds.branches=95 \
+  --coverage.thresholds.functions=95 \
+  --coverage.thresholds.statements=95
+```
+
+If any file is below 95% on any metric → add tests for the uncovered branches/lines. Do not report "complete" with open items.
 
 ---
 

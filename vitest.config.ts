@@ -83,6 +83,10 @@ export default defineConfig({
         "src/app/api/v1/societies/[id]/payment-setup/**",
         "src/app/api/v1/societies/[id]/payment-claims/**",
         "src/app/api/v1/residents/me/payment-claims/**",
+        "src/app/api/v1/super-admin/platform-payment-setup/**",
+        "src/app/api/v1/super-admin/subscription-payment-claims/**",
+        "src/app/api/v1/societies/[id]/subscription-payment-claims/**",
+        "src/components/layout/SuperAdminSidebar.tsx",
         "src/app/admin/fees/claims/page.tsx",
       ],
       exclude: [

@@ -2,10 +2,12 @@
 
 import { useEffect } from "react";
 
+import Link from "next/link";
+
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { KeyRound, Settings, User } from "lucide-react";
+import { ChevronRight, KeyRound, QrCode, Settings, User } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -297,6 +299,24 @@ export default function SettingsPage() {
         title="Settings"
         description="Manage your account profile, security, and platform configuration"
       />
+
+      {/* Payment Setup Card */}
+      <Link href="/sa/settings/payments">
+        <Card className="hover:bg-muted/50 cursor-pointer transition-colors">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div className="flex items-center gap-3">
+              <QrCode className="text-muted-foreground h-5 w-5" />
+              <div>
+                <CardTitle className="text-base">Payment Setup</CardTitle>
+                <CardDescription>
+                  Configure platform UPI ID and QR code for subscription payment collection
+                </CardDescription>
+              </div>
+            </div>
+            <ChevronRight className="text-muted-foreground h-4 w-4" />
+          </CardHeader>
+        </Card>
+      </Link>
 
       <Tabs defaultValue="profile" className="space-y-6">
         <TabsList>

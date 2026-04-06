@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { useQuery } from "@tanstack/react-query";
 import {
   Activity,
   Bell,
@@ -20,6 +21,7 @@ import {
 
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { getSaPendingSubClaimsCount } from "@/services/subscription-payment-claims";
 
 const navItems = [
   { href: "/sa/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -39,6 +41,13 @@ const navItems = [
 function SidebarContent() {
   const pathname = usePathname();
 
+  const { data: pendingSubClaimsData } = useQuery({
+    queryKey: ["sa-sub-claims-pending-count"],
+    queryFn: getSaPendingSubClaimsCount,
+    staleTime: 30_000,
+  });
+  const pendingSubCount = pendingSubClaimsData?.count ?? 0;
+
   return (
     <div className="flex h-full flex-col">
       <div className="border-b px-6 py-4">
@@ -48,6 +57,8 @@ function SidebarContent() {
       <nav className="flex-1 space-y-1 p-3">
         {navItems.map((item) => {
           const isActive = pathname?.includes(item.href);
+          const isBilling = item.href === "/sa/billing";
+          const badge = isBilling && pendingSubCount > 0 ? pendingSubCount : null;
           return (
             <Link
               key={item.href}
@@ -60,7 +71,19 @@ function SidebarContent() {
               )}
             >
               <item.icon className="h-4 w-4" />
-              {item.label}
+              <span className="flex-1">{item.label}</span>
+              {badge && (
+                <span
+                  className={cn(
+                    "rounded-full px-1.5 py-0.5 text-xs leading-none font-semibold",
+                    isActive
+                      ? "bg-primary-foreground text-primary"
+                      : "bg-destructive text-destructive-foreground",
+                  )}
+                >
+                  {badge}
+                </span>
+              )}
             </Link>
           );
         })}
