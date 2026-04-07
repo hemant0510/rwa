@@ -48,6 +48,12 @@ export async function grantExemption(societyId: string, feeId: string, data: Gra
   return res.json();
 }
 
+export async function getFeeSessions(): Promise<{ id: string; sessionYear: string }[]> {
+  const res = await fetch(`${API_BASE}/admin/fee-sessions`);
+  if (!res.ok) return [];
+  return res.json();
+}
+
 export async function getResidentPayments(residentId: string) {
   const res = await fetch(`${API_BASE}/residents/${residentId}/payments`);
   if (!res.ok) throw new Error("Failed to fetch payments");

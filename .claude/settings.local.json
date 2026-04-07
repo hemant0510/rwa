@@ -5,7 +5,8 @@
       "Bash(d:/PROJECTS/EDEN/CODE/rwa/supabase/schema.prisma:*)",
       "Bash(/dev/null ls:*)",
       "mcp__claude_ai_Supabase__list_projects",
-      "mcp__claude_ai_Supabase__apply_migration"
+      "mcp__claude_ai_Supabase__apply_migration",
+      "mcp__claude_ai_Supabase__execute_sql"
     ]
   }
 }

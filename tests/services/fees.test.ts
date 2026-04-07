@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 import {
   getFeeDashboard,
+  getFeeSessions,
   recordPayment,
   grantExemption,
   getResidentPayments,
@@ -101,6 +102,22 @@ describe("fees service", () => {
       await expect(grantExemption("soc-1", "fee-1", { reason: "Test reason" })).rejects.toThrow(
         "Failed to grant exemption",
       );
+    });
+  });
+
+  describe("getFeeSessions", () => {
+    it("fetches fee sessions", async () => {
+      const sessions = [{ id: "s1", sessionYear: "2025-26" }];
+      mockFetch.mockResolvedValue(okJson(sessions));
+      const result = await getFeeSessions();
+      expect(result).toEqual(sessions);
+      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining("/admin/fee-sessions"));
+    });
+
+    it("returns empty array on error", async () => {
+      mockFetch.mockResolvedValue({ ok: false });
+      const result = await getFeeSessions();
+      expect(result).toEqual([]);
     });
   });
 

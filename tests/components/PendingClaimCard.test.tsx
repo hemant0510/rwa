@@ -79,16 +79,21 @@ describe("PendingClaimCard", () => {
     expect(screen.getByText(/UTR not found in bank statement/)).toBeInTheDocument();
   });
 
-  it("shows View Screenshot link when screenshotUrl is provided", () => {
+  it("shows inline screenshot image and link when screenshotUrl is provided", () => {
     renderCard({ screenshotUrl: "https://example.com/screenshot.png" });
-    const link = screen.getByRole("link", { name: /view screenshot/i });
+    const img = screen.getByRole("img", { name: /payment screenshot/i });
+    expect(img).toHaveAttribute("src", "https://example.com/screenshot.png");
+    // The wrapping <a> opens the image full-size in a new tab
+    const link = img.closest("a");
     expect(link).toHaveAttribute("href", "https://example.com/screenshot.png");
     expect(link).toHaveAttribute("target", "_blank");
+    expect(screen.getByText("Payment Screenshot")).toBeInTheDocument();
   });
 
-  it("does not show screenshot link when screenshotUrl is null", () => {
+  it("does not show screenshot section when screenshotUrl is null", () => {
     renderCard({ screenshotUrl: null });
-    expect(screen.queryByRole("link", { name: /view screenshot/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: /payment screenshot/i })).not.toBeInTheDocument();
+    expect(screen.queryByText("Payment Screenshot")).not.toBeInTheDocument();
   });
 
   it("calls onVerify with claim id and admin notes when Confirm clicked", async () => {

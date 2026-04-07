@@ -79,15 +79,29 @@ export function PendingClaimCard({ claim, onVerify, onReject, isPending }: Pendi
         </div>
 
         {claim.screenshotUrl && (
-          <a
-            href={claim.screenshotUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-primary inline-flex items-center gap-1 text-sm hover:underline"
-          >
-            <ExternalLink className="h-3 w-3" />
-            View Screenshot
-          </a>
+          <div className="space-y-1">
+            <p className="text-muted-foreground text-xs font-medium">Payment Screenshot</p>
+            <a
+              href={claim.screenshotUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group relative inline-block"
+              title="Click to open full size"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={claim.screenshotUrl}
+                alt="Payment screenshot"
+                className="h-32 w-auto max-w-full rounded border object-contain transition-opacity group-hover:opacity-90"
+              />
+              <span className="absolute inset-0 flex items-end justify-end p-1 opacity-0 transition-opacity group-hover:opacity-100">
+                <span className="inline-flex items-center gap-1 rounded bg-black/60 px-1.5 py-0.5 text-xs text-white">
+                  <ExternalLink className="h-3 w-3" />
+                  Full size
+                </span>
+              </span>
+            </a>
+          </div>
         )}
 
         {claim.status === "PENDING" && (
