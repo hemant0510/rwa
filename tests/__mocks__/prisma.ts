@@ -120,6 +120,19 @@ export const mockPrisma = {
     deleteMany: vi.fn(),
     updateMany: vi.fn(),
   },
+  designation: {
+    findMany: vi.fn(),
+    findFirst: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+  },
+  governingBodyMember: {
+    findMany: vi.fn(),
+    create: vi.fn(),
+    upsert: vi.fn(),
+    delete: vi.fn(),
+  },
   vehicle: {
     deleteMany: vi.fn(),
   },
