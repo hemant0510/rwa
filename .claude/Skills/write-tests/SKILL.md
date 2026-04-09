@@ -12,6 +12,17 @@ Choose the template below based on file type. Use it verbatim — do not re-deri
 
 ---
 
+## Step 0 — Confirm the file needs tests (always yes, unless excluded)
+
+The pre-commit hook enforces 95% coverage on **every staged `.ts`/`.tsx` file**. If you are writing tests for a file, it is because that file will be staged and the hook will check it. There is no category of source file that is exempt from this — not config files, not service workers, not manifest files, not offline pages.
+
+If someone (a plan, a comment, a previous session) claimed the file "doesn't need tests", verify by checking:
+
+1. Is the file path in the `exclude` array in `vitest.config.ts`? If yes → truly exempt, stop.
+2. If not excluded → it WILL be covered by the hook → write tests.
+
+---
+
 ## Step 1 — Identify file type
 
 From the file path:
@@ -20,6 +31,8 @@ From the file path:
 - `src/services/**` → **Service / fetch wrapper**
 - `src/components/**` → **React component**
 - `src/app/**/page.tsx` → **Next.js page**
+- `src/app/**/manifest.ts` → **Next.js metadata export** (treat like a utility function — test the return value)
+- `src/app/**/sw.ts` → **Service worker** — compiled by bundler, add to `vitest.config.ts` exclude instead of writing tests
 - `src/hooks/**` → **Custom hook**
 - `src/lib/**` → **Utility / library function**
 

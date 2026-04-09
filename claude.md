@@ -62,7 +62,16 @@ Skills live in `.claude/skills/<name>/SKILL.md` with YAML frontmatter.
 
 ## Pre-Commit Coverage — CRITICAL
 
-The pre-commit hook (`scripts/test-staged.mjs`) enforces **95% per-file coverage** on ALL staged source files. This is the #1 source of failed commits. Follow these rules strictly:
+The pre-commit hook (`scripts/test-staged.mjs`) enforces **95% per-file coverage** on ALL staged source files. This is the #1 source of failed commits. Follow these rules strictly.
+
+### "No test needed" claims in plan files are WRONG by default
+
+Plan files sometimes say "no test needed" or "not in coverage scope." **These claims do not override the pre-commit hook.** The hook tests every staged `.ts`/`.tsx` file — it does not read plan documents. When a plan makes this claim, you must choose exactly one of:
+
+1. **Write tests** that bring coverage to ≥ 95% for that file, OR
+2. **Add the file to `vitest.config.ts` `exclude`** AND verify the hook skips it by checking `scripts/test-staged.mjs`
+
+There is no third option. Trusting a plan claim without empirically running the coverage command is the #1 source of "Ready to commit: YES" that then fails on actual commit.
 
 ### Before modifying any existing file
 

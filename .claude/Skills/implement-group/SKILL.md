@@ -42,7 +42,14 @@ Read the extracted section. Stop. Do not read any other section yet (Step 7 read
 
 **c) Existing files**: For each file listed in the group, check if it already exists. If it does, read it first. Implement only what is missing — never overwrite working code.
 
-**d) "Extend" page verification**: For each page marked "Extend" in the group:
+**d) Plan coverage claims — NEVER TRUST THEM**: If the plan says "no test needed", "not in coverage scope", or any similar phrase, treat it as a hypothesis, not a fact. The pre-commit hook enforces 95% coverage on **every staged `.ts`/`.tsx` file** — it does not read plan documents. For every new file in this group, you must choose one of these two verified exits:
+
+1. **Write tests** that bring per-file coverage to ≥ 95%
+2. **Exclude the file from vitest** by adding its path to the `exclude` array in `vitest.config.ts` AND confirm the pre-commit hook will skip it by checking `scripts/test-staged.mjs`
+
+There is no third option. A plan saying "no test needed" only means the original plan author believed it — the hook does not care.
+
+**e) "Extend" page verification**: For each page marked "Extend" in the group:
 
 - Verify the target file exists in the filesystem
 - If it does NOT exist: treat it as a "New" page and create it
@@ -72,7 +79,15 @@ For each source file in the group (never batch; do one at a time):
 5. Add the test file path to a running list (used in Step 6)
 6. Mark the task complete in TodoWrite
 
-**Every source file MUST have a test** — API routes, services, components, pages, and sidebar/layout files. No exceptions. If you create or modify a source file without writing/updating its test, the pre-commit hook will fail with 0% coverage.
+**Every source file MUST have a test** — API routes, services, components, pages, config-exporting modules, and sidebar/layout files. No exceptions. If you create or modify a source file without writing/updating its test, the pre-commit hook will fail with 0% coverage.
+
+**Plan says "no test needed"?** That claim is wrong by default. Run the empirical check:
+
+```bash
+npx vitest run --coverage --coverage.include=src/path/to/new-file.ts
+```
+
+If output shows 0% coverage, you MUST either write tests or add the file to `vitest.config.ts` `exclude`. Do this check for EVERY new file before moving to the next one.
 
 **Note on shared test files**: Some source files share one test file. Check if a test already exists for this source before creating a new one.
 

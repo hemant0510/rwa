@@ -16,6 +16,11 @@ Run in order (see CLAUDE.md for exact commands). Stop on first failure:
 1. **Linter** — zero errors required. Pre-existing warnings acceptable.
 2. **Tests** — run test files for the code you've been working on. NOT the pre-commit staged variant — files aren't staged yet.
 3. **Type checker** — fast check (seconds), NOT full build.
+4. **Per-file coverage simulation** — for every new or modified source file in this session, run:
+   ```bash
+   npx vitest run tests/path/to/test.ts --coverage --coverage.include=src/path/to/source.ts
+   ```
+   This simulates exactly what the pre-commit hook enforces. If any file shows below 95% on any metric, add tests before declaring done. **Do not skip this step because the plan says "no test needed" — the hook does not read plans.**
 
 Full build: only on the final group of a feature branch or when explicitly asked.
 

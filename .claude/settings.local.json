@@ -13,7 +13,8 @@
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); props=d.get\\('contributes',{}\\).get\\('configuration',{}\\).get\\('properties',{}\\); [print\\(k,'=',json.dumps\\(v.get\\('default'\\),indent=0\\), '|', v.get\\('description',''\\)[:80]\\) for k,v in props.items\\(\\)]\")",
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(k,'=',v\\) for k,v in d.items\\(\\) if 'claude' in k.lower\\(\\)]\")",
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\({k:v for k,v in d.items\\(\\) if 'terminal' in k.lower\\(\\) or 'claude' in k.lower\\(\\)}, indent=2\\)\\)\")",
-      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); cmds=d.get\\('contributes',{}\\).get\\('commands',[]\\); [print\\(c.get\\('command'\\),'|',c.get\\('title',''\\)\\) for c in cmds]\")"
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); cmds=d.get\\('contributes',{}\\).get\\('commands',[]\\); [print\\(c.get\\('command'\\),'|',c.get\\('title',''\\)\\) for c in cmds]\")",
+      "Bash(NEXT_SERWIST_DISABLE_TURBOPACK_WARNING=1 npm run build)"
     ]
   }
 }

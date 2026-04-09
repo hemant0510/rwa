@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2017",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": ["dom", "dom.iterable", "esnext", "webworker"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -20,7 +20,8 @@
     ],
     "paths": {
       "@/*": ["./src/*"]
-    }
+    },
+    "types": ["@serwist/next/typings"]
   },
   "include": [
     "next-env.d.ts",
@@ -35,6 +36,7 @@
     "supabase/seed.ts",
     "supabase/seed-master.ts",
     "prisma.config.ts",
-    "vitest.config.ts"
+    "vitest.config.ts",
+    "public/sw.js"
   ]
 }

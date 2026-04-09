@@ -47,7 +47,18 @@ Execute categories A–G (same as `/implement-group` Step 7).
 **Critical differences from implement-group audit:**
 
 - **Category C (Page Navigation)**: check the plan's global UI Pages Summary for ALL rows, not just rows in the group section. Every "Extend" page listed anywhere in the plan must exist. If it doesn't and belongs to this group → create it.
-- **Category G (Tests)**: for each source file, run per-file coverage (see CLAUDE.md for the command). Do not accept "tests pass" as sufficient — coverage must be measured against the project threshold.
+- **Category G (Tests)**: for each source file in this group, run the per-file coverage command empirically. **Do not read the plan's "no test needed" claim and mark ✅ — the plan is not the pre-commit hook.** Run the command, read the output, see the number. Zero percent = commit will fail.
+
+---
+
+**Category G — mandatory commands to run for every new/modified source file:**
+
+```bash
+# For each file in this group — run this even if the plan says "no test needed"
+npx vitest run tests/path/to/test.ts --coverage --coverage.include=src/path/to/source.ts
+```
+
+If the file has NO test yet, run without a test file — you will see 0% and you must either write tests or add the file to `vitest.config.ts` `exclude`. Reading the plan is not a substitute for running this command.
 
 ---
 

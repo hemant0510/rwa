@@ -1,6 +1,16 @@
 import { withSentryConfig } from "@sentry/nextjs";
+import withSerwistInit from "@serwist/next";
 
 import type { NextConfig } from "next";
+
+const revision = crypto.randomUUID();
+
+const withSerwist = withSerwistInit({
+  swSrc: "src/app/sw.ts",
+  swDest: "public/sw.js",
+  additionalPrecacheEntries: [{ url: "/offline", revision }],
+  disable: process.env.NODE_ENV === "development",
+});
 
 const SENTRY_INGEST = "https://*.sentry.io";
 
@@ -27,6 +37,7 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       "font-src 'self'",
+      "worker-src 'self'",
       `connect-src 'self' ${process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://*.supabase.co"} wss://*.supabase.co ${SENTRY_INGEST}`,
       "frame-src 'self' blob:",
       "frame-ancestors 'none'",
@@ -72,7 +83,7 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withSentryConfig(nextConfig, {
+export default withSentryConfig(withSerwist(nextConfig), {
   // Sentry project settings (set in CI/CD environment):
   //   SENTRY_ORG, SENTRY_PROJECT, SENTRY_AUTH_TOKEN
   silent: true,

@@ -6,7 +6,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/providers/AuthProvider";
 import { QueryProvider } from "@/providers/QueryProvider";
 
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -19,9 +19,22 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+export const viewport: Viewport = {
+  themeColor: "#0d9488",
+};
+
 export const metadata: Metadata = {
   title: "RWA Connect — Society Management",
   description: "Manage your Resident Welfare Association with RWA Connect",
+  applicationName: "RWA Connect",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "RWA Connect",
+  },
+  formatDetection: {
+    telephone: false,
+  },
 };
 
 export default function RootLayout({

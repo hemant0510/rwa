@@ -63,16 +63,25 @@ Follow it completely. Do not proceed to Stage 2 until every deliverable in the p
 
 ## Stage 2 — QUALITY GATE
 
-Invoke **Skill(quality-gate)** — Variant A (files created, not staged yet).
+**Before invoking quality-gate:** List every new file created in Stage 1. For each file, regardless of what the plan says about tests, run:
+
+```bash
+npx vitest run tests/path/to/test.ts --coverage --coverage.include=src/path/to/source.ts
+```
+
+If any file has no test file yet: that is a gap to fix NOW, not after quality-gate. The pre-commit hook enforces 95% on every staged `.ts`/`.tsx` file. Plan claims like "no test needed" do not override this. Your only two valid exits per file are: (1) tests written and coverage ≥ 95%, or (2) file added to `vitest.config.ts` `exclude` AND confirmed the hook skips it.
+
+Then invoke **Skill(quality-gate)** — Variant A (files created, not staged yet).
 
 Fix every failure before proceeding. Do not move to Stage 3 with any lint error, test failure, or type error outstanding.
 
 Pass condition:
 
 ```
-✅ Lint   — zero errors
-✅ Tests  — all pass
-✅ Types  — zero errors
+✅ Lint      — zero errors
+✅ Tests     — all pass
+✅ Types     — zero errors
+✅ Coverage  — per-file ≥ 95% for every new/modified source file (run empirically, not from plan docs)
 ```
 
 ---

@@ -59,6 +59,7 @@ const SKIP_COVERAGE = [
   /^src\/lib\/supabase\//, // Supabase client helpers
   /^src\/lib\/whatsapp\.ts$/, // External messaging client
   /^next\.config\.(ts|js)$/, // Next.js config — no testable runtime logic
+  /\/sw\.(ts|tsx)$/, // Service workers — use ServiceWorkerGlobalScope APIs unavailable in jsdom
 ];
 
 const coverableFiles = sourceFiles.filter((f) => !SKIP_COVERAGE.some((pat) => pat.test(f)));
