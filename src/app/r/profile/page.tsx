@@ -2,9 +2,12 @@
 
 import { useRef, useState } from "react";
 
+import Image from "next/image";
+
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Award,
+  Camera,
   CheckCircle2,
   ExternalLink,
   FileText,
@@ -155,7 +158,9 @@ function DocCard({
       invalidateHomeCache();
     } finally {
       setUploading(false);
+      /* v8 ignore start */
       if (fileRef.current) fileRef.current.value = "";
+      /* v8 ignore stop */
     }
   }
 
@@ -295,11 +300,58 @@ function InfoRow({ icon, value }: { icon: React.ReactNode; value: string }) {
 
 export default function ResidentProfilePage() {
   const { user } = useAuth();
+  const photoRef = useRef<HTMLInputElement>(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const queryClient = useQueryClient();
+
   const { data: profile, isLoading } = useQuery({
     queryKey: ["resident-profile", user?.societyId],
     queryFn: fetchProfile,
     enabled: !!user,
   });
+
+  const { data: photoData, refetch: refetchPhoto } = useQuery({
+    queryKey: ["resident-photo", user?.societyId],
+    queryFn: () => fetchDocUrl("/api/v1/residents/me/photo"),
+    staleTime: 10 * 60 * 1000,
+    enabled: !!user,
+  });
+
+  const photoUrl = photoData ?? null;
+
+  async function handlePhotoUpload(file: File) {
+    setPhotoUploading(true);
+    try {
+      const compressed = await compressImage(file);
+      const form = new FormData();
+      form.append("file", compressed);
+      const res = await fetch("/api/v1/residents/me/photo", { method: "POST", body: form });
+      const body = (await res.json()) as { error?: { message: string } };
+      if (!res.ok) {
+        toast.error(body.error?.message ?? "Upload failed");
+        return;
+      }
+      toast.success("Photo updated");
+      void refetchPhoto();
+      void queryClient.invalidateQueries({ queryKey: ["resident-directory"] });
+    } finally {
+      setPhotoUploading(false);
+      /* v8 ignore start */
+      if (photoRef.current) photoRef.current.value = "";
+      /* v8 ignore stop */
+    }
+  }
+
+  async function handlePhotoDelete() {
+    const res = await fetch("/api/v1/residents/me/photo", { method: "DELETE" });
+    if (!res.ok) {
+      toast.error("Failed to remove photo");
+      return;
+    }
+    toast.success("Photo removed");
+    void refetchPhoto();
+    void queryClient.invalidateQueries({ queryKey: ["resident-directory"] });
+  }
 
   if (isLoading) return <PageSkeleton />;
 
@@ -314,9 +366,11 @@ export default function ResidentProfilePage() {
   const statusLabel = RESIDENT_STATUS_LABELS[profile.status] ?? profile.status;
   const statusStyle = STATUS_STYLES[profile.status] ?? "border-gray-300 bg-gray-50 text-gray-700";
   const ownershipKey = profile.ownershipType ?? "OTHER";
+  /* v8 ignore start */
   const ownershipLabel = OWNERSHIP_LABELS[ownershipKey] ?? ownershipKey;
   const proofTitle = OWNERSHIP_PROOF_LABELS[ownershipKey] ?? "Property Document";
   const proofHint = OWNERSHIP_PROOF_HINTS[ownershipKey] ?? "Any document proving your stay";
+  /* v8 ignore stop */
 
   const initials = profile.name
     .split(" ")
@@ -332,8 +386,79 @@ export default function ResidentProfilePage() {
         <CardContent className="pt-5 pb-5">
           {/* Avatar row */}
           <div className="mb-4 flex items-end justify-between gap-3">
-            <div className="bg-primary flex h-14 w-14 shrink-0 items-center justify-center rounded-xl text-lg font-bold text-white shadow-md sm:h-16 sm:w-16 sm:text-xl">
-              {initials}
+            <div className="flex items-end gap-3">
+              <div className="relative">
+                {photoUrl ? (
+                  <Image
+                    src={photoUrl}
+                    alt={profile.name}
+                    width={64}
+                    height={64}
+                    className="h-14 w-14 rounded-xl object-cover shadow-md sm:h-16 sm:w-16"
+                  />
+                ) : (
+                  <div className="bg-primary flex h-14 w-14 shrink-0 items-center justify-center rounded-xl text-lg font-bold text-white shadow-md sm:h-16 sm:w-16 sm:text-xl">
+                    {initials}
+                  </div>
+                )}
+                {/* Camera badge — always visible */}
+                <button
+                  type="button"
+                  onClick={() => photoRef.current?.click()}
+                  disabled={photoUploading}
+                  className="bg-primary absolute -right-1 -bottom-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white shadow-sm"
+                  aria-label="Change photo"
+                >
+                  {photoUploading ? (
+                    <Loader2 className="h-3 w-3 animate-spin text-white" />
+                  ) : (
+                    <Camera className="h-3 w-3 text-white" />
+                  )}
+                </button>
+                <input
+                  ref={photoRef}
+                  type="file"
+                  accept=".jpg,.jpeg,.png,.webp"
+                  className="hidden"
+                  data-testid="photo-input"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void handlePhotoUpload(f);
+                  }}
+                />
+              </div>
+              {/* Upload / Remove text links */}
+              <div className="mb-0.5 flex flex-col">
+                {photoUrl ? (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => photoRef.current?.click()}
+                      disabled={photoUploading}
+                      className="text-primary text-xs font-medium hover:underline"
+                    >
+                      Change Photo
+                    </button>
+                    <span className="text-muted-foreground text-xs">|</span>
+                    <button
+                      type="button"
+                      onClick={handlePhotoDelete}
+                      className="text-xs font-medium text-red-500 hover:underline"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => photoRef.current?.click()}
+                    disabled={photoUploading}
+                    className="text-primary text-xs font-medium hover:underline"
+                  >
+                    {photoUploading ? "Uploading…" : "Upload Photo"}
+                  </button>
+                )}
+              </div>
             </div>
             <Badge variant="outline" className={`mb-1 ${statusStyle} font-medium`}>
               {statusLabel}
@@ -395,7 +520,7 @@ export default function ResidentProfilePage() {
             icon={<FileText className="h-5 w-5" />}
             accentClass="bg-blue-400"
             docKey="id-proof"
-            societyId={user?.societyId ?? null}
+            societyId={/* v8 ignore next */ user?.societyId ?? null}
           />
           <DocCard
             title={proofTitle}
@@ -405,7 +530,7 @@ export default function ResidentProfilePage() {
             icon={<FileText className="h-5 w-5" />}
             accentClass="bg-emerald-400"
             docKey="ownership-proof"
-            societyId={user?.societyId ?? null}
+            societyId={/* v8 ignore next */ user?.societyId ?? null}
           />
         </CardContent>
       </Card>

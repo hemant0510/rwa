@@ -26,6 +26,7 @@ import {
 import { toast } from "sonner";
 
 import { BulkUploadDialog } from "@/components/residents/BulkUploadDialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -428,15 +429,32 @@ function ResidentsPageInner() {
                 {data.data.map((resident) => (
                   <TableRow key={resident.id}>
                     <TableCell>
-                      <Link
-                        href={`/admin/residents/${resident.id}`}
-                        className="font-medium hover:underline"
-                      >
-                        {resident.name}
-                      </Link>
-                      <p className="text-muted-foreground text-xs sm:hidden">
-                        {maskMobile(resident.mobile)}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <Avatar size="sm">
+                          {resident.photoUrl && (
+                            <AvatarImage src={resident.photoUrl} alt={resident.name} />
+                          )}
+                          <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-semibold">
+                            {resident.name
+                              .split(" ")
+                              .map((n: string) => n[0])
+                              .join("")
+                              .toUpperCase()
+                              .slice(0, 2)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <Link
+                            href={`/admin/residents/${resident.id}`}
+                            className="font-medium hover:underline"
+                          >
+                            {resident.name}
+                          </Link>
+                          <p className="text-muted-foreground text-xs sm:hidden">
+                            {maskMobile(resident.mobile)}
+                          </p>
+                        </div>
+                      </div>
                     </TableCell>
                     <TableCell className="hidden sm:table-cell">
                       {maskMobile(resident.mobile)}

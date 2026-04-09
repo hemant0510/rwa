@@ -7,6 +7,8 @@ import { getCurrentUser } from "@/lib/get-current-user";
 import { prisma, type TransactionClient } from "@/lib/prisma";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+const PHOTO_BUCKET = "resident-photos";
+
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
@@ -31,7 +33,17 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 
     if (!user) return notFoundError("Resident not found");
 
-    return NextResponse.json(user);
+    // Generate signed photo URL if available
+    let photoSignedUrl: string | null = null;
+    if (user.photoUrl) {
+      const supabaseAdmin = createAdminClient();
+      const { data } = await supabaseAdmin.storage
+        .from(PHOTO_BUCKET)
+        .createSignedUrl(user.photoUrl, 60 * 60);
+      photoSignedUrl = data?.signedUrl ?? null;
+    }
+
+    return NextResponse.json({ ...user, photoUrl: photoSignedUrl });
   } catch {
     return internalError("Failed to fetch resident");
   }

@@ -146,7 +146,11 @@ describe("ResidentDirectoryPage", () => {
 
     expect(screen.getByText("Vikram Singh")).toBeInTheDocument();
     expect(screen.getByText("Tenant")).toBeInTheDocument();
-    expect(screen.getByText("Showing 2 of 2 residents")).toBeInTheDocument();
+    expect(screen.getByText("2 residents")).toBeInTheDocument();
+
+    // Avatar initials
+    expect(screen.getByText("AP")).toBeInTheDocument();
+    expect(screen.getByText("VS")).toBeInTheDocument();
   });
 
   it("renders resident without ownershipType or unit", async () => {
@@ -170,9 +174,13 @@ describe("ResidentDirectoryPage", () => {
     await waitFor(() => {
       expect(screen.getByText("No Details")).toBeInTheDocument();
     });
+    // Avatar initials for two-word name
+    expect(screen.getByText("ND")).toBeInTheDocument();
     // No ownership badge should render
     expect(screen.queryByText("Owner")).not.toBeInTheDocument();
     expect(screen.queryByText("Tenant")).not.toBeInTheDocument();
+    // Single resident shows singular label
+    expect(screen.getByText("1 resident")).toBeInTheDocument();
   });
 
   it("shows pagination when multiple pages", async () => {
@@ -311,6 +319,29 @@ describe("ResidentDirectoryPage", () => {
     });
     expect(screen.queryByText("Previous")).not.toBeInTheDocument();
     expect(screen.queryByText("Next")).not.toBeInTheDocument();
+  });
+
+  it("renders unknown ownership type with fallback styling", async () => {
+    mockFetchResidentDirectory.mockResolvedValue({
+      residents: [
+        {
+          id: "u2",
+          name: "Unknown Type",
+          email: "u@t.com",
+          mobile: "—",
+          ownershipType: "SPECIAL",
+          unit: null,
+        },
+      ],
+      total: 1,
+      page: 1,
+      limit: 20,
+    });
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("SPECIAL")).toBeInTheDocument();
+    });
   });
 
   it("renders OTHER ownership type label", async () => {

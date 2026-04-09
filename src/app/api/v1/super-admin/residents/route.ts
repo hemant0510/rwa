@@ -3,6 +3,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { internalError, successResponse } from "@/lib/api-helpers";
 import { requireSuperAdmin } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 100;
@@ -69,6 +70,7 @@ export async function GET(req: NextRequest) {
           ownershipType: true,
           createdAt: true,
           societyId: true,
+          photoUrl: true,
           society: { select: { name: true } },
           userUnits: { include: { unit: true }, take: 1 },
         },
@@ -88,8 +90,20 @@ export async function GET(req: NextRequest) {
       }),
     ]);
 
+    // Generate signed photo URLs
+    const supabaseAdmin = createAdminClient();
+    const dataWithPhotos = await Promise.all(
+      data.map(async (resident) => {
+        if (!resident.photoUrl) return resident;
+        const { data: signedData } = await supabaseAdmin.storage
+          .from("resident-photos")
+          .createSignedUrl(resident.photoUrl, 60 * 60);
+        return { ...resident, photoUrl: signedData?.signedUrl ?? null };
+      }),
+    );
+
     return successResponse({
-      data,
+      data: dataWithPhotos,
       total,
       page,
       limit,

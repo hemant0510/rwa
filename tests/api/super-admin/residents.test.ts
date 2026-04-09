@@ -8,11 +8,26 @@ const mockPrisma = vi.hoisted(() => ({
     count: vi.fn(),
   },
 }));
+const mockCreateSignedUrl = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({
+    data: { signedUrl: "https://example.com/signed-photo" },
+    error: null,
+  }),
+);
 
 vi.mock("@/lib/auth-guard", () => ({
   requireSuperAdmin: mockRequireSuperAdmin,
 }));
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
+vi.mock("@/lib/supabase/admin", () => ({
+  createAdminClient: () => ({
+    storage: {
+      from: () => ({
+        createSignedUrl: mockCreateSignedUrl,
+      }),
+    },
+  }),
+}));
 
 // --- Import after mocks ---
 import { GET } from "@/app/api/v1/super-admin/residents/route";
@@ -239,6 +254,111 @@ describe("GET /api/v1/super-admin/residents", () => {
     await GET(makeRequest());
     expect(mockPrisma.user.findMany).not.toHaveBeenCalled();
     expect(mockPrisma.user.count).not.toHaveBeenCalled();
+  });
+
+  it("generates signed photo URL for residents with photoUrl", async () => {
+    const mockUsers = [
+      {
+        id: "u-1",
+        name: "John",
+        email: "john@test.com",
+        mobile: "9876543210",
+        rwaid: "EDEN-001",
+        status: "ACTIVE_PAID",
+        ownershipType: "OWNER",
+        createdAt: new Date(),
+        societyId: "soc-1",
+        photoUrl: "soc-1/u-1/photo.jpg",
+        society: { name: "Eden Estate" },
+        userUnits: [{ unit: { unitNumber: "A-101" } }],
+      },
+    ];
+
+    mockPrisma.user.findMany.mockResolvedValue(mockUsers);
+    mockPrisma.user.count
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(100)
+      .mockResolvedValueOnce(60)
+      .mockResolvedValueOnce(20)
+      .mockResolvedValueOnce(10);
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.data[0].photoUrl).toBe("https://example.com/signed-photo");
+    expect(mockCreateSignedUrl).toHaveBeenCalledWith("soc-1/u-1/photo.jpg", 3600);
+  });
+
+  it("skips signed URL generation when resident has no photoUrl", async () => {
+    const mockUsers = [
+      {
+        id: "u-1",
+        name: "John",
+        email: "john@test.com",
+        mobile: "9876543210",
+        rwaid: "EDEN-001",
+        status: "ACTIVE_PAID",
+        ownershipType: "OWNER",
+        createdAt: new Date(),
+        societyId: "soc-1",
+        photoUrl: null,
+        society: { name: "Eden Estate" },
+        userUnits: [],
+      },
+    ];
+
+    mockPrisma.user.findMany.mockResolvedValue(mockUsers);
+    mockPrisma.user.count
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(100)
+      .mockResolvedValueOnce(60)
+      .mockResolvedValueOnce(20)
+      .mockResolvedValueOnce(10);
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.data[0].photoUrl).toBeNull();
+    expect(mockCreateSignedUrl).not.toHaveBeenCalled();
+  });
+
+  it("falls back to null when signed URL generation fails", async () => {
+    const mockUsers = [
+      {
+        id: "u-1",
+        name: "John",
+        email: "john@test.com",
+        mobile: "9876543210",
+        rwaid: "EDEN-001",
+        status: "ACTIVE_PAID",
+        ownershipType: "OWNER",
+        createdAt: new Date(),
+        societyId: "soc-1",
+        photoUrl: "soc-1/u-1/photo.jpg",
+        society: { name: "Eden Estate" },
+        userUnits: [],
+      },
+    ];
+
+    mockCreateSignedUrl.mockResolvedValue({
+      data: null,
+      error: { message: "Storage error" },
+    });
+    mockPrisma.user.findMany.mockResolvedValue(mockUsers);
+    mockPrisma.user.count
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(100)
+      .mockResolvedValueOnce(60)
+      .mockResolvedValueOnce(20)
+      .mockResolvedValueOnce(10);
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.data[0].photoUrl).toBeNull();
   });
 
   it("returns 500 when Prisma throws", async () => {

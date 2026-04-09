@@ -13,6 +13,7 @@ export interface PlatformResidentItem {
   createdAt: string;
   societyId: string | null;
   society: { name: string } | null;
+  photoUrl: string | null;
   userUnits: { unit: { unitNumber: string } }[];
 }
 

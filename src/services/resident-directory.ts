@@ -5,6 +5,7 @@ export interface CommitteeMember {
   mobile: string;
   designation: string;
   assignedAt: string;
+  photoUrl: string | null;
 }
 
 export interface DirectoryResident {
@@ -14,6 +15,7 @@ export interface DirectoryResident {
   mobile: string;
   ownershipType: string | null;
   unit: string | null;
+  photoUrl: string | null;
 }
 
 interface CommitteeResponse {

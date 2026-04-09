@@ -92,6 +92,7 @@ export default defineConfig({
         "src/app/api/v1/config/payment-features/**",
         "src/app/api/v1/societies/[id]/platform-payment-info/**",
         "src/app/admin/settings/subscription/page.tsx",
+        "src/app/admin/residents/page.tsx",
       ],
       exclude: [
         "src/lib/prisma.ts",

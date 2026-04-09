@@ -1,8 +1,9 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, Mail, Phone, Shield, Users } from "lucide-react";
+import { Loader2, Mail, Phone, Shield } from "lucide-react";
 
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -44,7 +45,17 @@ export default function ResidentGoverningBodyPage() {
               <CardContent className="space-y-3 pt-4 pb-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <Users className="text-primary h-5 w-5 shrink-0" />
+                    <Avatar size="sm">
+                      {member.photoUrl && <AvatarImage src={member.photoUrl} alt={member.name} />}
+                      <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-semibold">
+                        {member.name
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")
+                          .toUpperCase()
+                          .slice(0, 2)}
+                      </AvatarFallback>
+                    </Avatar>
                     <h3 className="text-sm leading-tight font-semibold">{member.name}</h3>
                   </div>
                   <Badge variant="secondary" className="shrink-0 text-xs">

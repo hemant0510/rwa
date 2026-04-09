@@ -93,11 +93,15 @@ const profileData = {
 function setupRoutedFetch(
   idProofUrl: string | null = null,
   ownershipProofUrl: string | null = null,
+  photoUrl: string | null = null,
 ) {
   mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
     const method = (opts?.method ?? "GET").toUpperCase();
     if (url === "/api/v1/residents/me" && method === "GET") {
       return Promise.resolve({ ok: true, json: () => Promise.resolve(profileData) });
+    }
+    if (url === "/api/v1/residents/me/photo" && method === "GET") {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ url: photoUrl }) });
     }
     if (url.includes("id-proof") && method === "GET") {
       return Promise.resolve({ ok: true, json: () => Promise.resolve({ url: idProofUrl }) });
@@ -248,6 +252,22 @@ describe("ResidentProfilePage", () => {
       expect(screen.getByText("Each society requires separate documents")).toBeInTheDocument();
     });
   });
+
+  it("falls back to OTHER ownership labels when ownershipType is null", async () => {
+    renderWithProviders({ ...profileData, ownershipType: null });
+    await waitFor(() => {
+      expect(screen.getByText("Other")).toBeInTheDocument();
+    });
+  });
+
+  it("does not show unit/society row when both unit and societyName are null", async () => {
+    renderWithProviders({ ...profileData, unit: null, societyName: null });
+    await waitFor(() => {
+      expect(screen.getByText("Hemant Bhagat")).toBeInTheDocument();
+    });
+    expect(screen.queryByText("A-101")).not.toBeInTheDocument();
+    expect(screen.queryByText("Eden Estate")).not.toBeInTheDocument();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -312,7 +332,9 @@ describe("DocCard — upload flow", () => {
     await waitFor(() => screen.getByText("Hemant Bhagat"));
 
     // Trigger file change on the first hidden file input (id-proof card)
-    const fileInputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
+    const fileInputs = document.querySelectorAll<HTMLInputElement>(
+      'input[type="file"]:not([data-testid="photo-input"])',
+    );
     const file = new File(["content"], "id.jpg", { type: "image/jpeg" });
     fireEvent.change(fileInputs[0], { target: { files: [file] } });
 
@@ -339,7 +361,9 @@ describe("DocCard — upload flow", () => {
     renderWithProviders(null);
     await waitFor(() => screen.getByText("Hemant Bhagat"));
 
-    const fileInputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
+    const fileInputs = document.querySelectorAll<HTMLInputElement>(
+      'input[type="file"]:not([data-testid="photo-input"])',
+    );
     const file = new File(["content"], "id.jpg", { type: "image/jpeg" });
     fireEvent.change(fileInputs[0], { target: { files: [file] } });
 
@@ -366,7 +390,9 @@ describe("DocCard — upload flow", () => {
     renderWithProviders(null);
     await waitFor(() => screen.getByText("Hemant Bhagat"));
 
-    const fileInputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
+    const fileInputs = document.querySelectorAll<HTMLInputElement>(
+      'input[type="file"]:not([data-testid="photo-input"])',
+    );
     const file = new File(["content"], "id.jpg", { type: "image/jpeg" });
     fireEvent.change(fileInputs[0], { target: { files: [file] } });
 
@@ -401,7 +427,9 @@ describe("DocCard — upload flow", () => {
     });
 
     // Trigger file change on the file input
-    const fileInputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
+    const fileInputs = document.querySelectorAll<HTMLInputElement>(
+      'input[type="file"]:not([data-testid="photo-input"])',
+    );
     const file = new File(["content"], "new-id.jpg", { type: "image/jpeg" });
     fireEvent.change(fileInputs[0], { target: { files: [file] } });
 
@@ -416,11 +444,28 @@ describe("DocCard — upload flow", () => {
     await waitFor(() => screen.getByText("Hemant Bhagat"));
 
     // Spy on the file input's click method
-    const fileInputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
+    const fileInputs = document.querySelectorAll<HTMLInputElement>(
+      'input[type="file"]:not([data-testid="photo-input"])',
+    );
     const clickSpy = vi.spyOn(fileInputs[0], "click").mockImplementation(() => {});
     const uploadBtn = screen.getAllByRole("button", { name: /^upload$/i })[0];
     fireEvent.click(uploadBtn);
     expect(clickSpy).toHaveBeenCalled();
+  });
+
+  it("does nothing when doc file input change fires with no files", async () => {
+    setupRoutedFetch(null, null);
+    renderWithProviders(null);
+    await waitFor(() => screen.getByText("Hemant Bhagat"));
+
+    const fileInputs = document.querySelectorAll<HTMLInputElement>(
+      'input[type="file"]:not([data-testid="photo-input"])',
+    );
+    fireEvent.change(fileInputs[0], { target: { files: [] } });
+
+    // No upload should be triggered
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(toast.error).not.toHaveBeenCalled();
   });
 
   it("shows 'Uploading…' text on Upload button while upload is in progress", async () => {
@@ -441,7 +486,9 @@ describe("DocCard — upload flow", () => {
     renderWithProviders(null);
     await waitFor(() => screen.getByText("Hemant Bhagat"));
 
-    const fileInputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
+    const fileInputs = document.querySelectorAll<HTMLInputElement>(
+      'input[type="file"]:not([data-testid="photo-input"])',
+    );
     const file = new File(["content"], "id.jpg", { type: "image/jpeg" });
     fireEvent.change(fileInputs[0], { target: { files: [file] } });
 
@@ -457,7 +504,9 @@ describe("DocCard — upload flow", () => {
     renderWithProviders(null);
     await waitFor(() => screen.getByTitle("Replace document"));
 
-    const fileInputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
+    const fileInputs = document.querySelectorAll<HTMLInputElement>(
+      'input[type="file"]:not([data-testid="photo-input"])',
+    );
     const clickSpy = vi.spyOn(fileInputs[0], "click").mockImplementation(() => {});
     fireEvent.click(screen.getByTitle("Replace document"));
     expect(clickSpy).toHaveBeenCalled();
@@ -487,7 +536,9 @@ describe("DocCard — upload flow", () => {
     renderWithProviders(null);
     await waitFor(() => screen.getByTitle("Replace document"));
 
-    const fileInputs = document.querySelectorAll<HTMLInputElement>('input[type="file"]');
+    const fileInputs = document.querySelectorAll<HTMLInputElement>(
+      'input[type="file"]:not([data-testid="photo-input"])',
+    );
     const file = new File(["content"], "id.jpg", { type: "image/jpeg" });
     fireEvent.change(fileInputs[0], { target: { files: [file] } });
 
@@ -592,5 +643,288 @@ describe("DocCard — delete flow", () => {
 
     resolveDelete({ ok: true, json: () => Promise.resolve({ success: true }) });
     await waitFor(() => expect(toast.success).toHaveBeenCalled());
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Photo — rendering
+// ---------------------------------------------------------------------------
+
+describe("Photo — rendering", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("renders initials fallback when no photo URL exists", async () => {
+    setupRoutedFetch(null, null, null);
+    renderWithProviders(null);
+    await waitFor(() => screen.getByText("Hemant Bhagat"));
+    // Initials "HB" should be rendered
+    expect(screen.getByText("HB")).toBeInTheDocument();
+  });
+
+  it("renders photo image when photo URL exists", async () => {
+    setupRoutedFetch(null, null, "https://example.com/photo.jpg");
+    renderWithProviders(null);
+    await waitFor(() => screen.getByText("Hemant Bhagat"));
+    const img = await screen.findByAltText("Hemant Bhagat");
+    expect(img).toBeInTheDocument();
+    expect(img).toHaveAttribute("src");
+  });
+
+  it("shows 'Upload Photo' link when no photo exists", async () => {
+    setupRoutedFetch(null, null, null);
+    renderWithProviders(null);
+    await waitFor(() => screen.getByText("Hemant Bhagat"));
+    expect(screen.getByText("Upload Photo")).toBeInTheDocument();
+  });
+
+  it("shows 'Change Photo' and 'Remove' links when photo exists", async () => {
+    setupRoutedFetch(null, null, "https://example.com/photo.jpg");
+    renderWithProviders(null);
+    await waitFor(() => screen.getByText("Hemant Bhagat"));
+    await waitFor(() => {
+      expect(screen.getByText("Change Photo")).toBeInTheDocument();
+      expect(screen.getByText("Remove")).toBeInTheDocument();
+    });
+  });
+
+  it("camera badge button has 'Change photo' aria-label", async () => {
+    setupRoutedFetch(null, null, null);
+    renderWithProviders(null);
+    await waitFor(() => screen.getByText("Hemant Bhagat"));
+    expect(screen.getByLabelText("Change photo")).toBeInTheDocument();
+  });
+
+  it("camera badge button click triggers photo file input", async () => {
+    setupRoutedFetch(null, null, null);
+    renderWithProviders(null);
+    await waitFor(() => screen.getByText("Hemant Bhagat"));
+
+    const photoInput = screen.getByTestId("photo-input") as HTMLInputElement;
+    const clickSpy = vi.spyOn(photoInput, "click").mockImplementation(() => {});
+
+    const cameraBadge = screen.getByLabelText("Change photo");
+    fireEvent.click(cameraBadge);
+    expect(clickSpy).toHaveBeenCalled();
+  });
+
+  it("'Change Photo' link click triggers photo file input when photo exists", async () => {
+    setupRoutedFetch(null, null, "https://example.com/photo.jpg");
+    renderWithProviders(null);
+    await waitFor(() => screen.getByText("Hemant Bhagat"));
+    await waitFor(() => screen.getByText("Change Photo"));
+
+    const photoInput = screen.getByTestId("photo-input") as HTMLInputElement;
+    const clickSpy = vi.spyOn(photoInput, "click").mockImplementation(() => {});
+
+    fireEvent.click(screen.getByText("Change Photo"));
+    expect(clickSpy).toHaveBeenCalled();
+  });
+
+  it("does not show 'Upload Photo' link when photo exists", async () => {
+    setupRoutedFetch(null, null, "https://example.com/photo.jpg");
+    renderWithProviders(null);
+    await waitFor(() => screen.getByText("Hemant Bhagat"));
+    await waitFor(() => screen.getByText("Change Photo"));
+    expect(screen.queryByText("Upload Photo")).not.toBeInTheDocument();
+  });
+
+  it("does not show 'Change Photo' or 'Remove' links when no photo exists", async () => {
+    setupRoutedFetch(null, null, null);
+    renderWithProviders(null);
+    await waitFor(() => screen.getByText("Hemant Bhagat"));
+    expect(screen.queryByText("Change Photo")).not.toBeInTheDocument();
+    expect(screen.queryByText("Remove")).not.toBeInTheDocument();
+  });
+
+  it("'Upload Photo' link click triggers photo file input when no photo exists", async () => {
+    setupRoutedFetch(null, null, null);
+    renderWithProviders(null);
+    await waitFor(() => screen.getByText("Hemant Bhagat"));
+
+    const photoInput = screen.getByTestId("photo-input") as HTMLInputElement;
+    const clickSpy = vi.spyOn(photoInput, "click").mockImplementation(() => {});
+
+    fireEvent.click(screen.getByText("Upload Photo"));
+    expect(clickSpy).toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Photo — upload flow
+// ---------------------------------------------------------------------------
+
+describe("Photo — upload flow", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("calls POST to photo endpoint and shows success toast on upload", async () => {
+    setupRoutedFetch(null, null, null);
+    renderWithProviders(null);
+    await waitFor(() => screen.getByText("Hemant Bhagat"));
+
+    const photoInput = screen.getByTestId("photo-input") as HTMLInputElement;
+    const file = new File(["img"], "avatar.jpg", { type: "image/jpeg" });
+    fireEvent.change(photoInput, { target: { files: [file] } });
+
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith("Photo updated");
+    });
+    // Verify POST was called to the photo endpoint
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/v1/residents/me/photo",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
+  it("shows error toast with server message when photo upload fails", async () => {
+    mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
+      const method = (opts?.method ?? "GET").toUpperCase();
+      if (url === "/api/v1/residents/me/photo" && method === "POST") {
+        return Promise.resolve({
+          ok: false,
+          json: () => Promise.resolve({ error: { message: "Image too large" } }),
+        });
+      }
+      if (url === "/api/v1/residents/me" && method === "GET") {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(profileData) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ url: null }) });
+    });
+
+    renderWithProviders(null);
+    await waitFor(() => screen.getByText("Hemant Bhagat"));
+
+    const photoInput = screen.getByTestId("photo-input") as HTMLInputElement;
+    const file = new File(["img"], "avatar.jpg", { type: "image/jpeg" });
+    fireEvent.change(photoInput, { target: { files: [file] } });
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith("Image too large");
+    });
+  });
+
+  it("shows fallback error when photo upload fails without server message", async () => {
+    mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
+      const method = (opts?.method ?? "GET").toUpperCase();
+      if (url === "/api/v1/residents/me/photo" && method === "POST") {
+        return Promise.resolve({
+          ok: false,
+          json: () => Promise.resolve({}),
+        });
+      }
+      if (url === "/api/v1/residents/me" && method === "GET") {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(profileData) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ url: null }) });
+    });
+
+    renderWithProviders(null);
+    await waitFor(() => screen.getByText("Hemant Bhagat"));
+
+    const photoInput = screen.getByTestId("photo-input") as HTMLInputElement;
+    const file = new File(["img"], "avatar.jpg", { type: "image/jpeg" });
+    fireEvent.change(photoInput, { target: { files: [file] } });
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith("Upload failed");
+    });
+  });
+
+  it("does nothing when photo file input change fires with no files", async () => {
+    setupRoutedFetch(null, null, null);
+    renderWithProviders(null);
+    await waitFor(() => screen.getByText("Hemant Bhagat"));
+
+    const photoInput = screen.getByTestId("photo-input") as HTMLInputElement;
+    fireEvent.change(photoInput, { target: { files: [] } });
+
+    // No upload should be triggered — no success or error toast
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  it("shows 'Uploading…' text on Upload Photo link while upload is in progress", async () => {
+    let resolvePost!: (v: unknown) => void;
+    const postPending = new Promise((resolve) => {
+      resolvePost = resolve;
+    });
+
+    mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
+      const method = (opts?.method ?? "GET").toUpperCase();
+      if (url === "/api/v1/residents/me/photo" && method === "POST") return postPending;
+      if (url === "/api/v1/residents/me" && method === "GET") {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(profileData) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ url: null }) });
+    });
+
+    renderWithProviders(null);
+    await waitFor(() => screen.getByText("Hemant Bhagat"));
+
+    const photoInput = screen.getByTestId("photo-input") as HTMLInputElement;
+    const file = new File(["img"], "avatar.jpg", { type: "image/jpeg" });
+    fireEvent.change(photoInput, { target: { files: [file] } });
+
+    // The Upload Photo text should change to "Uploading…"
+    await waitFor(() => expect(screen.getByText("Uploading…")).toBeInTheDocument());
+
+    resolvePost({ ok: true, json: () => Promise.resolve({}) });
+    await waitFor(() => expect(toast.success).toHaveBeenCalled());
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Photo — delete flow
+// ---------------------------------------------------------------------------
+
+describe("Photo — delete flow", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("calls DELETE to photo endpoint and shows success toast", async () => {
+    setupRoutedFetch(null, null, "https://example.com/photo.jpg");
+    renderWithProviders(null);
+    await waitFor(() => screen.getByText("Hemant Bhagat"));
+
+    const removeBtn = await screen.findByText("Remove");
+    fireEvent.click(removeBtn);
+
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith("Photo removed");
+    });
+    expect(mockFetch).toHaveBeenCalledWith("/api/v1/residents/me/photo", { method: "DELETE" });
+  });
+
+  it("shows error toast when photo delete fails", async () => {
+    mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
+      const method = (opts?.method ?? "GET").toUpperCase();
+      if (url === "/api/v1/residents/me/photo" && method === "DELETE") {
+        return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
+      }
+      if (url === "/api/v1/residents/me" && method === "GET") {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(profileData) });
+      }
+      if (url === "/api/v1/residents/me/photo" && method === "GET") {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ url: "https://example.com/photo.jpg" }),
+        });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ url: null }) });
+    });
+
+    renderWithProviders(null);
+    await waitFor(() => screen.getByText("Hemant Bhagat"));
+
+    const removeBtn = await screen.findByText("Remove");
+    fireEvent.click(removeBtn);
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith("Failed to remove photo");
+    });
   });
 });

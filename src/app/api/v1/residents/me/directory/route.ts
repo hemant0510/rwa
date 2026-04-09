@@ -3,15 +3,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { forbiddenError, internalError } from "@/lib/api-helpers";
 import { getCurrentUser } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { maskMobile } from "@/lib/utils";
 
-const ACTIVE_STATUSES = [
+const PHOTO_BUCKET = "resident-photos";
+
+/** Only residents explicitly approved by admin (not pending, rejected, or migrated) */
+const APPROVED_STATUSES = [
   "ACTIVE_PAID",
   "ACTIVE_PENDING",
   "ACTIVE_OVERDUE",
   "ACTIVE_PARTIAL",
   "ACTIVE_EXEMPTED",
-  "MIGRATED_PENDING",
 ];
 
 export async function GET(request: NextRequest) {
@@ -27,7 +30,7 @@ export async function GET(request: NextRequest) {
     const where: Record<string, unknown> = {
       societyId: user.societyId,
       role: "RESIDENT",
-      status: { in: ACTIVE_STATUSES },
+      status: { in: APPROVED_STATUSES },
       id: { not: user.userId },
     };
 
@@ -50,6 +53,7 @@ export async function GET(request: NextRequest) {
           email: true,
           mobile: true,
           ownershipType: true,
+          photoUrl: true,
           userUnits: {
             select: { unit: { select: { displayLabel: true } } },
             take: 1,
@@ -59,15 +63,31 @@ export async function GET(request: NextRequest) {
       prisma.user.count({ where }),
     ]);
 
+    // Generate signed URLs for photos
+    const supabaseAdmin = createAdminClient();
+    const mapped = await Promise.all(
+      residents.map(async (r) => {
+        let photoSignedUrl: string | null = null;
+        if (r.photoUrl) {
+          const { data } = await supabaseAdmin.storage
+            .from(PHOTO_BUCKET)
+            .createSignedUrl(r.photoUrl, 60 * 60);
+          photoSignedUrl = data?.signedUrl ?? null;
+        }
+        return {
+          id: r.id,
+          name: r.name,
+          email: r.email,
+          mobile: maskMobile(r.mobile),
+          ownershipType: r.ownershipType,
+          unit: r.userUnits[0]?.unit?.displayLabel ?? null,
+          photoUrl: photoSignedUrl,
+        };
+      }),
+    );
+
     return NextResponse.json({
-      residents: residents.map((r) => ({
-        id: r.id,
-        name: r.name,
-        email: r.email,
-        mobile: maskMobile(r.mobile),
-        ownershipType: r.ownershipType,
-        unit: r.userUnits[0]?.unit?.displayLabel ?? null,
-      })),
+      residents: mapped,
       total,
       page,
       limit,

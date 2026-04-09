@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Loader2, Search, Users } from "lucide-react";
 
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -192,17 +193,32 @@ export default function PlatformResidentsPage() {
                 <TableBody>
                   {data.data.map((resident) => (
                     <TableRow key={resident.id}>
-                      <TableCell className="font-medium">
-                        {resident.societyId ? (
-                          <Link
-                            href={`/sa/societies/${resident.societyId}`}
-                            className="hover:underline"
-                          >
-                            {resident.name}
-                          </Link>
-                        ) : (
-                          resident.name
-                        )}
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Avatar size="sm">
+                            {resident.photoUrl && (
+                              <AvatarImage src={resident.photoUrl} alt={resident.name} />
+                            )}
+                            <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-semibold">
+                              {resident.name
+                                .split(" ")
+                                .map((n: string) => n[0])
+                                .join("")
+                                .toUpperCase()
+                                .slice(0, 2)}
+                            </AvatarFallback>
+                          </Avatar>
+                          {resident.societyId ? (
+                            <Link
+                              href={`/sa/societies/${resident.societyId}`}
+                              className="font-medium hover:underline"
+                            >
+                              {resident.name}
+                            </Link>
+                          ) : (
+                            <span className="font-medium">{resident.name}</span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="hidden md:table-cell">{resident.email}</TableCell>
                       <TableCell className="hidden lg:table-cell">

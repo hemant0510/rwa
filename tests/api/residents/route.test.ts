@@ -12,9 +12,21 @@ const mockPrisma = vi.hoisted(() => ({
 
 const mockGetFullAccessAdmin = vi.hoisted(() => vi.fn());
 
+const mockStorageBucket = vi.hoisted(() => ({
+  createSignedUrl: vi.fn().mockResolvedValue({
+    data: { signedUrl: "https://example.com/signed-photo" },
+    error: null,
+  }),
+}));
+
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 vi.mock("@/lib/get-current-user", () => ({
   getFullAccessAdmin: mockGetFullAccessAdmin,
+}));
+vi.mock("@/lib/supabase/admin", () => ({
+  createAdminClient: () => ({
+    storage: { from: () => mockStorageBucket },
+  }),
 }));
 
 import { GET } from "@/app/api/v1/residents/route";
@@ -205,6 +217,51 @@ describe("GET /api/v1/residents", () => {
     expect(mockPrisma.user.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ skip: 100, take: 50 }),
     );
+  });
+
+  it("generates signed photo URL for residents with photoUrl", async () => {
+    const residentWithPhoto = {
+      ...mockResident,
+      photoUrl: "soc-1/r1/photo.jpg",
+    };
+    mockPrisma.user.findMany.mockResolvedValue([residentWithPhoto]);
+
+    const res = await GET(makeReq({ societyId: "soc-1" }));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.data[0].photoUrl).toBe("https://example.com/signed-photo");
+    expect(mockStorageBucket.createSignedUrl).toHaveBeenCalledWith("soc-1/r1/photo.jpg", 3600);
+  });
+
+  it("skips signed URL generation when resident has no photoUrl", async () => {
+    const residentNoPhoto = { ...mockResident, photoUrl: null };
+    mockPrisma.user.findMany.mockResolvedValue([residentNoPhoto]);
+
+    const res = await GET(makeReq({ societyId: "soc-1" }));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.data[0].photoUrl).toBeNull();
+    expect(mockStorageBucket.createSignedUrl).not.toHaveBeenCalled();
+  });
+
+  it("falls back to null when signed URL generation fails", async () => {
+    const residentWithPhoto = {
+      ...mockResident,
+      photoUrl: "soc-1/r1/photo.jpg",
+    };
+    mockPrisma.user.findMany.mockResolvedValue([residentWithPhoto]);
+    mockStorageBucket.createSignedUrl.mockResolvedValue({
+      data: null,
+      error: { message: "Storage error" },
+    });
+
+    const res = await GET(makeReq({ societyId: "soc-1" }));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.data[0].photoUrl).toBeNull();
   });
 
   it("returns 500 on unexpected error", async () => {

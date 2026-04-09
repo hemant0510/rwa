@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 import { mockPrisma } from "../../__mocks__/prisma";
+import { mockStorageBucket } from "../../__mocks__/supabase";
 
 const { mockGetCurrentUser } = vi.hoisted(() => ({
   mockGetCurrentUser: vi.fn(),
@@ -33,6 +34,10 @@ describe("GET /api/v1/residents/me/directory", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.spyOn(console, "error").mockImplementation(() => {});
+    mockStorageBucket.createSignedUrl.mockResolvedValue({
+      data: { signedUrl: "https://example.com/signed-photo" },
+      error: null,
+    });
   });
 
   it("returns 403 when not authenticated as resident", async () => {
@@ -44,7 +49,7 @@ describe("GET /api/v1/residents/me/directory", () => {
     expect(body.error.code).toBe("FORBIDDEN");
   });
 
-  it("returns paginated residents with masked mobile numbers", async () => {
+  it("returns paginated residents with masked mobile and photoUrl", async () => {
     mockGetCurrentUser.mockResolvedValue(currentUser);
     mockPrisma.user.findMany.mockResolvedValue([
       {
@@ -53,6 +58,7 @@ describe("GET /api/v1/residents/me/directory", () => {
         email: "anita@test.com",
         mobile: "9876543210",
         ownershipType: "OWNER",
+        photoUrl: "soc-1/u2/photo.jpg",
         userUnits: [{ unit: { displayLabel: "A-101" } }],
       },
       {
@@ -61,6 +67,7 @@ describe("GET /api/v1/residents/me/directory", () => {
         email: "vikram@test.com",
         mobile: "8765432109",
         ownershipType: "TENANT",
+        photoUrl: null,
         userUnits: [],
       },
     ]);
@@ -78,6 +85,7 @@ describe("GET /api/v1/residents/me/directory", () => {
       mobile: "XXXXX 43210",
       ownershipType: "OWNER",
       unit: "A-101",
+      photoUrl: "https://example.com/signed-photo",
     });
     expect(body.residents[1]).toEqual({
       id: "u3",
@@ -86,6 +94,7 @@ describe("GET /api/v1/residents/me/directory", () => {
       mobile: "XXXXX 32109",
       ownershipType: "TENANT",
       unit: null,
+      photoUrl: null,
     });
     expect(body.total).toBe(2);
     expect(body.page).toBe(1);
@@ -110,7 +119,7 @@ describe("GET /api/v1/residents/me/directory", () => {
     );
   });
 
-  it("only shows active residents", async () => {
+  it("only shows approved residents (no MIGRATED_PENDING)", async () => {
     mockGetCurrentUser.mockResolvedValue(currentUser);
     mockPrisma.user.findMany.mockResolvedValue([]);
     mockPrisma.user.count.mockResolvedValue(0);
@@ -127,7 +136,6 @@ describe("GET /api/v1/residents/me/directory", () => {
               "ACTIVE_OVERDUE",
               "ACTIVE_PARTIAL",
               "ACTIVE_EXEMPTED",
-              "MIGRATED_PENDING",
             ],
           },
         }),
@@ -173,7 +181,7 @@ describe("GET /api/v1/residents/me/directory", () => {
     expect(body.total).toBe(50);
   });
 
-  it("handles resident with null mobile", async () => {
+  it("handles resident with null mobile and photoUrl", async () => {
     mockGetCurrentUser.mockResolvedValue(currentUser);
     mockPrisma.user.findMany.mockResolvedValue([
       {
@@ -182,6 +190,7 @@ describe("GET /api/v1/residents/me/directory", () => {
         email: "nophone@test.com",
         mobile: null,
         ownershipType: null,
+        photoUrl: null,
         userUnits: [],
       },
     ]);
@@ -193,6 +202,7 @@ describe("GET /api/v1/residents/me/directory", () => {
     expect(body.residents[0].mobile).toBe("—");
     expect(body.residents[0].ownershipType).toBeNull();
     expect(body.residents[0].unit).toBeNull();
+    expect(body.residents[0].photoUrl).toBeNull();
   });
 
   it("uses default pagination when no params provided", async () => {
@@ -209,6 +219,32 @@ describe("GET /api/v1/residents/me/directory", () => {
         orderBy: { name: "asc" },
       }),
     );
+  });
+
+  it("falls back to null photoUrl when signed URL generation fails", async () => {
+    mockGetCurrentUser.mockResolvedValue(currentUser);
+    mockPrisma.user.findMany.mockResolvedValue([
+      {
+        id: "u2",
+        name: "Anita Patel",
+        email: "anita@test.com",
+        mobile: "9876543210",
+        ownershipType: "OWNER",
+        photoUrl: "soc-1/u2/photo.jpg",
+        userUnits: [{ unit: { displayLabel: "A-101" } }],
+      },
+    ]);
+    mockPrisma.user.count.mockResolvedValue(1);
+    mockStorageBucket.createSignedUrl.mockResolvedValue({
+      data: null,
+      error: { message: "Storage error" },
+    });
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.residents[0].photoUrl).toBeNull();
   });
 
   it("returns 500 on server error", async () => {

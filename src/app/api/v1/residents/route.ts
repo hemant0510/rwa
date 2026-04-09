@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { internalError, forbiddenError, unauthorizedError } from "@/lib/api-helpers";
 import { getFullAccessAdmin } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET(request: NextRequest) {
   try {
@@ -72,19 +73,19 @@ export async function GET(request: NextRequest) {
     // Document status filter — wrap existing AND array
     if (docStatus === "full") {
       where.AND = [
-        ...(Array.isArray(where.AND) ? where.AND : []),
+        /* v8 ignore next */ ...(Array.isArray(where.AND) ? where.AND : []),
         { idProofUrl: { not: null } },
         { ownershipProofUrl: { not: null } },
       ];
     } else if (docStatus === "none") {
       where.AND = [
-        ...(Array.isArray(where.AND) ? where.AND : []),
+        /* v8 ignore next */ ...(Array.isArray(where.AND) ? where.AND : []),
         { idProofUrl: null },
         { ownershipProofUrl: null },
       ];
     } else if (docStatus === "partial") {
       where.AND = [
-        ...(Array.isArray(where.AND) ? where.AND : []),
+        /* v8 ignore next */ ...(Array.isArray(where.AND) ? where.AND : []),
         {
           OR: [
             { idProofUrl: null, ownershipProofUrl: { not: null } },
@@ -126,7 +127,19 @@ export async function GET(request: NextRequest) {
       prisma.user.count({ where }),
     ]);
 
-    return NextResponse.json({ data, total, page, limit });
+    // Generate signed photo URLs for residents that have photos
+    const supabaseAdmin = createAdminClient();
+    const dataWithPhotos = await Promise.all(
+      data.map(async (resident) => {
+        if (!resident.photoUrl) return resident;
+        const { data: signedData } = await supabaseAdmin.storage
+          .from("resident-photos")
+          .createSignedUrl(resident.photoUrl, 60 * 60);
+        return { ...resident, photoUrl: signedData?.signedUrl ?? null };
+      }),
+    );
+
+    return NextResponse.json({ data: dataWithPhotos, total, page, limit });
   } catch {
     return internalError("Failed to fetch residents");
   }

@@ -125,6 +125,57 @@ describe("ResidentGoverningBodyPage", () => {
     expect(screen.getByText("XXXXX 32109")).toBeInTheDocument();
   });
 
+  it("renders avatar with photoUrl (truthy branch)", async () => {
+    mockFetchCommitteeMembers.mockResolvedValue({
+      members: [
+        {
+          id: "gbm-1",
+          name: "Rajesh Kumar",
+          email: "rajesh@test.com",
+          mobile: "XXXXX 43210",
+          designation: "President",
+          assignedAt: "2025-01-15T00:00:00.000Z",
+          photoUrl: "https://example.com/signed-photo.jpg",
+        },
+      ],
+    });
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("Rajesh Kumar")).toBeInTheDocument();
+    });
+
+    // Radix AvatarImage doesn't render <img> until the image loads (never in JSDOM),
+    // but the React branch `member.photoUrl && <AvatarImage>` is evaluated as truthy.
+    // Fallback initials are always rendered as well.
+    expect(screen.getByText("RK")).toBeInTheDocument();
+  });
+
+  it("does not render avatar image when member has no photoUrl", async () => {
+    mockFetchCommitteeMembers.mockResolvedValue({
+      members: [
+        {
+          id: "gbm-1",
+          name: "Rajesh Kumar",
+          email: "rajesh@test.com",
+          mobile: "XXXXX 43210",
+          designation: "President",
+          assignedAt: "2025-01-15T00:00:00.000Z",
+          photoUrl: null,
+        },
+      ],
+    });
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("Rajesh Kumar")).toBeInTheDocument();
+    });
+
+    expect(screen.queryByAltText("Rajesh Kumar")).not.toBeInTheDocument();
+    // Fallback initials should be shown
+    expect(screen.getByText("RK")).toBeInTheDocument();
+  });
+
   it("does not fetch when user is null", () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
