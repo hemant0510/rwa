@@ -58,6 +58,40 @@ execution_plan/     # Build plans — read only the target group section, not th
 - **Shared mocks**: always `import { mockPrisma } from "../__mocks__/prisma"` — never recreate inline
 - **Pre-commit hook**: `scripts/test-staged.mjs` — targeted tests for staged TS files only
 
+## Pre-Commit Coverage — CRITICAL
+
+The pre-commit hook (`scripts/test-staged.mjs`) enforces **95% per-file coverage** on ALL staged source files. This is the #1 source of failed commits. Follow these rules strictly:
+
+### Before modifying any existing file
+
+1. Check if it has a test file — if not, you MUST create one covering the full file (not just your changes) before committing
+2. Run per-file coverage after writing tests: `npx vitest run tests/path/to/test.ts --coverage --coverage.include=src/path/to/source.ts`
+3. Do NOT rely on "all tests pass" — per-file thresholds can still fail
+
+### When adding new imports/dependencies to existing API routes
+
+- Audit ALL existing test files for that route and add the required mocks (e.g., adding `createAdminClient` requires mocking `@/lib/supabase/admin` in every test that imports the route)
+
+### v8 coverage ignore in JSX — what works and what doesn't
+
+- **DOES NOT WORK**: `/* v8 ignore next */` on its own line above a JSX expression — V8 ignores this
+- **WORKS**: `/* v8 ignore start */` + `/* v8 ignore stop */` blocks around the expression
+- **BEST**: Extract branch expressions to variables above the `return`, then use `/* v8 ignore start/stop */` around the variable declarations
+- **WORKS in JSX**: `{/* v8 ignore start */}{expression}{/* v8 ignore stop */}`
+
+### Common untestable JSX branches (use v8 ignore)
+
+- `mutation.isPending && <Spinner />` — requires exact async timing in JSDOM
+- `STATUS_MAP[status] || fallback` — all known statuses exist in the map
+- `ref.current?.click()` — ref is always attached when called
+- `isLoading ? <Spinner> : data ? <Content> : null` — transient loading state
+
+### When adding signed URL generation to API routes, always add 3 test cases
+
+1. Entity WITH photoUrl → signed URL returned
+2. Entity WITHOUT photoUrl → null returned, `createSignedUrl` NOT called
+3. Signed URL generation fails → falls back to null
+
 ## Core Coding Rules
 
 All standards: [.claude/core_rules.md](.claude/core_rules.md) — read before writing any code.
