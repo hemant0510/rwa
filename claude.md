@@ -41,12 +41,14 @@ supabase/           # schema.prisma, migrations/, seed files
 execution_plan/     # Build plans — read only the target group section, not the full file
 ```
 
-## Slash Commands — always use these for implementation work
+## Skills — always use these for implementation work
 
-- `/implement-group <N> <plan-file>` — extract spec → build → test immediately → audit → report
-- `/verify-group <N> <plan-file>` — audit existing implementation, find and fix all gaps
-- `/write-tests <file>` — write tests with correct patterns (vi.hoisted / global.fetch / renderHook)
-- `/quality-gate` — lint → vitest run → tsc, in correct order for the context
+Skills live in `.claude/skills/<name>/SKILL.md` with YAML frontmatter.
+
+- `/implement-group <N> <plan-file>` — extract spec → build → per-file coverage → 7-category audit → report
+- `/verify-group <N> <plan-file>` — audit existing implementation (reads global plan sections too), fix all gaps
+- `/write-tests <file>` — write tests with correct patterns from core_rules.md, verify per-file coverage
+- `/quality-gate` — lint → tests → tsc, in correct order (Variant A: implementation, Variant B: pre-commit)
 - `/db-change` — safe schema migration (direct connection, never pooler)
 - `/dev` — start dev server
 
