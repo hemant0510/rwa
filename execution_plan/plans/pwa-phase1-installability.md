@@ -31,7 +31,23 @@ Full PWA Level 2 plan exists at `execution_plan/plans/pwa-level2.md` with 4 phas
 
 ## Prerequisites
 
-None. No schema changes, no API changes, no existing code modifications (except config files).
+None. No schema changes, no API changes.
+
+---
+
+## Step 0 — Read existing files before touching them
+
+Before writing any code, read these files to understand their current state:
+
+```bash
+# Read all files you will modify
+src/app/layout.tsx
+next.config.ts
+tsconfig.json
+.gitignore
+```
+
+This is mandatory. The modification instructions below describe what to ADD or CHANGE — not what to replace wholesale.
 
 ---
 
@@ -44,7 +60,9 @@ npm i @serwist/next
 npm i -D serwist
 ```
 
-### 2. `src/app/manifest.ts` — Web App Manifest
+---
+
+### 2. `src/app/manifest.ts` — Web App Manifest (CREATE)
 
 Next.js App Router auto-discovers this file and links it in the HTML head.
 
@@ -55,7 +73,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "RWA Connect",
     short_name: "RWA Connect",
-    description: "Eden Estate RWA management app",
+    description: "Manage your Resident Welfare Association with RWA Connect",
     start_url: "/",
     scope: "/",
     display: "standalone",
@@ -81,7 +99,11 @@ export default function manifest(): MetadataRoute.Manifest {
 }
 ```
 
-### 3. `public/icons/` — App Icon Set (8 PNG files)
+**No test needed** — `src/app/manifest.ts` is not in vitest coverage scope.
+
+---
+
+### 3. `public/icons/` — App Icon Set (MANUAL STEP — USER MUST DO THIS)
 
 | File                        | Size    | Purpose                   |
 | --------------------------- | ------- | ------------------------- |
@@ -94,9 +116,21 @@ export default function manifest(): MetadataRoute.Manifest {
 | `icon-512x512.png`          | 512x512 | Android splash (required) |
 | `icon-512x512-maskable.png` | 512x512 | Adaptive icon (safe zone) |
 
-Generate from the app logo. Use `npx pwa-asset-generator <logo.png> public/icons/` or manually resize.
+**Claude cannot generate real PNG files.** This is a manual step the user must perform.
 
-### 4. `src/app/sw.ts` — Service Worker
+To generate: provide a square PNG logo and run:
+
+```bash
+npx pwa-asset-generator <your-logo.png> public/icons/
+```
+
+Or manually resize and export 8 files to `public/icons/`.
+
+**The build will succeed without icons** (manifest just references missing files), but the Chrome install prompt and Lighthouse PWA audit will not pass until real icons exist.
+
+---
+
+### 4. `src/app/sw.ts` — Service Worker (CREATE)
 
 ```typescript
 import { defaultCache } from "@serwist/next/worker";
@@ -132,7 +166,11 @@ const serwist = new Serwist({
 serwist.addEventListeners();
 ```
 
-### 5. `src/app/offline/page.tsx` — Offline Fallback Page
+**No test needed** — `src/app/sw.ts` is a service worker compiled by serwist's webpack plugin, not in vitest coverage scope.
+
+---
+
+### 5. `src/app/offline/page.tsx` — Offline Fallback Page (CREATE)
 
 ```typescript
 import { WifiOff } from "lucide-react";
@@ -143,7 +181,7 @@ export default function OfflinePage() {
       <div className="bg-muted mb-4 rounded-full p-4">
         <WifiOff className="text-muted-foreground h-8 w-8" />
       </div>
-      <h1 className="mb-2 text-xl font-bold">You're Offline</h1>
+      <h1 className="mb-2 text-xl font-bold">You&apos;re Offline</h1>
       <p className="text-muted-foreground text-sm">
         Check your internet connection and try again.
       </p>
@@ -152,20 +190,20 @@ export default function OfflinePage() {
 }
 ```
 
-### 6. Modify `next.config.ts`
+**No test needed** — `src/app/offline/page.tsx` is not in vitest coverage scope (pure presentational, no logic).
 
-Changes needed:
+---
 
-- Import `withSerwistInit` from `@serwist/next`
-- Wrap existing config with Serwist plugin
-- Add `worker-src 'self'` to CSP header
-- Disable in dev mode
+### 6. Modify `next.config.ts` (MODIFY — read the file first)
+
+Three changes. Apply each as a targeted edit, do not rewrite the file.
+
+**Change A — Add import and withSerwist config** at the top of the file, after the existing `withSentryConfig` import:
 
 ```typescript
-// Add at top:
 import withSerwistInit from "@serwist/next";
 
-const revision = crypto.randomUUID(); // unique per build
+const revision = crypto.randomUUID();
 
 const withSerwist = withSerwistInit({
   swSrc: "src/app/sw.ts",
@@ -173,68 +211,111 @@ const withSerwist = withSerwistInit({
   additionalPrecacheEntries: [{ url: "/offline", revision }],
   disable: process.env.NODE_ENV === "development",
 });
-
-// Change the export:
-// Before: export default withSentryConfig(nextConfig, { ... });
-// After:  export default withSentryConfig(withSerwist(nextConfig), { ... });
 ```
 
-CSP update — add `worker-src 'self'` to the security headers array:
+**Change B — Add `worker-src 'self'`** to the existing CSP value array (the array inside the `Content-Security-Policy` object in `securityHeaders`). Add it after `"font-src 'self'"`:
 
 ```typescript
-// In the Content-Security-Policy value array, add:
+// existing line:
+"font-src 'self'",
+// add after it:
 "worker-src 'self'",
 ```
 
-### 7. Modify `src/app/layout.tsx`
-
-Add PWA metadata to the existing exports:
+**Change C — Wrap `nextConfig` with `withSerwist`** in the final export. The existing export is:
 
 ```typescript
-// Add viewport export (new):
+export default withSentryConfig(nextConfig, { ... });
+```
+
+Change it to:
+
+```typescript
+export default withSentryConfig(withSerwist(nextConfig), { ... });
+```
+
+Do not change anything else in the Sentry config object.
+
+---
+
+### 7. Modify `src/app/layout.tsx` (MODIFY — read the file first)
+
+Two changes. Do not overwrite the existing title or description — they are correct.
+
+**Change A — Update the import line** to add `Viewport`:
+
+```typescript
+// Before:
+import type { Metadata } from "next";
+
+// After:
+import type { Metadata, Viewport } from "next";
+```
+
+**Change B — Add `viewport` export** (new export, does not exist yet) and expand the existing `metadata` export by adding new fields only:
+
+```typescript
+// Add this new export (before or after the existing metadata export):
 export const viewport: Viewport = {
   themeColor: "#0d9488",
 };
 
-// Expand existing metadata:
+// Expand the existing metadata export — ADD these fields, keep title and description as-is:
 export const metadata: Metadata = {
-  title: "RWA Connect",
-  description: "Eden Estate RWA management",
-  applicationName: "RWA Connect",
+  title: "RWA Connect — Society Management", // keep existing
+  description: "Manage your Resident Welfare Association with RWA Connect", // keep existing
+  applicationName: "RWA Connect", // add
   appleWebApp: {
+    // add
     capable: true,
     statusBarStyle: "default",
     title: "RWA Connect",
   },
   formatDetection: {
+    // add
     telephone: false,
   },
 };
 ```
 
-Import `Viewport` from `next`:
+---
 
-```typescript
-import type { Metadata, Viewport } from "next";
+### 8. Modify `tsconfig.json` (MODIFY — read the file first)
+
+Three targeted additions. Do NOT replace any existing array values.
+
+**Change A — Add `"webworker"` to the existing `lib` array:**
+
+```json
+"lib": ["dom", "dom.iterable", "esnext", "webworker"]
 ```
 
-### 8. Modify `tsconfig.json`
+(existing array is `["dom", "dom.iterable", "esnext"]` — just append `"webworker"`)
 
-```jsonc
-{
-  "compilerOptions": {
-    // Add to existing config:
-    "types": ["@serwist/next/typings"],
-    "lib": ["dom", "dom.iterable", "esnext", "webworker"],
-  },
-  // Add to root:
-  "exclude": ["public/sw.js"],
-}
+**Change B — Add new `types` field** (this field does not exist yet — add it):
+
+```json
+"types": ["@serwist/next/typings"]
 ```
 
-### 9. Modify `.gitignore`
+**Change C — Add `"public/sw.js"` to the EXISTING `exclude` array.** The current array has 5 entries — append to it, do not replace it:
 
-Add at the end:
+```json
+"exclude": [
+  "node_modules",
+  "supabase/seed.ts",
+  "supabase/seed-master.ts",
+  "prisma.config.ts",
+  "vitest.config.ts",
+  "public/sw.js"
+]
+```
+
+---
+
+### 9. Modify `.gitignore` (MODIFY)
+
+Append at the end of the file:
 
 ```
 # PWA generated service worker
@@ -246,42 +327,49 @@ public/swe-worker*
 
 ## Files Summary
 
-| File                           | Action | Purpose                        |
-| ------------------------------ | ------ | ------------------------------ |
-| `src/app/manifest.ts`          | Create | Web app manifest               |
-| `src/app/sw.ts`                | Create | Service worker                 |
-| `src/app/offline/page.tsx`     | Create | Offline fallback               |
-| `public/icons/*.png` (8 files) | Create | App icons                      |
-| `next.config.ts`               | Modify | Serwist plugin + CSP           |
-| `src/app/layout.tsx`           | Modify | PWA metadata                   |
-| `tsconfig.json`                | Modify | SW types                       |
-| `.gitignore`                   | Modify | Exclude generated SW           |
-| `package.json`                 | Modify | Dependencies (via npm install) |
+| File                           | Action                  | Test needed? | Notes                                        |
+| ------------------------------ | ----------------------- | ------------ | -------------------------------------------- |
+| `src/app/manifest.ts`          | Create                  | No           | Not in coverage scope                        |
+| `src/app/sw.ts`                | Create                  | No           | Compiled by serwist, not vitest              |
+| `src/app/offline/page.tsx`     | Create                  | No           | Not in coverage scope, zero logic            |
+| `public/icons/*.png` (8 files) | Manual (user)           | No           | Requires source logo — Claude cannot do this |
+| `next.config.ts`               | Modify (3 edits)        | No           | Not in coverage scope                        |
+| `src/app/layout.tsx`           | Modify (2 edits)        | No           | Not in coverage scope                        |
+| `tsconfig.json`                | Modify (3 edits)        | No           | Config file                                  |
+| `.gitignore`                   | Modify (append)         | No           | Config file                                  |
+| `package.json`                 | Modified by npm install | No           | Auto-updated by `npm i`                      |
 
----
-
-## Verification
-
-1. `npm run build` — verify `public/sw.js` is generated
-2. `npm run start` — open in Chrome
-3. **DevTools > Application > Manifest** — verify manifest loads with correct name, icons, theme color
-4. **DevTools > Application > Service Workers** — verify SW is registered and active
-5. **Chrome address bar** — install icon (download arrow) should appear; click to install
-6. **Android Chrome** — "Add to Home Screen" banner should appear
-7. **iOS Safari** — Share > "Add to Home Screen" should work
-8. **Installed app** — opens in standalone mode (no browser URL bar)
-9. **Go offline** (DevTools > Network > Offline) — navigate to any uncached page, verify offline fallback page appears (not browser error)
-10. **Lighthouse** — run PWA audit, verify "Installable" passes
+**Total test files to write: 0** — all deliverables in this phase are config, service worker, or pure presentational. Phase 3 is where new hooks/components with tests are added.
 
 ---
 
 ## Quality Gate
 
-- `npm run lint` — zero errors
-- `npx tsc --noEmit` — zero errors
-- `npm run build` — succeeds, `public/sw.js` generated
-- Lighthouse PWA "Installable" = Yes
-- No console errors on SW registration
+### Automated (Claude runs these)
+
+```bash
+npm run lint          # zero errors
+npx tsc --noEmit      # zero errors
+npm run build         # succeeds — public/sw.js generated
+```
+
+Verify after build:
+
+```bash
+ls public/sw.js       # must exist
+```
+
+### Manual (User verifies in browser — requires real icons)
+
+1. `npm run start` — open in Chrome
+2. **DevTools > Application > Manifest** — name, icons, theme color show correctly
+3. **DevTools > Application > Service Workers** — status: "activated and is running"
+4. **Chrome address bar** — install icon (⊕) appears; click to install
+5. **Android Chrome** — "Add to Home Screen" prompt appears
+6. **iOS Safari** — Share > "Add to Home Screen" works
+7. **Installed app** — opens in standalone mode (no browser URL bar)
+8. **Go offline** (DevTools > Network > Offline) — navigate to any page → offline fallback page appears (not browser error)
+9. **Lighthouse** — PWA audit → "Installable" passes
 
 ---
 
@@ -290,8 +378,7 @@ public/swe-worker*
 Add `pwa-level2.md` phases when any of these happen:
 
 - Users complain about slow page loads on repeat visits
-- Users request offline access (field staff in areas with poor connectivity)
+- Users request offline access
 - Analytics show high bounce rate on slow connections
-- SA dashboard becomes sluggish with 50+ societies
 
 Until then, Phase 1 alone provides the install-on-home-screen experience that makes the app feel professional and native.
