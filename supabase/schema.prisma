@@ -360,6 +360,7 @@ model Society {
   serviceRequests          ServiceRequest[]
   paymentClaims            PaymentClaim[]
   subscriptionPaymentClaims SubscriptionPaymentClaim[]
+  residentTickets           ResidentTicket[]
 
   @@map("societies")
 }
@@ -450,6 +451,8 @@ model User {
   serviceRequestsCreated   ServiceRequest[]      @relation("ServiceRequestCreatedBy")
   paymentClaims            PaymentClaim[]
   claimsVerified           PaymentClaim[]        @relation("ClaimVerifier")
+  residentTicketsCreated   ResidentTicket[]      @relation("ResidentTicketCreatedBy")
+  residentTicketAttachments ResidentTicketAttachment[] @relation("ResidentTicketAttachmentUploader")
 
   @@unique([societyId, email])
   @@map("users")
@@ -1359,9 +1362,10 @@ model Petition {
   createdAt        DateTime       @default(now()) @map("created_at")
   updatedAt        DateTime       @updatedAt @map("updated_at")
 
-  society    Society              @relation(fields: [societyId], references: [id])
-  creator    User                 @relation("PetitionCreatedBy", fields: [createdBy], references: [id])
-  signatures PetitionSignature[]
+  society       Society              @relation(fields: [societyId], references: [id])
+  creator       User                 @relation("PetitionCreatedBy", fields: [createdBy], references: [id])
+  signatures    PetitionSignature[]
+  linkedTickets ResidentTicket[]
 
   @@index([societyId])
   @@index([status])
@@ -1579,4 +1583,105 @@ model PlatformSetting {
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   @@map("platform_settings")
+}
+
+// ─── Resident Support Ticket Enums ────────────────────────────────
+
+enum ResidentTicketType {
+  MAINTENANCE_ISSUE
+  SECURITY_CONCERN
+  NOISE_COMPLAINT
+  PARKING_ISSUE
+  CLEANLINESS
+  BILLING_QUERY
+  AMENITY_REQUEST
+  NEIGHBOR_DISPUTE
+  SUGGESTION
+  OTHER
+}
+
+enum ResidentTicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ResidentTicketStatus {
+  OPEN
+  IN_PROGRESS
+  AWAITING_RESIDENT
+  AWAITING_ADMIN
+  RESOLVED
+  CLOSED
+}
+
+// ─── Resident Support Ticket Models ───────────────────────────────
+
+/// ResidentTicket — resident-to-RWA-admin support ticket.
+model ResidentTicket {
+  id            String                 @id @default(uuid()) @db.Uuid
+  societyId     String                 @map("society_id") @db.Uuid
+  ticketNumber  Int                    @unique @default(autoincrement()) @map("ticket_number")
+  type          ResidentTicketType
+  priority      ResidentTicketPriority @default(MEDIUM)
+  status        ResidentTicketStatus   @default(OPEN)
+  subject       String                 @db.VarChar(200)
+  description   String                 @db.Text
+  createdBy     String                 @map("created_by") @db.Uuid
+  petitionId    String?                @map("petition_id") @db.Uuid
+  resolvedAt    DateTime?              @map("resolved_at")
+  closedAt      DateTime?              @map("closed_at")
+  closedReason  String?                @map("closed_reason") @db.Text
+  createdAt     DateTime               @default(now()) @map("created_at")
+  updatedAt     DateTime               @updatedAt @map("updated_at")
+
+  society       Society                @relation(fields: [societyId], references: [id])
+  createdByUser User                   @relation("ResidentTicketCreatedBy", fields: [createdBy], references: [id])
+  petition      Petition?              @relation(fields: [petitionId], references: [id], onDelete: SetNull)
+  messages      ResidentTicketMessage[]
+  attachments   ResidentTicketAttachment[]
+
+  @@index([societyId])
+  @@index([status])
+  @@index([createdBy])
+  @@index([priority, updatedAt(sort: Desc)])
+  @@map("resident_tickets")
+}
+
+/// ResidentTicketMessage — conversation messages on a resident ticket.
+model ResidentTicketMessage {
+  id          String   @id @default(uuid()) @db.Uuid
+  ticketId    String   @map("ticket_id") @db.Uuid
+  authorId    String   @map("author_id") @db.Uuid
+  authorRole  String   @map("author_role") @db.VarChar(20)
+  content     String   @db.Text
+  isInternal  Boolean  @default(false) @map("is_internal")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  ticket      ResidentTicket              @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  attachments ResidentTicketAttachment[]
+
+  @@index([ticketId, createdAt])
+  @@map("resident_ticket_messages")
+}
+
+/// ResidentTicketAttachment — file attachments on a resident ticket.
+model ResidentTicketAttachment {
+  id          String   @id @default(uuid()) @db.Uuid
+  ticketId    String   @map("ticket_id") @db.Uuid
+  messageId   String?  @map("message_id") @db.Uuid
+  uploadedBy  String   @map("uploaded_by") @db.Uuid
+  fileName    String   @map("file_name") @db.VarChar(255)
+  fileUrl     String   @map("file_url") @db.VarChar(500)
+  fileSize    Int      @map("file_size")
+  mimeType    String   @map("mime_type") @db.VarChar(100)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  ticket   ResidentTicket         @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  message  ResidentTicketMessage? @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  uploader User                   @relation("ResidentTicketAttachmentUploader", fields: [uploadedBy], references: [id])
+
+  @@index([ticketId])
+  @@map("resident_ticket_attachments")
 }
