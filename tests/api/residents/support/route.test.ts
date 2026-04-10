@@ -66,10 +66,10 @@ describe("Resident Support API — GET + POST", () => {
     const res = await GET(makeGetReq() as never);
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.data).toHaveLength(1);
+    expect(body.tickets).toHaveLength(1);
     expect(body.total).toBe(1);
     expect(body.page).toBe(1);
-    expect(body.limit).toBe(20);
+    expect(body.pageSize).toBe(20);
     expect(mockPrisma.residentTicket.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ societyId: "soc-1" }),

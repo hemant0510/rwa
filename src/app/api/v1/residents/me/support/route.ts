@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
       prisma.residentTicket.count({ where }),
     ]);
 
-    return successResponse({ data, total, page, limit });
+    return successResponse({ tickets: data, total, page, pageSize: limit });
   } catch (err) {
     console.error("[Resident Support GET]", err);
     return internalError();

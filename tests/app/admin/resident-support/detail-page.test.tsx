@@ -13,6 +13,7 @@ const {
   mockChangeAdminResidentTicketPriority,
   mockLinkTicketPetition,
   mockUploadAdminResidentAttachment,
+  mockGetPetitions,
   mockToastSuccess,
   mockToastError,
   mockFetch,
@@ -23,9 +24,14 @@ const {
   mockChangeAdminResidentTicketPriority: vi.fn(),
   mockLinkTicketPetition: vi.fn(),
   mockUploadAdminResidentAttachment: vi.fn(),
+  mockGetPetitions: vi.fn(),
   mockToastSuccess: vi.fn(),
   mockToastError: vi.fn(),
   mockFetch: vi.fn(),
+}));
+
+vi.mock("@/services/petitions", () => ({
+  getPetitions: (...args: unknown[]) => mockGetPetitions(...args),
 }));
 
 vi.mock("@/services/resident-support", () => ({
@@ -205,6 +211,15 @@ describe("AdminResidentTicketDetailPage", () => {
     mockChangeAdminResidentTicketPriority.mockResolvedValue(undefined);
     mockLinkTicketPetition.mockResolvedValue(MOCK_TICKET);
     mockUploadAdminResidentAttachment.mockResolvedValue({ id: "att-1" });
+    mockGetPetitions.mockResolvedValue({
+      data: [
+        { id: "pet-10", title: "Fix elevator urgently", type: "COMPLAINT", status: "DRAFT" },
+        { id: "pet-11", title: "Road maintenance petition", type: "PETITION", status: "PUBLISHED" },
+      ],
+      total: 2,
+      page: 1,
+      limit: 100,
+    });
     mockFetch.mockResolvedValue({
       ok: true,
       json: async () => ({ petition: { id: "pet-2" }, ticket: {} }),
@@ -390,7 +405,7 @@ describe("AdminResidentTicketDetailPage", () => {
       expect(screen.getByText("Actions")).toBeInTheDocument();
     });
     // IN_PROGRESS valid transitions: AWAITING_RESIDENT, RESOLVED, CLOSED
-    expect(screen.getByText("Awaiting Resident")).toBeInTheDocument();
+    expect(screen.getByText("Mark Awaiting Resident")).toBeInTheDocument();
     expect(screen.getByText("Mark Resolved")).toBeInTheDocument();
     expect(screen.getByText("Close Ticket")).toBeInTheDocument();
   });
@@ -539,24 +554,29 @@ describe("AdminResidentTicketDetailPage", () => {
     });
   });
 
-  it("shows link by ID input when no petition linked", async () => {
+  it("shows petition Select dropdown when no petition linked", async () => {
     await renderPage();
     await waitFor(() => {
-      expect(screen.getByPlaceholderText("Petition ID")).toBeInTheDocument();
+      // "Search petition…" is the placeholder text inside the Select trigger
+      expect(screen.getByText("Search petition…")).toBeInTheDocument();
     });
+    expect(screen.getByText("Link Selected Petition")).toBeInTheDocument();
   });
 
-  it("calls linkTicketPetition when Link button clicked", async () => {
+  it("calls linkTicketPetition when petition selected and Link button clicked", async () => {
     await renderPage();
     await waitFor(() => {
-      expect(screen.getByPlaceholderText("Petition ID")).toBeInTheDocument();
+      expect(screen.getAllByRole("combobox").length).toBeGreaterThanOrEqual(2);
     });
-    fireEvent.change(screen.getByPlaceholderText("Petition ID"), {
-      target: { value: "pet-123" },
-    });
-    fireEvent.click(screen.getByText("Link"));
+    // Second combobox is the petition Select (first is priority)
+    const petitionSelect = screen.getAllByRole("combobox")[1];
+    fireEvent.click(petitionSelect);
     await waitFor(() => {
-      expect(mockLinkTicketPetition).toHaveBeenCalledWith("t-1", "pet-123");
+      fireEvent.click(screen.getByRole("option", { name: "Fix elevator urgently" }));
+    });
+    fireEvent.click(screen.getByText("Link Selected Petition"));
+    await waitFor(() => {
+      expect(mockLinkTicketPetition).toHaveBeenCalledWith("t-1", "pet-10");
     });
   });
 
@@ -651,12 +671,14 @@ describe("AdminResidentTicketDetailPage", () => {
     mockLinkTicketPetition.mockRejectedValue(new Error("Link failed"));
     await renderPage();
     await waitFor(() => {
-      expect(screen.getByPlaceholderText("Petition ID")).toBeInTheDocument();
+      expect(screen.getAllByRole("combobox").length).toBeGreaterThanOrEqual(2);
     });
-    fireEvent.change(screen.getByPlaceholderText("Petition ID"), {
-      target: { value: "pet-bad" },
+    const petitionSelect = screen.getAllByRole("combobox")[1];
+    fireEvent.click(petitionSelect);
+    await waitFor(() => {
+      fireEvent.click(screen.getByRole("option", { name: "Fix elevator urgently" }));
     });
-    fireEvent.click(screen.getByText("Link"));
+    fireEvent.click(screen.getByText("Link Selected Petition"));
     await waitFor(() => {
       expect(mockToastError).toHaveBeenCalledWith("Link failed");
     });

@@ -216,7 +216,7 @@ export default function ResidentSupportPage() {
   if (statusFilter) filters.status = statusFilter;
   if (typeFilter) filters.type = typeFilter;
   /* v8 ignore stop */
-  if (mineOnly) filters.mine = "1";
+  if (mineOnly) filters.mine = "true";
   filters.page = String(page);
   filters.pageSize = String(PAGE_SIZE);
 

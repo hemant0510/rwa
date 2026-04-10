@@ -35,6 +35,7 @@ import {
   RESIDENT_TICKET_PRIORITY_LABELS,
   VALID_TRANSITIONS,
 } from "@/lib/validations/resident-support";
+import { getPetitions } from "@/services/petitions";
 import {
   getAdminResidentTicketDetail,
   postAdminResidentMessage,
@@ -46,8 +47,8 @@ import {
 
 const STATUS_ACTION_LABELS: Record<string, string> = {
   IN_PROGRESS: "Mark In Progress",
-  AWAITING_RESIDENT: "Awaiting Resident",
-  AWAITING_ADMIN: "Awaiting Admin",
+  AWAITING_RESIDENT: "Mark Awaiting Resident",
+  AWAITING_ADMIN: "Mark Awaiting Admin",
   RESOLVED: "Mark Resolved",
   CLOSED: "Close Ticket",
   OPEN: "Reopen",
@@ -90,13 +91,20 @@ export default function AdminResidentTicketDetailPage({
   const { ticketId } = use(params);
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const { saQueryString } = useSocietyId();
+  const { societyId, saQueryString } = useSocietyId();
 
   const isFullAccess = user?.permission === "FULL_ACCESS";
 
   const [replyContent, setReplyContent] = useState("");
   const [isInternal, setIsInternal] = useState(false);
   const [linkPetitionId, setLinkPetitionId] = useState("");
+
+  const { data: petitionsData } = useQuery({
+    queryKey: ["admin-petitions-for-link", societyId],
+    queryFn: () => getPetitions(societyId, { limit: 100 }),
+    enabled: isFullAccess && !!societyId,
+    staleTime: 60_000,
+  });
 
   const queryKey = ["admin-resident-ticket", ticketId];
 
@@ -431,22 +439,35 @@ export default function AdminResidentTicketDetailPage({
               {isFullAccess && (
                 <div className="space-y-2 border-t pt-3">
                   {!ticket.petition && (
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        placeholder="Petition ID"
-                        value={linkPetitionId}
-                        onChange={(e) => setLinkPetitionId(e.target.value)}
-                        className="border-input bg-background flex h-8 w-full rounded-md border px-2 text-xs"
-                      />
+                    <div className="space-y-2">
+                      <Select value={linkPetitionId} onValueChange={setLinkPetitionId}>
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue placeholder="Search petition…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {/* v8 ignore start */}
+                          {!petitionsData?.data?.length ? (
+                            <p className="text-muted-foreground px-2 py-1 text-xs">
+                              No petitions found
+                            </p>
+                          ) : (
+                            petitionsData.data.map((p) => (
+                              <SelectItem key={p.id} value={p.id}>
+                                <span className="text-xs">{p.title}</span>
+                              </SelectItem>
+                            ))
+                          )}
+                          {/* v8 ignore stop */}
+                        </SelectContent>
+                      </Select>
                       <Button
                         size="sm"
                         variant="outline"
+                        className="w-full"
                         onClick={() => linkMutation.mutate(linkPetitionId)}
-                        disabled={!linkPetitionId.trim() || linkMutation.isPending}
-                        className="shrink-0"
+                        disabled={!linkPetitionId || linkMutation.isPending}
                       >
-                        Link
+                        Link Selected Petition
                       </Button>
                     </div>
                   )}
