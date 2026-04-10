@@ -16,8 +16,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
           select: {
             name: true,
             email: true,
-            phone: true,
-            units: { select: { unit: { select: { unitNumber: true } } }, take: 1 },
+            mobile: true,
+            userUnits: { select: { unit: { select: { displayLabel: true } } }, take: 1 },
           },
         },
         petition: {

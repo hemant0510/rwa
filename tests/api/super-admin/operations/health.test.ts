@@ -18,7 +18,8 @@ vi.mock("@/lib/auth-guard", () => ({
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 
 // --- Import after mocks ---
-import { GET, computeHealthScore } from "@/app/api/v1/super-admin/operations/health/route";
+import { computeHealthScore } from "@/app/api/v1/super-admin/operations/health/compute-health-score";
+import { GET } from "@/app/api/v1/super-admin/operations/health/route";
 
 const mockSAContext = {
   data: {

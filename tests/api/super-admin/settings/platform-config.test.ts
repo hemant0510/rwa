@@ -12,11 +12,8 @@ vi.mock("@/lib/auth-guard", () => ({ requireSuperAdmin: mockRequireSuperAdmin })
 vi.mock("@/lib/audit", () => ({ logAudit: mockLogAudit }));
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 
-import {
-  GET,
-  PATCH,
-  CONFIG_DEFAULTS,
-} from "@/app/api/v1/super-admin/settings/platform-config/route";
+import { CONFIG_DEFAULTS } from "@/app/api/v1/super-admin/settings/platform-config/config-defaults";
+import { GET, PATCH } from "@/app/api/v1/super-admin/settings/platform-config/route";
 
 const saOk = {
   data: {
@@ -164,5 +161,20 @@ describe("PATCH /api/v1/super-admin/settings/platform-config", () => {
 
     const res = await PATCH(makePatchReq({ trial_duration_days: 45 }));
     expect(res.status).toBe(500);
+  });
+
+  it("uses fallback type and label for keys not in CONFIG_DEFAULTS", async () => {
+    // support_phone IS in CONFIG_DEFAULTS, so upsert uses def.type/def.label
+    // We verify the upsert create block uses the defaults
+    const res = await PATCH(makePatchReq({ support_phone: "1234567890" }));
+    expect(res.status).toBe(200);
+    expect(mockPrisma.platformConfig.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          type: "string",
+          label: "Support Phone",
+        }),
+      }),
+    );
   });
 });

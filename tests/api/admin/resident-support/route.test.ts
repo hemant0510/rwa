@@ -19,7 +19,9 @@ const mockAdmin = {
 };
 
 function makeRequest(params = "") {
-  return new Request(`http://localhost/api/v1/admin/resident-support${params ? `?${params}` : ""}`);
+  return new Request(
+    `http://localhost/api/v1/admin/resident-support${params ? `?${params}` : ""}`,
+  ) as unknown as import("next/server").NextRequest;
 }
 
 describe("GET /api/v1/admin/resident-support", () => {

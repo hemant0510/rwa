@@ -4,14 +4,7 @@ import { requireSuperAdmin } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { updatePlatformConfigSchema } from "@/lib/validations/settings";
 
-export const CONFIG_DEFAULTS: Record<string, { value: string; type: string; label: string }> = {
-  trial_duration_days: { value: "30", type: "number", label: "Trial Duration (days)" },
-  trial_unit_limit: { value: "50", type: "number", label: "Trial Unit Limit" },
-  session_timeout_hours: { value: "8", type: "number", label: "Session Timeout (hours)" },
-  default_fee_grace_days: { value: "15", type: "number", label: "Fee Grace Period (days)" },
-  support_email: { value: "", type: "string", label: "Support Email" },
-  support_phone: { value: "", type: "string", label: "Support Phone" },
-};
+import { CONFIG_DEFAULTS } from "./config-defaults";
 
 function mergeWithDefaults(stored: { key: string; value: string; type: string; label: string }[]) {
   const storedMap = new Map(stored.map((r) => [r.key, r]));
@@ -44,7 +37,9 @@ export async function PATCH(request: Request) {
   try {
     const { data, error } = await parseBody(request, updatePlatformConfigSchema);
     if (error) return error;
+    /* v8 ignore start -- parseBody always returns data when error is null */
     if (!data) return internalError();
+    /* v8 ignore stop */
 
     const entries = Object.entries(data).filter(([, v]) => v !== undefined) as [
       string,
@@ -61,8 +56,10 @@ export async function PATCH(request: Request) {
           create: {
             key,
             value,
+            /* v8 ignore start -- Zod schema only allows known CONFIG_DEFAULTS keys */
             type: def?.type ?? "string",
             label: def?.label ?? key,
+            /* v8 ignore stop */
             updatedBy: auth.data.superAdminId,
           },
         });

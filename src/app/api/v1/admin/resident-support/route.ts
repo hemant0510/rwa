@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
           createdByUser: {
             select: {
               name: true,
-              units: { select: { unit: { select: { unitNumber: true } } }, take: 1 },
+              userUnits: { select: { unit: { select: { displayLabel: true } } }, take: 1 },
             },
           },
           _count: { select: { messages: true, attachments: true } },
