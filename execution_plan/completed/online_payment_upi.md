@@ -1112,9 +1112,7 @@ export async function rejectClaim(
 import type { SubscriptionPaymentClaim } from "@/types/payment";
 
 // Admin: fetch active subscription ID before showing the claim form
-export async function getActiveSubscription(
-  societyId: string,
-): Promise<{
+export async function getActiveSubscription(societyId: string): Promise<{
   subscriptionId: string;
   planName: string;
   amountDue: number;
