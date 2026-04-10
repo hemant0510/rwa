@@ -7,7 +7,7 @@ argument-hint: <N> <plan-file>
 # Implement a Plan Group
 
 **Invocation**: `/implement-group <N> <plan-file>`
-Example: `/implement-group 4 execution_plan/plans/resident-support-tickets.md`
+Example: `/implement-group 4 execution_plan/plans/some-feature.md`
 
 ---
 
@@ -42,6 +42,17 @@ Read the extracted section. Stop. Do not read any other section yet (Step 7 read
 
 **c) Existing files**: For each file listed in the group, check if it already exists. If it does, read it first. Implement only what is missing — never overwrite working code.
 
+**c2) Signature change blast radius — MANDATORY when modifying exported functions**: If this group modifies an existing source file and changes any exported function signature (adding/removing required parameters, changing types), you MUST:
+
+1. Grep for ALL files (source AND test) that import or call that function:
+   ```bash
+   grep -rn "functionName" tests/ src/ --include="*.ts" --include="*.tsx"
+   ```
+2. Update EVERY call site with the new signature before proceeding to implementation
+3. Run `npx tsc --noEmit` after updating call sites to confirm zero type errors introduced
+
+Failing to do this leaves broken TypeScript in pre-existing test files that only surfaces at the quality gate — by which point multiple files are dirty and hard to untangle.
+
 **d) Plan coverage claims — NEVER TRUST THEM**: If the plan says "no test needed", "not in coverage scope", or any similar phrase, treat it as a hypothesis, not a fact. The pre-commit hook enforces 95% coverage on **every staged `.ts`/`.tsx` file** — it does not read plan documents. For every new file in this group, you must choose one of these two verified exits:
 
 1. **Write tests** that bring per-file coverage to ≥ 95%
@@ -64,27 +75,36 @@ Keep exactly ONE task in_progress at a time.
 
 ---
 
-## Step 4 — Implement each file → test → per-file coverage → next file
+## Step 4 — Implement each file → test → hook-simulation coverage → next file
 
 For each source file in the group (never batch; do one at a time):
 
 1. Implement the source file per the plan spec
 2. Check if a test file already exists for this source — if yes, update it; if no, create it. Follow your project's test patterns (see CLAUDE.md and core_rules.md).
-3. Run the test file — fix until it passes
-4. **Run per-file coverage immediately** (see CLAUDE.md for the exact command):
+3. **Run coverage using `vitest related` — NOT `vitest run`**. The pre-commit hook uses `vitest related <source-file>` which walks Vitest's module graph to find EVERY test file that imports the source, including pre-existing test files you did not write. `vitest run tests/foo.test.ts` only runs one file and will miss those. Use the hook-equivalent command:
+   ```bash
+   npx vitest related src/path/to/source-file.ts --run \
+     --coverage --coverage.provider=v8 --coverage.reporter=text \
+     --coverage.include=src/path/to/source-file.ts \
+     --coverage.thresholds.perFile=true \
+     --coverage.thresholds.lines=95 --coverage.thresholds.branches=95 \
+     --coverage.thresholds.functions=95 --coverage.thresholds.statements=95
    ```
-   [coverage command] --coverage.include=<source-file>
-   ```
-   If any metric is below the project's threshold → add tests NOW. Do not defer.
-5. Add the test file path to a running list (used in Step 6)
-6. Mark the task complete in TodoWrite
+   If this finds test failures in files you did NOT write — those are pre-existing call sites broken by your signature change. Fix them now (see Step 2c2).
+   If any coverage metric is below 95% → add tests NOW. Do not defer.
+4. Add the source file to a running **source file list** and its test file to a **test file list** (both used in Step 6)
+5. Mark the task complete in TodoWrite
 
 **Every source file MUST have a test** — API routes, services, components, pages, config-exporting modules, and sidebar/layout files. No exceptions. If you create or modify a source file without writing/updating its test, the pre-commit hook will fail with 0% coverage.
 
 **Plan says "no test needed"?** That claim is wrong by default. Run the empirical check:
 
 ```bash
-npx vitest run --coverage --coverage.include=src/path/to/new-file.ts
+npx vitest related src/path/to/new-file.ts --run \
+  --coverage --coverage.include=src/path/to/new-file.ts \
+  --coverage.thresholds.perFile=true \
+  --coverage.thresholds.lines=95 --coverage.thresholds.branches=95 \
+  --coverage.thresholds.functions=95 --coverage.thresholds.statements=95
 ```
 
 If output shows 0% coverage, you MUST either write tests or add the file to `vitest.config.ts` `exclude`. Do this check for EVERY new file before moving to the next one.
@@ -109,13 +129,25 @@ After all source files exist, check your project's coverage config file (see CLA
 Run these checks in order (see CLAUDE.md for exact commands). Stop on first failure:
 
 1. **Linter** — zero errors required
-2. **Tests** — run all test files from the list built in Step 4
-3. **Type checker** — fast check, NOT full build
-4. **Per-file coverage** — run the EXACT check the pre-commit hook uses:
+2. **Tests** — run all test files from the test file list built in Step 4 (`npx vitest run tests/file1.test.ts tests/file2.test.ts ...`). This is a quick sanity check. The comprehensive hook simulation is Step 4 below.
+3. **Type checker** — fast check, NOT full build. `npx tsc --noEmit` checks ALL files project-wide, including test files from prior groups. If it reports errors in files you did NOT touch this session, those are pre-existing breakage from signature changes made earlier — fix them NOW before proceeding. The rule: the type checker must be clean before the ship report can say "ready to commit".
+4. **Hook simulation — the final gate before "ready to commit"**. Run `vitest related` against ALL source files in this group together, with the exact same flags the pre-commit hook uses. This is the only command that replicates what will happen on `git commit`:
+
+   ```bash
+   npx vitest related src/file1.ts src/file2.ts [more source files...] --run \
+     --coverage --coverage.provider=v8 --coverage.reporter=text \
+     --coverage.include=src/file1.ts --coverage.include=src/file2.ts \
+     --coverage.thresholds.perFile=true \
+     --coverage.thresholds.lines=95 --coverage.thresholds.branches=95 \
+     --coverage.thresholds.functions=95 --coverage.thresholds.statements=95
    ```
-   [staged test command with coverage flags, per-file thresholds, scoped to all source files in this group]
-   ```
-   If any file shows below threshold on any metric, add tests for the uncovered branches/lines NOW.
+
+   Include ALL source files from this group (skip pure type files and files in the hook's SKIP_COVERAGE list — check `scripts/test-staged.mjs`).
+
+   **Why `vitest related` and not `vitest run`**: The hook uses `vitest related` which walks Vitest's module graph to find every test that imports any of the staged files — including pre-existing test files from earlier groups that you didn't write. `vitest run tests/foo.test.ts` only runs ONE file and misses those. A passing `vitest run` that fails on `vitest related` is the #1 source of "tests pass locally but fail on commit".
+
+   If this command reports test failures in files you didn't write → those are pre-existing tests broken by a signature change (see Step 2c2). Fix them now.
+   If any file shows below threshold on any metric → add tests now.
 
 **Re-run linter after any test additions or fixes** — new files may have unused imports or other lint errors.
 

@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { useQuery } from "@tanstack/react-query";
 import {
   CalendarDays,
   CreditCard,
   FileSignature,
   Home,
+  LifeBuoy,
   Receipt,
   Shield,
   User,
@@ -15,7 +17,9 @@ import {
 } from "lucide-react";
 
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+import { getResidentUnreadCount } from "@/services/resident-support";
 
 const navItems = [
   { href: "/r/home", label: "Home", icon: Home },
@@ -24,12 +28,23 @@ const navItems = [
   { href: "/r/events", label: "Events", icon: CalendarDays },
   { href: "/r/petitions", label: "Petitions", icon: FileSignature },
   { href: "/r/governing-body", label: "Committee", icon: Shield },
+  { href: "/r/support", label: "Support", icon: LifeBuoy },
   { href: "/r/directory", label: "Directory", icon: Users },
   { href: "/r/profile", label: "Profile", icon: User },
 ];
 
 function SidebarContent({ societyName }: { societyName?: string }) {
   const pathname = usePathname();
+  const { user } = useAuth();
+
+  const { data: unreadData } = useQuery({
+    queryKey: ["resident-support-unread"],
+    queryFn: getResidentUnreadCount,
+    staleTime: 30_000,
+    enabled: !!user,
+  });
+
+  const supportUnread = unreadData?.count ?? 0;
 
   return (
     <div className="flex h-full flex-col">
@@ -40,6 +55,7 @@ function SidebarContent({ societyName }: { societyName?: string }) {
       <nav className="flex-1 space-y-1 p-3">
         {navItems.map((item) => {
           const isActive = pathname?.includes(item.href);
+          const isSupport = item.href === "/r/support";
           return (
             <Link
               key={item.href}
@@ -52,7 +68,17 @@ function SidebarContent({ societyName }: { societyName?: string }) {
               )}
             >
               <item.icon className="h-4 w-4" />
-              {item.label}
+              <span className="flex-1">{item.label}</span>
+              {isSupport && supportUnread > 0 && (
+                <span
+                  className={cn(
+                    "rounded-full px-1.5 py-0.5 text-xs leading-none font-semibold",
+                    isActive ? "bg-primary-foreground text-primary" : "bg-red-500 text-white",
+                  )}
+                >
+                  {supportUnread}
+                </span>
+              )}
             </Link>
           );
         })}

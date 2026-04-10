@@ -131,7 +131,10 @@ describe("resident-support service", () => {
     describe("postResidentTicketMessage", () => {
       it("posts message content", async () => {
         mockFetch.mockResolvedValue(mockOkResponse({ id: "msg-1" }));
-        const result = await postResidentTicketMessage("t-1", { content: "Hello" });
+        const result = await postResidentTicketMessage("t-1", {
+          content: "Hello",
+          isInternal: false,
+        });
         expect(result).toEqual({ id: "msg-1" });
         expect(mockFetch).toHaveBeenCalledWith(
           expect.stringContaining("/t-1/messages"),
@@ -141,16 +144,16 @@ describe("resident-support service", () => {
 
       it("throws with server error message", async () => {
         mockFetch.mockResolvedValue(mockErrorResponse("Not found"));
-        await expect(postResidentTicketMessage("t-1", { content: "Hi" })).rejects.toThrow(
-          "Not found",
-        );
+        await expect(
+          postResidentTicketMessage("t-1", { content: "Hi", isInternal: false }),
+        ).rejects.toThrow("Not found");
       });
 
       it("throws fallback message", async () => {
         mockFetch.mockResolvedValue(mockErrorNoMessage());
-        await expect(postResidentTicketMessage("t-1", { content: "Hi" })).rejects.toThrow(
-          "Failed to post message",
-        );
+        await expect(
+          postResidentTicketMessage("t-1", { content: "Hi", isInternal: false }),
+        ).rejects.toThrow("Failed to post message");
       });
     });
 
@@ -339,7 +342,10 @@ describe("resident-support service", () => {
     describe("postAdminResidentMessage", () => {
       it("posts message content", async () => {
         mockFetch.mockResolvedValue(mockOkResponse({ id: "msg-1" }));
-        const result = await postAdminResidentMessage("t-1", { content: "Admin reply" });
+        const result = await postAdminResidentMessage("t-1", {
+          content: "Admin reply",
+          isInternal: false,
+        });
         expect(result).toEqual({ id: "msg-1" });
         expect(mockFetch).toHaveBeenCalledWith(
           expect.stringContaining("/admin/resident-support/t-1/messages"),
@@ -349,9 +355,9 @@ describe("resident-support service", () => {
 
       it("throws on error", async () => {
         mockFetch.mockResolvedValue({ ok: false });
-        await expect(postAdminResidentMessage("t-1", { content: "Test" })).rejects.toThrow(
-          "Failed to post message",
-        );
+        await expect(
+          postAdminResidentMessage("t-1", { content: "Test", isInternal: false }),
+        ).rejects.toThrow("Failed to post message");
       });
     });
 

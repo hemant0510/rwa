@@ -26,21 +26,27 @@ Run in order (see CLAUDE.md for exact commands). Stop on first failure:
 
    If the build fails, fix the root cause and re-run from step 1 (lint) since the fix may introduce new issues.
 
-5. **Per-file coverage sweep** — this is the FINAL step, after ALL fixes are done.
+5. **Hook simulation — final gate before "ready to commit"**.
 
-   List EVERY source file that was created or modified during this entire session — including files modified to fix lint errors, type errors, or build errors in steps 1-4. Then for each file, run:
+   List EVERY source file modified this session (including files changed to fix lint/type/build errors — any change counts). Exclude pure TypeScript type files (`src/types/**`) and files in the hook's SKIP_COVERAGE list (check `scripts/test-staged.mjs`).
+
+   Run `vitest related` against ALL those source files together with the exact flags the pre-commit hook uses:
 
    ```bash
-   npx vitest run tests/path/to/test.ts --coverage --coverage.include=src/path/to/source.ts
+   npx vitest related src/file1.ts src/file2.ts [all source files...] --run \
+     --coverage --coverage.provider=v8 --coverage.reporter=text \
+     --coverage.include=src/file1.ts --coverage.include=src/file2.ts \
+     --coverage.thresholds.perFile=true \
+     --coverage.thresholds.lines=95 --coverage.thresholds.branches=95 \
+     --coverage.thresholds.functions=95 --coverage.thresholds.statements=95
    ```
 
-   **"Modified" means ANY change** — extracting a function, removing an export, fixing a type, adding an import. If you touched the file, you check its coverage. The pre-commit hook does not distinguish between "intentional changes" and "incidental fixes."
+   **Critical**: Use `vitest related <source-files>` — NOT `vitest run <test-files>`. The hook uses `vitest related` which walks Vitest's module graph to find EVERY test that imports the changed source, including pre-existing test files from prior sessions you didn't write. `vitest run tests/foo.test.ts` runs only one file and misses those. A test suite that passes with `vitest run` and fails on commit is almost always this mismatch.
 
-   If any file shows below 95% on any metric → add tests NOW. If a file has no test file → write one or add to vitest exclude.
+   If test failures appear in files you didn't write → a signature change broke pre-existing call sites. Fix them.
+   If any file is below 95% on any metric → add tests now.
 
-   **Do not skip this step because the plan says "no test needed" — the hook does not read plans.**
-
-   **Common trap:** You fix a build error by extracting an exported constant/function from a route file into a separate file. The route file now has different code, the new file has no test. BOTH need coverage checks.
+   **Common trap:** You fix a build error by extracting a function from a route file into a new file. The route file changed, the new file has no tests. Run `vitest related` on BOTH.
 
 ---
 
@@ -49,12 +55,12 @@ Run in order (see CLAUDE.md for exact commands). Stop on first failure:
 Run in order. Stop on first failure:
 
 1. **Linter** — staged files only
-2. **Staged tests** — project's staged test runner (see CLAUDE.md)
+2. **Staged tests** — project's staged test runner (see CLAUDE.md): `npm run test:staged`
 3. **Type checker**
 4. **Build check** — `npm run build`. Same rationale as Variant A step 4.
-5. **Per-file coverage sweep** — same as Variant A step 5, scoped to staged files.
+5. **Hook simulation** — same `vitest related` command as Variant A step 5, scoped to staged source files.
 
-The pre-commit hook runs steps 1-3 automatically on `git commit`. Steps 4-5 are manual — run them before pushing or when the pre-commit hook passes but you want extra confidence.
+The pre-commit hook runs steps 1-2 automatically on `git commit`. Steps 3-5 are manual — run them before pushing or when the pre-commit hook passes but you want extra confidence.
 
 ---
 

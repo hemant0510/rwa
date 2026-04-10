@@ -7,7 +7,7 @@ argument-hint: <N> <plan-file>
 # Audit and Repair a Group Implementation
 
 **Invocation**: `/verify-group <N> <plan-file>`
-Example: `/verify-group 3 execution_plan/plans/resident-support-tickets.md`
+Example: `/verify-group 3 execution_plan/plans/some-feature.md`
 
 Use when: "re-check that group N is properly implemented" or when resuming after a previous session claimed completion.
 
@@ -51,14 +51,22 @@ Execute categories A–G (same as `/implement-group` Step 7).
 
 ---
 
-**Category G — mandatory commands to run for every new/modified source file:**
+**Category G — mandatory command for all source files in this group:**
 
 ```bash
-# For each file in this group — run this even if the plan says "no test needed"
-npx vitest run tests/path/to/test.ts --coverage --coverage.include=src/path/to/source.ts
+# Pass ALL source files together — vitest related finds every test that imports any of them,
+# including pre-existing tests from other groups you didn't write.
+npx vitest related src/file1.ts src/file2.ts --run \
+  --coverage --coverage.provider=v8 --coverage.reporter=text \
+  --coverage.include=src/file1.ts --coverage.include=src/file2.ts \
+  --coverage.thresholds.perFile=true \
+  --coverage.thresholds.lines=95 --coverage.thresholds.branches=95 \
+  --coverage.thresholds.functions=95 --coverage.thresholds.statements=95
 ```
 
-If the file has NO test yet, run without a test file — you will see 0% and you must either write tests or add the file to `vitest.config.ts` `exclude`. Reading the plan is not a substitute for running this command.
+Use `vitest related <source-files>` — NOT `vitest run <test-file>`. `vitest related` walks Vitest's module graph and finds every test that imports the source, including tests from prior groups you didn't write. Missing those tests is how "passes in review, fails on commit" happens.
+
+If a file has NO test yet, the command will report 0% — you must either write tests or add the file to `vitest.config.ts` `exclude`. Reading the plan is not a substitute for running this command.
 
 ---
 

@@ -291,19 +291,13 @@ import PageComponent from "@/app/r/.../page";
 // ── Render helper ──
 function renderPage(userOverrides: Record<string, unknown> = {}) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  // Shape must match your project's AuthContext user type exactly.
+  // Read src/hooks/useAuth.tsx to get the full required shape, then fill in test values.
   const user = {
     id: "u1",
     name: "Test User",
     role: "RESIDENT" as const,
-    permission: null,
-    societyId: "soc-1",
-    societyName: "Eden Estate",
-    societyCode: "EDEN",
-    societyStatus: "ACTIVE",
-    trialEndsAt: null,
-    isTrialExpired: false,
-    multiSociety: false,
-    societies: null,
+    // ...add all required fields from your AuthContext user type...
     ...userOverrides,
   };
   return render(
@@ -442,15 +436,21 @@ Write one test per item. Check off each:
 
 ## Step 5 — Run and verify
 
-```bash
-# Run the test file
-npx vitest run tests/path/to/test.ts
+Run tests with `vitest related <source-file>` — **not** `vitest run <test-file>`. The pre-commit hook uses `vitest related` which walks Vitest's module graph to find EVERY test that imports the source, including pre-existing tests you didn't write. `vitest run tests/foo.test.ts` only runs one file and misses those.
 
-# Measure per-file coverage (fix until ≥ 95%)
-npx vitest run tests/path/to/test.ts --coverage --coverage.include=src/path/to/source.ts
+```bash
+# Simulate the pre-commit hook exactly:
+npx vitest related src/path/to/source.ts --run \
+  --coverage --coverage.provider=v8 --coverage.reporter=text \
+  --coverage.include=src/path/to/source.ts \
+  --coverage.thresholds.perFile=true \
+  --coverage.thresholds.lines=95 --coverage.thresholds.branches=95 \
+  --coverage.thresholds.functions=95 --coverage.thresholds.statements=95
 ```
 
-Fix all failures. Fix all coverage gaps. Do **not** stage until both pass.
+If failures appear in test files you didn't write → a signature change broke pre-existing callers. Fix them.
+
+Fix all test failures. Fix all coverage gaps. Do **not** stage until this command passes clean.
 
 ---
 

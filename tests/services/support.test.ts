@@ -50,6 +50,7 @@ describe("support service", () => {
       mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({ id: "r-1" }) });
       const result = await createRequest({
         type: "BUG_REPORT",
+        priority: "LOW",
         subject: "Test issue",
         description: "Long enough description here",
       });
@@ -64,6 +65,7 @@ describe("support service", () => {
       await expect(
         createRequest({
           type: "BUG_REPORT",
+          priority: "LOW",
           subject: "Test",
           description: "Long enough description",
         }),
@@ -73,7 +75,12 @@ describe("support service", () => {
     it("createRequest throws fallback message", async () => {
       mockFetch.mockResolvedValue({ ok: false, json: () => Promise.resolve({}) });
       await expect(
-        createRequest({ type: "BUG_REPORT", subject: "Test", description: "Desc" }),
+        createRequest({
+          type: "BUG_REPORT",
+          priority: "LOW",
+          subject: "Test",
+          description: "Desc",
+        }),
       ).rejects.toThrow("Failed to create request");
     });
 
@@ -90,7 +97,7 @@ describe("support service", () => {
 
     it("postAdminMessage posts content", async () => {
       mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({ id: "msg-1" }) });
-      await postAdminMessage("r-1", { content: "Reply" });
+      await postAdminMessage("r-1", { content: "Reply", isInternal: false });
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining("/r-1/messages"),
         expect.objectContaining({ method: "POST" }),
@@ -99,7 +106,9 @@ describe("support service", () => {
 
     it("postAdminMessage throws on error", async () => {
       mockFetch.mockResolvedValue({ ok: false });
-      await expect(postAdminMessage("r-1", { content: "Test" })).rejects.toThrow();
+      await expect(
+        postAdminMessage("r-1", { content: "Test", isInternal: false }),
+      ).rejects.toThrow();
     });
 
     it("reopenRequest posts to reopen endpoint", async () => {
@@ -175,7 +184,7 @@ describe("support service", () => {
 
     it("postSAMessage posts content", async () => {
       mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({ id: "msg-1" }) });
-      await postSAMessage("r-1", { content: "Reply" });
+      await postSAMessage("r-1", { content: "Reply", isInternal: false });
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining("/super-admin/support/r-1/messages"),
         expect.objectContaining({ method: "POST" }),
@@ -184,7 +193,7 @@ describe("support service", () => {
 
     it("postSAMessage throws on error", async () => {
       mockFetch.mockResolvedValue({ ok: false });
-      await expect(postSAMessage("r-1", { content: "Test" })).rejects.toThrow();
+      await expect(postSAMessage("r-1", { content: "Test", isInternal: false })).rejects.toThrow();
     });
 
     it("changeSAStatus sends PATCH", async () => {

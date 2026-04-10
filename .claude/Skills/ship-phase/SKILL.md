@@ -63,13 +63,20 @@ Follow it completely. Do not proceed to Stage 2 until every deliverable in the p
 
 ## Stage 2 — QUALITY GATE
 
-**Before invoking quality-gate:** List every new file created in Stage 1. For each file, regardless of what the plan says about tests, run:
+**Before invoking quality-gate:** List every source file created or modified in Stage 1. For each, ensure a test file exists (create one if not). Then run the **hook simulation** — NOT individual `vitest run` calls:
 
 ```bash
-npx vitest run tests/path/to/test.ts --coverage --coverage.include=src/path/to/source.ts
+npx vitest related src/file1.ts src/file2.ts [all source files...] --run \
+  --coverage --coverage.provider=v8 --coverage.reporter=text \
+  --coverage.include=src/file1.ts --coverage.include=src/file2.ts \
+  --coverage.thresholds.perFile=true \
+  --coverage.thresholds.lines=95 --coverage.thresholds.branches=95 \
+  --coverage.thresholds.functions=95 --coverage.thresholds.statements=95
 ```
 
-If any file has no test file yet: that is a gap to fix NOW, not after quality-gate. The pre-commit hook enforces 95% on every staged `.ts`/`.tsx` file. Plan claims like "no test needed" do not override this. Your only two valid exits per file are: (1) tests written and coverage ≥ 95%, or (2) file added to `vitest.config.ts` `exclude` AND confirmed the hook skips it.
+**Why `vitest related` not `vitest run`**: The pre-commit hook uses `vitest related` which walks Vitest's module graph and finds EVERY test that imports any of the source files — including pre-existing test files from earlier groups you didn't write. `vitest run tests/foo.test.ts` only runs one file and misses those. This is the single most common cause of "passes locally, fails on commit".
+
+If failures appear in test files you didn't write → a signature change broke pre-existing call sites. Fix them before continuing.
 
 Then invoke **Skill(quality-gate)** — Variant A (files created, not staged yet).
 
@@ -79,9 +86,9 @@ Pass condition:
 
 ```
 ✅ Lint      — zero errors
-✅ Tests     — all pass
-✅ Types     — zero errors
-✅ Coverage  — per-file ≥ 95% for every new/modified source file (run empirically, not from plan docs)
+✅ Tests     — vitest related passes for all source files
+✅ Types     — zero errors (includes ALL project files, not just this group)
+✅ Coverage  — per-file ≥ 95% confirmed by vitest related output
 ```
 
 ---

@@ -64,6 +64,25 @@ Skills live in `.claude/skills/<name>/SKILL.md` with YAML frontmatter.
 
 The pre-commit hook (`scripts/test-staged.mjs`) enforces **95% per-file coverage** on ALL staged source files. This is the #1 source of failed commits. Follow these rules strictly.
 
+### Use `vitest related`, not `vitest run` — they are NOT the same
+
+The hook runs: `npx vitest related <staged-files>` — Vitest walks its module graph to find EVERY test file that imports any staged source, including test files from previous groups you did not write.
+
+`npx vitest run tests/foo.test.ts` only runs that ONE file. If a pre-existing test imports your changed source, the hook finds it but `vitest run` misses it. This is the single most common cause of "passes in review, fails on commit".
+
+**Correct simulation of the hook — use this exact form:**
+
+```bash
+npx vitest related src/file1.ts src/file2.ts --run \
+  --coverage --coverage.provider=v8 --coverage.reporter=text \
+  --coverage.include=src/file1.ts --coverage.include=src/file2.ts \
+  --coverage.thresholds.perFile=true \
+  --coverage.thresholds.lines=95 --coverage.thresholds.branches=95 \
+  --coverage.thresholds.functions=95 --coverage.thresholds.statements=95
+```
+
+Run this against ALL source files you created or modified before declaring "ready to commit".
+
 ### "No test needed" claims in plan files are WRONG by default
 
 Plan files sometimes say "no test needed" or "not in coverage scope." **These claims do not override the pre-commit hook.** The hook tests every staged `.ts`/`.tsx` file — it does not read plan documents. When a plan makes this claim, you must choose exactly one of:
@@ -82,6 +101,16 @@ There is no third option. Trusting a plan claim without empirically running the 
 ### When adding new imports/dependencies to existing API routes
 
 - Audit ALL existing test files for that route and add the required mocks (e.g., adding `createAdminClient` requires mocking `@/lib/supabase/admin` in every test that imports the route)
+
+### When changing an exported function's signature (adding/removing required parameters)
+
+- Grep ALL callers across `src/` and `tests/` immediately:
+  ```bash
+  grep -rn "functionName" tests/ src/ --include="*.ts" --include="*.tsx"
+  ```
+- Update every call site to match the new signature BEFORE writing any new code
+- Run `npx tsc --noEmit` after updating call sites to verify zero type errors
+- This applies to service functions, API route handlers, hooks, and utilities — any exported symbol whose signature changes
 
 ### v8 coverage ignore in JSX — what works and what doesn't
 
