@@ -94,6 +94,7 @@ export default defineConfig({
         "src/app/admin/settings/subscription/page.tsx",
         "src/app/admin/residents/page.tsx",
         "src/app/api/v1/residents/me/support/**",
+        "src/app/api/v1/admin/resident-support/**",
       ],
       exclude: [
         "src/lib/prisma.ts",
