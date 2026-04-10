@@ -301,4 +301,95 @@ describe("whatsapp", () => {
       expect(body.parameters).toEqual([{ name: "1", value: "Society meeting tomorrow at 6 PM" }]);
     });
   });
+
+  // ── sendResidentTicketCreated ───────────────────────────────────────────────
+
+  describe("sendResidentTicketCreated", () => {
+    beforeEach(() => {
+      vi.stubEnv("WATI_API_URL", "https://api.wati.io");
+      vi.stubEnv("WATI_API_KEY", "test-key");
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({ messageId: "msg-1" }),
+      });
+    });
+
+    it("uses resident_ticket_created template", async () => {
+      const { sendResidentTicketCreated } = await import("@/lib/whatsapp");
+      await sendResidentTicketCreated("9876543210", "Priya", "Leaking pipe", "MAINTENANCE_ISSUE");
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.template_name).toBe("resident_ticket_created");
+    });
+
+    it("maps all 3 parameters in correct order", async () => {
+      const { sendResidentTicketCreated } = await import("@/lib/whatsapp");
+      await sendResidentTicketCreated("9876543210", "Priya", "Leaking pipe", "MAINTENANCE_ISSUE");
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.parameters).toEqual([
+        { name: "1", value: "Priya" },
+        { name: "2", value: "Leaking pipe" },
+        { name: "3", value: "MAINTENANCE_ISSUE" },
+      ]);
+    });
+  });
+
+  // ── sendResidentTicketResolved ──────────────────────────────────────────────
+
+  describe("sendResidentTicketResolved", () => {
+    beforeEach(() => {
+      vi.stubEnv("WATI_API_URL", "https://api.wati.io");
+      vi.stubEnv("WATI_API_KEY", "test-key");
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({ messageId: "msg-1" }),
+      });
+    });
+
+    it("uses resident_ticket_resolved template", async () => {
+      const { sendResidentTicketResolved } = await import("@/lib/whatsapp");
+      await sendResidentTicketResolved("9876543210", "Priya", "Leaking pipe");
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.template_name).toBe("resident_ticket_resolved");
+    });
+
+    it("maps all 2 parameters in correct order", async () => {
+      const { sendResidentTicketResolved } = await import("@/lib/whatsapp");
+      await sendResidentTicketResolved("9876543210", "Priya", "Leaking pipe");
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.parameters).toEqual([
+        { name: "1", value: "Priya" },
+        { name: "2", value: "Leaking pipe" },
+      ]);
+    });
+  });
+
+  // ── sendResidentTicketReply ─────────────────────────────────────────────────
+
+  describe("sendResidentTicketReply", () => {
+    beforeEach(() => {
+      vi.stubEnv("WATI_API_URL", "https://api.wati.io");
+      vi.stubEnv("WATI_API_KEY", "test-key");
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({ messageId: "msg-1" }),
+      });
+    });
+
+    it("uses resident_ticket_reply template", async () => {
+      const { sendResidentTicketReply } = await import("@/lib/whatsapp");
+      await sendResidentTicketReply("9876543210", "Priya", "Leaking pipe");
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.template_name).toBe("resident_ticket_reply");
+    });
+
+    it("maps all 2 parameters in correct order", async () => {
+      const { sendResidentTicketReply } = await import("@/lib/whatsapp");
+      await sendResidentTicketReply("9876543210", "Priya", "Leaking pipe");
+      const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(body.parameters).toEqual([
+        { name: "1", value: "Priya" },
+        { name: "2", value: "Leaking pipe" },
+      ]);
+    });
+  });
 });

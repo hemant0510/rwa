@@ -9,6 +9,7 @@ import { logAudit } from "@/lib/audit";
 import { getCurrentUser } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
 import { createResidentTicketMessageSchema } from "@/lib/validations/resident-support";
+import { sendResidentTicketReply } from "@/lib/whatsapp";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -23,7 +24,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const ticket = await prisma.residentTicket.findUnique({
       where: { id, societyId: admin.societyId },
-      select: { id: true, status: true },
+      select: {
+        id: true,
+        status: true,
+        subject: true,
+        createdByUser: { select: { name: true, mobile: true, consentWhatsapp: true } },
+      },
     });
 
     if (!ticket)
@@ -66,6 +72,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       entityType: "ResidentTicketMessage",
       entityId: message.id,
     });
+
+    // Notify ticket creator on non-internal admin reply (fire-and-forget)
+    if (
+      !parsed.data.isInternal &&
+      ticket.createdByUser.mobile &&
+      ticket.createdByUser.consentWhatsapp
+    ) {
+      void sendResidentTicketReply(
+        ticket.createdByUser.mobile,
+        ticket.createdByUser.name,
+        ticket.subject,
+      );
+    }
 
     return successResponse(message, 201);
   } catch (err) {

@@ -10,6 +10,7 @@ import { logAudit } from "@/lib/audit";
 import { getCurrentUser } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
 import { createResidentTicketSchema } from "@/lib/validations/resident-support";
+import { sendResidentTicketCreated } from "@/lib/whatsapp";
 
 export async function GET(req: NextRequest) {
   try {
@@ -74,6 +75,32 @@ export async function POST(request: Request) {
       entityId: ticket.id,
       newValue: { type: parsed.data.type, subject: parsed.data.subject },
     });
+
+    // Notify all society admins with WhatsApp consent (fire-and-forget)
+    void prisma.user
+      .findMany({
+        where: {
+          societyId: resident.societyId,
+          role: "RWA_ADMIN",
+          mobile: { not: null },
+          consentWhatsapp: true,
+        },
+        select: { name: true, mobile: true },
+      })
+      .then((admins) => {
+        for (const admin of admins) {
+          /* v8 ignore start */
+          if (admin.mobile) {
+            void sendResidentTicketCreated(
+              admin.mobile,
+              resident.name,
+              parsed.data.subject,
+              parsed.data.type,
+            );
+          }
+          /* v8 ignore stop */
+        }
+      });
 
     return successResponse(ticket, 201);
   } catch (err) {

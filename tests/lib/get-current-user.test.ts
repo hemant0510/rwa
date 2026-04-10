@@ -15,6 +15,7 @@ import { getCurrentUser, getFullAccessAdmin } from "@/lib/get-current-user";
 
 const baseUser = {
   id: "u1",
+  name: "Test User",
   societyId: "soc-1",
   role: "RESIDENT",
   adminPermission: null,

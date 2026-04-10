@@ -10,6 +10,7 @@ export interface CurrentUser {
   societyId: string;
   role: UserRole;
   adminPermission: AdminPermission | null;
+  name: string;
 }
 
 /**
@@ -40,6 +41,7 @@ export async function getCurrentUser(
     orderBy: { createdAt: "desc" },
     select: {
       id: true,
+      name: true,
       societyId: true,
       role: true,
       adminPermission: true,
@@ -54,6 +56,7 @@ export async function getCurrentUser(
     societyId: user.societyId,
     role: user.role as UserRole,
     adminPermission: user.adminPermission as AdminPermission | null,
+    name: user.name,
   };
 }
 

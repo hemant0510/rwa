@@ -11,6 +11,7 @@ import {
   Crown,
   FileSignature,
   FileText,
+  Headphones,
   LayoutDashboard,
   LifeBuoy,
   MessageSquare,
@@ -25,6 +26,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { getAdminPendingClaimsCount } from "@/services/admin-payment-claims";
 import { getUnreadAnnouncements } from "@/services/announcements";
+import { getAdminResidentUnreadCount } from "@/services/resident-support";
 
 const navItems = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -37,6 +39,7 @@ const navItems = [
   { href: "/admin/broadcast", label: "Broadcast", icon: MessageSquare },
   { href: "/admin/governing-body", label: "Governing Body", icon: Crown },
   { href: "/admin/migration", label: "Migration", icon: Upload },
+  { href: "/admin/resident-support", label: "Resident Support", icon: Headphones },
   { href: "/admin/support", label: "Support", icon: LifeBuoy },
   { href: "/admin/announcements", label: "Announcements", icon: Bell },
   { href: "/admin/settings", label: "Settings", icon: Settings },
@@ -68,8 +71,16 @@ function SidebarContent({
     enabled: !!societyId,
   });
 
+  const { data: residentUnreadData } = useQuery({
+    queryKey: ["admin-resident-support-unread"],
+    queryFn: getAdminResidentUnreadCount,
+    staleTime: 30_000,
+    enabled: !!societyId,
+  });
+
   const unreadCount = announcements.length;
   const pendingClaimsCount = pendingClaimsData?.count ?? 0;
+  const residentUnreadCount = residentUnreadData?.count ?? 0;
 
   return (
     <div className="flex h-full flex-col">
@@ -82,6 +93,7 @@ function SidebarContent({
           const isActive = pathname?.includes(item.href);
           const isAnnouncements = item.href === "/admin/announcements";
           const isFees = item.href === "/admin/fees";
+          const isResidentSupport = item.href === "/admin/resident-support";
           return (
             <Link
               key={item.href}
@@ -115,6 +127,16 @@ function SidebarContent({
                   )}
                 >
                   {pendingClaimsCount}
+                </span>
+              )}
+              {isResidentSupport && residentUnreadCount > 0 && (
+                <span
+                  className={cn(
+                    "rounded-full px-1.5 py-0.5 text-xs leading-none font-semibold",
+                    isActive ? "bg-primary-foreground text-primary" : "bg-red-500 text-white",
+                  )}
+                >
+                  {residentUnreadCount}
                 </span>
               )}
             </Link>

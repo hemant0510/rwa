@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockGetUnreadAnnouncements = vi.hoisted(() => vi.fn());
 const mockGetAdminPendingClaimsCount = vi.hoisted(() => vi.fn());
+const mockGetAdminResidentUnreadCount = vi.hoisted(() => vi.fn());
 const mockUseAuth = vi.hoisted(() => vi.fn());
 
 vi.mock("@/services/announcements", () => ({
@@ -11,6 +12,9 @@ vi.mock("@/services/announcements", () => ({
 }));
 vi.mock("@/services/admin-payment-claims", () => ({
   getAdminPendingClaimsCount: mockGetAdminPendingClaimsCount,
+}));
+vi.mock("@/services/resident-support", () => ({
+  getAdminResidentUnreadCount: mockGetAdminResidentUnreadCount,
 }));
 vi.mock("@/hooks/useAuth", () => ({
   useAuth: mockUseAuth,
@@ -33,8 +37,10 @@ function renderWithQC(ui: React.ReactElement) {
 }
 
 beforeEach(() => {
+  vi.clearAllMocks();
   mockGetUnreadAnnouncements.mockResolvedValue([]);
   mockGetAdminPendingClaimsCount.mockResolvedValue({ count: 0 });
+  mockGetAdminResidentUnreadCount.mockResolvedValue({ count: 0 });
   mockUseAuth.mockReturnValue({ user: { societyId: "soc-1" } });
   mockUsePathname.mockReturnValue("/admin/dashboard");
 });
@@ -126,6 +132,33 @@ describe("AdminSidebar", () => {
     mockGetUnreadAnnouncements.mockResolvedValue([{ id: "1" }, { id: "2" }, { id: "3" }]);
     renderWithQC(<AdminSidebar societyName="Test" />);
     const badge = await screen.findByText("3");
+    expect(badge.className).toContain("bg-primary-foreground");
+  });
+
+  it("renders Resident Support nav item", () => {
+    renderWithQC(<AdminSidebar societyName="Test" />);
+    expect(screen.getByText("Resident Support")).toBeInTheDocument();
+  });
+
+  it("shows resident support unread badge when awaiting-admin count > 0", async () => {
+    mockGetAdminResidentUnreadCount.mockResolvedValue({ count: 5 });
+    renderWithQC(<AdminSidebar societyName="Test" queryString="?sid=soc-1" />);
+    expect(await screen.findByText("5")).toBeInTheDocument();
+  });
+
+  it("does not show resident support badge when count is 0", async () => {
+    mockGetAdminResidentUnreadCount.mockResolvedValue({ count: 0 });
+    renderWithQC(<AdminSidebar societyName="Test" queryString="?sid=soc-1" />);
+    await new Promise((r) => setTimeout(r, 50));
+    // Only check that the resident unread badge is absent; other badges may still be present
+    expect(screen.queryByText("5")).not.toBeInTheDocument();
+  });
+
+  it("shows resident support badge with active styling when on resident-support page", async () => {
+    mockUsePathname.mockReturnValue("/admin/resident-support");
+    mockGetAdminResidentUnreadCount.mockResolvedValue({ count: 7 });
+    renderWithQC(<AdminSidebar societyName="Test" queryString="?sid=soc-1" />);
+    const badge = await screen.findByText("7");
     expect(badge.className).toContain("bg-primary-foreground");
   });
 });

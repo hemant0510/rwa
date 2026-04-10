@@ -6,10 +6,12 @@ const mockPrisma = vi.hoisted(() => ({
   residentTicketMessage: { create: vi.fn() },
 }));
 const mockLogAudit = vi.hoisted(() => vi.fn());
+const mockSendResidentTicketReply = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/get-current-user", () => ({ getCurrentUser: mockGetCurrentUser }));
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 vi.mock("@/lib/audit", () => ({ logAudit: mockLogAudit }));
+vi.mock("@/lib/whatsapp", () => ({ sendResidentTicketReply: mockSendResidentTicketReply }));
 
 import { POST } from "@/app/api/v1/admin/resident-support/[id]/messages/route";
 
@@ -36,6 +38,7 @@ describe("Admin Resident Support - POST Messages", () => {
     vi.clearAllMocks();
     mockGetCurrentUser.mockResolvedValue(mockAdmin);
     mockLogAudit.mockResolvedValue(undefined);
+    mockSendResidentTicketReply.mockResolvedValue({ success: true });
   });
 
   it("returns 403 when not admin", async () => {
@@ -57,19 +60,34 @@ describe("Admin Resident Support - POST Messages", () => {
   });
 
   it("returns 400 when ticket is CLOSED", async () => {
-    mockPrisma.residentTicket.findUnique.mockResolvedValue({ id: "t-1", status: "CLOSED" });
+    mockPrisma.residentTicket.findUnique.mockResolvedValue({
+      id: "t-1",
+      status: "CLOSED",
+      subject: "Test",
+      createdByUser: { name: "Priya", mobile: null, consentWhatsapp: false },
+    });
     const res = await POST(makeReq({ content: "Hello" }), makeParams());
     expect(res.status).toBe(400);
   });
 
   it("returns 422 on invalid message", async () => {
-    mockPrisma.residentTicket.findUnique.mockResolvedValue({ id: "t-1", status: "OPEN" });
+    mockPrisma.residentTicket.findUnique.mockResolvedValue({
+      id: "t-1",
+      status: "OPEN",
+      subject: "Test",
+      createdByUser: { name: "Priya", mobile: null, consentWhatsapp: false },
+    });
     const res = await POST(makeReq({ content: "" }), makeParams());
     expect(res.status).toBe(422);
   });
 
   it("creates message with authorRole ADMIN", async () => {
-    mockPrisma.residentTicket.findUnique.mockResolvedValue({ id: "t-1", status: "OPEN" });
+    mockPrisma.residentTicket.findUnique.mockResolvedValue({
+      id: "t-1",
+      status: "OPEN",
+      subject: "Test",
+      createdByUser: { name: "Priya", mobile: null, consentWhatsapp: false },
+    });
     mockPrisma.residentTicketMessage.create.mockResolvedValue({ id: "msg-1" });
     mockPrisma.residentTicket.update.mockResolvedValue({});
 
@@ -89,7 +107,12 @@ describe("Admin Resident Support - POST Messages", () => {
   });
 
   it("non-internal message auto-transitions to AWAITING_RESIDENT", async () => {
-    mockPrisma.residentTicket.findUnique.mockResolvedValue({ id: "t-1", status: "OPEN" });
+    mockPrisma.residentTicket.findUnique.mockResolvedValue({
+      id: "t-1",
+      status: "OPEN",
+      subject: "Test",
+      createdByUser: { name: "Priya", mobile: null, consentWhatsapp: false },
+    });
     mockPrisma.residentTicketMessage.create.mockResolvedValue({ id: "msg-1" });
     mockPrisma.residentTicket.update.mockResolvedValue({});
 
@@ -107,6 +130,8 @@ describe("Admin Resident Support - POST Messages", () => {
     mockPrisma.residentTicket.findUnique.mockResolvedValue({
       id: "t-1",
       status: "AWAITING_RESIDENT",
+      subject: "Test",
+      createdByUser: { name: "Priya", mobile: null, consentWhatsapp: false },
     });
     mockPrisma.residentTicketMessage.create.mockResolvedValue({ id: "msg-1" });
 
@@ -116,12 +141,45 @@ describe("Admin Resident Support - POST Messages", () => {
   });
 
   it("internal message does NOT change status", async () => {
-    mockPrisma.residentTicket.findUnique.mockResolvedValue({ id: "t-1", status: "OPEN" });
+    mockPrisma.residentTicket.findUnique.mockResolvedValue({
+      id: "t-1",
+      status: "OPEN",
+      subject: "Test",
+      createdByUser: { name: "Priya", mobile: null, consentWhatsapp: false },
+    });
     mockPrisma.residentTicketMessage.create.mockResolvedValue({ id: "msg-1" });
 
     const res = await POST(makeReq({ content: "Internal note", isInternal: true }), makeParams());
     expect(res.status).toBe(201);
     expect(mockPrisma.residentTicket.update).not.toHaveBeenCalled();
+  });
+
+  it("sends WhatsApp notification on non-internal message when creator has mobile + consent", async () => {
+    mockPrisma.residentTicket.findUnique.mockResolvedValue({
+      id: "t-1",
+      status: "OPEN",
+      subject: "Leaking pipe",
+      createdByUser: { name: "Priya", mobile: "9876543210", consentWhatsapp: true },
+    });
+    mockPrisma.residentTicketMessage.create.mockResolvedValue({ id: "msg-1" });
+    mockPrisma.residentTicket.update.mockResolvedValue({});
+
+    const res = await POST(makeReq({ content: "We are on it", isInternal: false }), makeParams());
+    expect(res.status).toBe(201);
+    expect(mockSendResidentTicketReply).toHaveBeenCalledWith("9876543210", "Priya", "Leaking pipe");
+  });
+
+  it("does NOT send WhatsApp notification for internal messages", async () => {
+    mockPrisma.residentTicket.findUnique.mockResolvedValue({
+      id: "t-1",
+      status: "OPEN",
+      subject: "Leaking pipe",
+      createdByUser: { name: "Priya", mobile: "9876543210", consentWhatsapp: true },
+    });
+    mockPrisma.residentTicketMessage.create.mockResolvedValue({ id: "msg-1" });
+
+    await POST(makeReq({ content: "Internal note", isInternal: true }), makeParams());
+    expect(mockSendResidentTicketReply).not.toHaveBeenCalled();
   });
 
   it("returns 500 on DB error", async () => {

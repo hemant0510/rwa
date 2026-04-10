@@ -5,10 +5,12 @@ const mockPrisma = vi.hoisted(() => ({
   residentTicket: { findUnique: vi.fn(), update: vi.fn() },
 }));
 const mockLogAudit = vi.hoisted(() => vi.fn());
+const mockSendResidentTicketResolved = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/get-current-user", () => ({ getCurrentUser: mockGetCurrentUser }));
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 vi.mock("@/lib/audit", () => ({ logAudit: mockLogAudit }));
+vi.mock("@/lib/whatsapp", () => ({ sendResidentTicketResolved: mockSendResidentTicketResolved }));
 
 import { PATCH } from "@/app/api/v1/admin/resident-support/[id]/status/route";
 
@@ -35,6 +37,7 @@ describe("Admin Resident Support - PATCH Status", () => {
     vi.clearAllMocks();
     mockGetCurrentUser.mockResolvedValue(mockAdmin);
     mockLogAudit.mockResolvedValue(undefined);
+    mockSendResidentTicketResolved.mockResolvedValue({ success: true });
   });
 
   it("returns 403 when not admin", async () => {
@@ -56,13 +59,23 @@ describe("Admin Resident Support - PATCH Status", () => {
   });
 
   it("returns 422 on invalid status value", async () => {
-    mockPrisma.residentTicket.findUnique.mockResolvedValue({ id: "t-1", status: "OPEN" });
+    mockPrisma.residentTicket.findUnique.mockResolvedValue({
+      id: "t-1",
+      status: "OPEN",
+      subject: "Test",
+      createdByUser: { name: "Priya", mobile: null, consentWhatsapp: false },
+    });
     const res = await PATCH(makeReq({ status: "INVALID_STATUS" }), makeParams());
     expect(res.status).toBe(422);
   });
 
   it("returns 400 on invalid transition (OPEN -> RESOLVED)", async () => {
-    mockPrisma.residentTicket.findUnique.mockResolvedValue({ id: "t-1", status: "OPEN" });
+    mockPrisma.residentTicket.findUnique.mockResolvedValue({
+      id: "t-1",
+      status: "OPEN",
+      subject: "Test",
+      createdByUser: { name: "Priya", mobile: null, consentWhatsapp: false },
+    });
     const res = await PATCH(makeReq({ status: "RESOLVED" }), makeParams());
     expect(res.status).toBe(400);
     const json = await res.json();
@@ -70,7 +83,12 @@ describe("Admin Resident Support - PATCH Status", () => {
   });
 
   it("successfully transitions OPEN -> IN_PROGRESS", async () => {
-    mockPrisma.residentTicket.findUnique.mockResolvedValue({ id: "t-1", status: "OPEN" });
+    mockPrisma.residentTicket.findUnique.mockResolvedValue({
+      id: "t-1",
+      status: "OPEN",
+      subject: "Test",
+      createdByUser: { name: "Priya", mobile: null, consentWhatsapp: false },
+    });
     const updatedTicket = { id: "t-1", status: "IN_PROGRESS" };
     mockPrisma.residentTicket.update.mockResolvedValue(updatedTicket);
 
@@ -91,7 +109,12 @@ describe("Admin Resident Support - PATCH Status", () => {
   });
 
   it("sets resolvedAt when transitioning to RESOLVED", async () => {
-    mockPrisma.residentTicket.findUnique.mockResolvedValue({ id: "t-1", status: "IN_PROGRESS" });
+    mockPrisma.residentTicket.findUnique.mockResolvedValue({
+      id: "t-1",
+      status: "IN_PROGRESS",
+      subject: "Test",
+      createdByUser: { name: "Priya", mobile: null, consentWhatsapp: false },
+    });
     mockPrisma.residentTicket.update.mockResolvedValue({ id: "t-1", status: "RESOLVED" });
 
     const res = await PATCH(makeReq({ status: "RESOLVED" }), makeParams());
@@ -103,7 +126,12 @@ describe("Admin Resident Support - PATCH Status", () => {
   });
 
   it("sets closedAt and closedReason when CLOSED", async () => {
-    mockPrisma.residentTicket.findUnique.mockResolvedValue({ id: "t-1", status: "IN_PROGRESS" });
+    mockPrisma.residentTicket.findUnique.mockResolvedValue({
+      id: "t-1",
+      status: "IN_PROGRESS",
+      subject: "Test",
+      createdByUser: { name: "Priya", mobile: null, consentWhatsapp: false },
+    });
     mockPrisma.residentTicket.update.mockResolvedValue({ id: "t-1", status: "CLOSED" });
 
     const res = await PATCH(
@@ -119,7 +147,12 @@ describe("Admin Resident Support - PATCH Status", () => {
   });
 
   it("sets closedAt without closedReason when no reason provided", async () => {
-    mockPrisma.residentTicket.findUnique.mockResolvedValue({ id: "t-1", status: "IN_PROGRESS" });
+    mockPrisma.residentTicket.findUnique.mockResolvedValue({
+      id: "t-1",
+      status: "IN_PROGRESS",
+      subject: "Test",
+      createdByUser: { name: "Priya", mobile: null, consentWhatsapp: false },
+    });
     mockPrisma.residentTicket.update.mockResolvedValue({ id: "t-1", status: "CLOSED" });
 
     const res = await PATCH(makeReq({ status: "CLOSED" }), makeParams());
@@ -129,6 +162,37 @@ describe("Admin Resident Support - PATCH Status", () => {
     };
     expect(updateCall.data.closedAt).toBeInstanceOf(Date);
     expect(updateCall.data.closedReason).toBeUndefined();
+  });
+
+  it("sends WhatsApp notification when transitioning to RESOLVED and creator has mobile + consent", async () => {
+    mockPrisma.residentTicket.findUnique.mockResolvedValue({
+      id: "t-1",
+      status: "IN_PROGRESS",
+      subject: "Leaking pipe",
+      createdByUser: { name: "Priya", mobile: "9876543210", consentWhatsapp: true },
+    });
+    mockPrisma.residentTicket.update.mockResolvedValue({ id: "t-1", status: "RESOLVED" });
+
+    const res = await PATCH(makeReq({ status: "RESOLVED" }), makeParams());
+    expect(res.status).toBe(200);
+    expect(mockSendResidentTicketResolved).toHaveBeenCalledWith(
+      "9876543210",
+      "Priya",
+      "Leaking pipe",
+    );
+  });
+
+  it("does NOT send WhatsApp notification when transitioning to non-RESOLVED status", async () => {
+    mockPrisma.residentTicket.findUnique.mockResolvedValue({
+      id: "t-1",
+      status: "OPEN",
+      subject: "Test",
+      createdByUser: { name: "Priya", mobile: "9876543210", consentWhatsapp: true },
+    });
+    mockPrisma.residentTicket.update.mockResolvedValue({ id: "t-1", status: "IN_PROGRESS" });
+
+    await PATCH(makeReq({ status: "IN_PROGRESS" }), makeParams());
+    expect(mockSendResidentTicketResolved).not.toHaveBeenCalled();
   });
 
   it("returns 500 on DB error", async () => {

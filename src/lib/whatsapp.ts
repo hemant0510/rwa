@@ -315,3 +315,38 @@ export async function sendSocietyOffboarded(
     { name: "2", value: societyName },
   ]);
 }
+
+export async function sendResidentTicketCreated(
+  mobile: string,
+  residentName: string,
+  ticketSubject: string,
+  ticketType: string,
+) {
+  return sendTemplateMessage(mobile, "resident_ticket_created", [
+    { name: "1", value: residentName },
+    { name: "2", value: ticketSubject },
+    { name: "3", value: ticketType },
+  ]);
+}
+
+export async function sendResidentTicketResolved(
+  mobile: string,
+  residentName: string,
+  ticketSubject: string,
+) {
+  return sendTemplateMessage(mobile, "resident_ticket_resolved", [
+    { name: "1", value: residentName },
+    { name: "2", value: ticketSubject },
+  ]);
+}
+
+export async function sendResidentTicketReply(
+  mobile: string,
+  residentName: string,
+  ticketSubject: string,
+) {
+  return sendTemplateMessage(mobile, "resident_ticket_reply", [
+    { name: "1", value: residentName },
+    { name: "2", value: ticketSubject },
+  ]);
+}

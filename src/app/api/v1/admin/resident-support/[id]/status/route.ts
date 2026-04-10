@@ -12,6 +12,7 @@ import {
   changeResidentTicketStatusSchema,
   isValidTransition,
 } from "@/lib/validations/resident-support";
+import { sendResidentTicketResolved } from "@/lib/whatsapp";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -26,7 +27,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const ticket = await prisma.residentTicket.findUnique({
       where: { id, societyId: admin.societyId },
-      select: { id: true, status: true },
+      select: {
+        id: true,
+        status: true,
+        subject: true,
+        createdByUser: { select: { name: true, mobile: true, consentWhatsapp: true } },
+      },
     });
 
     if (!ticket)
@@ -67,6 +73,19 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       oldValue: { status: ticket.status },
       newValue: { status: newStatus },
     });
+
+    // Notify ticket creator when resolved (fire-and-forget)
+    if (
+      newStatus === "RESOLVED" &&
+      ticket.createdByUser.mobile &&
+      ticket.createdByUser.consentWhatsapp
+    ) {
+      void sendResidentTicketResolved(
+        ticket.createdByUser.mobile,
+        ticket.createdByUser.name,
+        ticket.subject,
+      );
+    }
 
     return successResponse(updated);
   } catch (err) {
