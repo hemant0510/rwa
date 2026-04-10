@@ -38,13 +38,31 @@ describe("Resident Support Detail API — GET", () => {
     expect(res.status).toBe(401);
   });
 
-  it("returns ticket detail with messages and user info", async () => {
+  it("returns ticket detail with messages, author names, assignees and user info", async () => {
     const ticket = {
       id: "t-1",
       subject: "Leak issue",
       createdByUser: { name: "John" },
       petition: null,
-      messages: [{ id: "m-1", content: "Details here", isInternal: false, attachments: [] }],
+      messages: [
+        {
+          id: "m-1",
+          content: "Details here",
+          isInternal: false,
+          attachments: [],
+          author: { name: "John" },
+        },
+      ],
+      assignees: [
+        {
+          id: "a-1",
+          assignee: {
+            id: "u-2",
+            name: "Ravi Kumar",
+            governingBodyMembership: { designation: { name: "Secretary" } },
+          },
+        },
+      ],
     };
     mockPrisma.residentTicket.findUnique.mockResolvedValue(ticket);
     const res = await GET(makeReq(), makeParams());
@@ -53,6 +71,9 @@ describe("Resident Support Detail API — GET", () => {
     expect(body.id).toBe("t-1");
     expect(body.createdByUser.name).toBe("John");
     expect(body.messages).toHaveLength(1);
+    expect(body.messages[0].author.name).toBe("John");
+    expect(body.assignees).toHaveLength(1);
+    expect(body.assignees[0].assignee.name).toBe("Ravi Kumar");
   });
 
   it("returns 404 when ticket not found", async () => {

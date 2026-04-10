@@ -56,7 +56,7 @@ export function ResidentConversationThread({
           >
             <div className="mb-1 flex items-center gap-2">
               <User className="h-3.5 w-3.5" />
-              <span className="text-xs font-semibold">{isAdmin ? "Admin" : "Resident"}</span>
+              <span className="text-xs font-semibold">{msg.author.name}</span>
               <span className="text-muted-foreground text-xs">{timeAgo(msg.createdAt)}</span>
             </div>
             <p className="text-sm">{msg.content}</p>

@@ -451,8 +451,11 @@ model User {
   serviceRequestsCreated   ServiceRequest[]      @relation("ServiceRequestCreatedBy")
   paymentClaims            PaymentClaim[]
   claimsVerified           PaymentClaim[]        @relation("ClaimVerifier")
-  residentTicketsCreated   ResidentTicket[]      @relation("ResidentTicketCreatedBy")
-  residentTicketAttachments ResidentTicketAttachment[] @relation("ResidentTicketAttachmentUploader")
+  residentTicketsCreated     ResidentTicket[]         @relation("ResidentTicketCreatedBy")
+  residentTicketAttachments  ResidentTicketAttachment[] @relation("ResidentTicketAttachmentUploader")
+  residentTicketMessages     ResidentTicketMessage[]   @relation("ResidentTicketMessageAuthor")
+  residentTicketAssignments  ResidentTicketAssignee[]  @relation("ResidentTicketAssignees")
+  residentTicketAssignedByMe ResidentTicketAssignee[]  @relation("ResidentTicketAssignedBy")
 
   @@unique([societyId, email])
   @@map("users")
@@ -1641,6 +1644,7 @@ model ResidentTicket {
   petition      Petition?              @relation(fields: [petitionId], references: [id], onDelete: SetNull)
   messages      ResidentTicketMessage[]
   attachments   ResidentTicketAttachment[]
+  assignees     ResidentTicketAssignee[]
 
   @@index([societyId])
   @@index([status])
@@ -1660,6 +1664,7 @@ model ResidentTicketMessage {
   createdAt   DateTime @default(now()) @map("created_at")
 
   ticket      ResidentTicket              @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author      User                        @relation("ResidentTicketMessageAuthor", fields: [authorId], references: [id])
   attachments ResidentTicketAttachment[]
 
   @@index([ticketId, createdAt])
@@ -1684,4 +1689,21 @@ model ResidentTicketAttachment {
 
   @@index([ticketId])
   @@map("resident_ticket_attachments")
+}
+
+/// ResidentTicketAssignee — governing body members assigned to handle a ticket.
+model ResidentTicketAssignee {
+  id         String   @id @default(uuid()) @db.Uuid
+  ticketId   String   @map("ticket_id") @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  assignedBy String   @map("assigned_by") @db.Uuid
+  assignedAt DateTime @default(now()) @map("assigned_at")
+
+  ticket   ResidentTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  assignee User           @relation("ResidentTicketAssignees", fields: [userId], references: [id])
+  assigner User           @relation("ResidentTicketAssignedBy", fields: [assignedBy], references: [id])
+
+  @@unique([ticketId, userId])
+  @@index([ticketId])
+  @@map("resident_ticket_assignees")
 }

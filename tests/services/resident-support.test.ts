@@ -23,6 +23,8 @@ import {
   getAdminResidentUnreadCount,
   uploadAdminResidentAttachment,
   getAdminResidentAttachments,
+  addTicketAssignee,
+  removeTicketAssignee,
 } from "@/services/resident-support";
 
 function mockOkResponse(data: unknown) {
@@ -79,6 +81,7 @@ describe("resident-support service", () => {
           type: "MAINTENANCE_ISSUE",
           subject: "Broken pipe",
           description: "The pipe in kitchen is leaking badly",
+          priority: "MEDIUM",
         });
         expect(result).toEqual({ id: "t-1" });
         expect(mockFetch).toHaveBeenCalledWith(
@@ -94,6 +97,7 @@ describe("resident-support service", () => {
             type: "MAINTENANCE_ISSUE",
             subject: "Test",
             description: "Long enough description here",
+            priority: "LOW",
           }),
         ).rejects.toThrow("Validation failed");
       });
@@ -105,6 +109,7 @@ describe("resident-support service", () => {
             type: "MAINTENANCE_ISSUE",
             subject: "Test",
             description: "Desc",
+            priority: "HIGH",
           }),
         ).rejects.toThrow("Failed to create ticket");
       });
@@ -502,6 +507,54 @@ describe("resident-support service", () => {
         mockFetch.mockResolvedValue({ ok: false });
         await expect(getAdminResidentAttachments("t-1")).rejects.toThrow(
           "Failed to fetch attachments",
+        );
+      });
+    });
+
+    describe("addTicketAssignee", () => {
+      it("POSTs to assignees endpoint and returns assignee", async () => {
+        const assignee = { id: "a-1", userId: "u-2" };
+        mockFetch.mockResolvedValue(mockOkResponse(assignee));
+        const result = await addTicketAssignee("t-1", "u-2");
+        expect(result).toEqual(assignee);
+        expect(mockFetch).toHaveBeenCalledWith(
+          expect.stringContaining("/admin/resident-support/t-1/assignees"),
+          expect.objectContaining({ method: "POST" }),
+        );
+      });
+
+      it("throws with message on error response", async () => {
+        mockFetch.mockResolvedValue(mockErrorResponse("User is not a governing body member"));
+        await expect(addTicketAssignee("t-1", "u-2")).rejects.toThrow(
+          "User is not a governing body member",
+        );
+      });
+
+      it("throws default message when no error message", async () => {
+        mockFetch.mockResolvedValue(mockErrorNoMessage());
+        await expect(addTicketAssignee("t-1", "u-2")).rejects.toThrow("Failed to assign member");
+      });
+    });
+
+    describe("removeTicketAssignee", () => {
+      it("DELETEs to assignees endpoint with userId param", async () => {
+        mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
+        await removeTicketAssignee("t-1", "u-2");
+        expect(mockFetch).toHaveBeenCalledWith(
+          expect.stringContaining("assignees?userId=u-2"),
+          expect.objectContaining({ method: "DELETE" }),
+        );
+      });
+
+      it("throws with message on error response", async () => {
+        mockFetch.mockResolvedValue(mockErrorResponse("Assignment not found"));
+        await expect(removeTicketAssignee("t-1", "u-2")).rejects.toThrow("Assignment not found");
+      });
+
+      it("throws default message when no error message", async () => {
+        mockFetch.mockResolvedValue(mockErrorNoMessage());
+        await expect(removeTicketAssignee("t-1", "u-2")).rejects.toThrow(
+          "Failed to remove assignee",
         );
       });
     });

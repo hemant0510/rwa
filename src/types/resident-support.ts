@@ -20,6 +20,19 @@ export interface ResidentTicketListItem {
   _count: { messages: number; attachments: number };
 }
 
+// ─── Assignee ─────────────────────────────────────────────────────
+
+export interface AssigneeItem {
+  id: string;
+  userId: string;
+  assignedAt: string;
+  assignee: {
+    id: string;
+    name: string;
+    governingBodyMembership: { designation: { name: string } } | null;
+  };
+}
+
 // ─── Ticket Detail ────────────────────────────────────────────────
 
 export interface ResidentTicketDetail {
@@ -46,6 +59,7 @@ export interface ResidentTicketDetail {
     status: string;
   } | null;
   messages: ResidentTicketMessageItem[];
+  assignees: AssigneeItem[];
 }
 
 // ─── Ticket Message ───────────────────────────────────────────────
@@ -59,6 +73,7 @@ export interface ResidentTicketMessageItem {
   isInternal: boolean;
   createdAt: string;
   attachments: AttachmentItem[];
+  author: { name: string };
 }
 
 // ─── Attachment ───────────────────────────────────────────────────

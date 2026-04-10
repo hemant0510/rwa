@@ -33,9 +33,9 @@ function makeParams(id = "t-1") {
   return { params: Promise.resolve({ id }) };
 }
 
-const openTicket = { id: "t-1", status: "OPEN", createdBy: "u-1" };
-const awaitingResidentTicket = { id: "t-1", status: "AWAITING_RESIDENT", createdBy: "u-1" };
-const closedTicket = { id: "t-1", status: "CLOSED", createdBy: "u-1" };
+const openTicket = { id: "t-1", status: "OPEN" };
+const awaitingResidentTicket = { id: "t-1", status: "AWAITING_RESIDENT" };
+const closedTicket = { id: "t-1", status: "CLOSED" };
 
 describe("Resident Support Messages API — POST", () => {
   beforeEach(() => {
@@ -58,13 +58,12 @@ describe("Resident Support Messages API — POST", () => {
     expect(res.status).toBe(404);
   });
 
-  it("returns 403 when not ticket creator", async () => {
-    mockPrisma.residentTicket.findUnique.mockResolvedValue({
-      ...openTicket,
-      createdBy: "u-other",
-    });
-    const res = await POST(makePostReq({ content: "Hello" }), makeParams());
-    expect(res.status).toBe(403);
+  it("allows any society resident (non-creator) to post — returns 201", async () => {
+    mockPrisma.residentTicket.findUnique.mockResolvedValue({ id: "t-1", status: "OPEN" });
+    const otherResident = { ...mockResident, userId: "u-other" };
+    mockGetCurrentUser.mockResolvedValue(otherResident);
+    const res = await POST(makePostReq({ content: "My perspective on this" }), makeParams());
+    expect(res.status).toBe(201);
   });
 
   it("returns 400 when ticket is CLOSED", async () => {

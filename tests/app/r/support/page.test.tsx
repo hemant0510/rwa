@@ -421,8 +421,8 @@ describe("ResidentSupportPage", () => {
       await waitFor(() => screen.getByRole("dialog"));
       const dialog = screen.getByRole("dialog");
 
-      // Select type
-      await user.click(within(dialog).getByRole("combobox"));
+      // Select type (first combobox)
+      await user.click(within(dialog).getAllByRole("combobox")[0]);
       await waitFor(() => screen.getByRole("option", { name: /maintenance/i }));
       await user.click(screen.getByRole("option", { name: /maintenance/i }));
 
@@ -456,7 +456,7 @@ describe("ResidentSupportPage", () => {
       await waitFor(() => screen.getByRole("dialog"));
       const dialog = screen.getByRole("dialog");
 
-      await user.click(within(dialog).getByRole("combobox"));
+      await user.click(within(dialog).getAllByRole("combobox")[0]);
       await waitFor(() => screen.getByRole("option", { name: /maintenance/i }));
       await user.click(screen.getByRole("option", { name: /maintenance/i }));
       await user.type(
@@ -485,7 +485,7 @@ describe("ResidentSupportPage", () => {
       await waitFor(() => screen.getByRole("dialog"));
       const dialog = screen.getByRole("dialog");
 
-      await user.click(within(dialog).getByRole("combobox"));
+      await user.click(within(dialog).getAllByRole("combobox")[0]);
       await waitFor(() => screen.getByRole("option", { name: /^security$/i }));
       await user.click(screen.getByRole("option", { name: /^security$/i }));
       await user.type(
@@ -501,6 +501,24 @@ describe("ResidentSupportPage", () => {
       await waitFor(() => {
         expect(mockToastError).toHaveBeenCalledWith("Server error");
       });
+    });
+  });
+
+  describe("activity indicator", () => {
+    it("shows attention dot on AWAITING_RESIDENT ticket", async () => {
+      const awaitingTicket = { ...MOCK_TICKET, status: "AWAITING_RESIDENT" };
+      mockGetResidentTickets.mockResolvedValue({
+        tickets: [awaitingTicket],
+        total: 1,
+        page: 1,
+        pageSize: 20,
+      });
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText("Broken elevator")).toBeInTheDocument();
+      });
+      const dots = document.querySelectorAll(".animate-pulse");
+      expect(dots.length).toBeGreaterThan(0);
     });
   });
 

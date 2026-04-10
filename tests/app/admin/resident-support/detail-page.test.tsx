@@ -14,6 +14,9 @@ const {
   mockLinkTicketPetition,
   mockUploadAdminResidentAttachment,
   mockGetPetitions,
+  mockFetchGoverningBody,
+  mockAddTicketAssignee,
+  mockRemoveTicketAssignee,
   mockToastSuccess,
   mockToastError,
   mockFetch,
@@ -25,6 +28,9 @@ const {
   mockLinkTicketPetition: vi.fn(),
   mockUploadAdminResidentAttachment: vi.fn(),
   mockGetPetitions: vi.fn(),
+  mockFetchGoverningBody: vi.fn(),
+  mockAddTicketAssignee: vi.fn(),
+  mockRemoveTicketAssignee: vi.fn(),
   mockToastSuccess: vi.fn(),
   mockToastError: vi.fn(),
   mockFetch: vi.fn(),
@@ -32,6 +38,10 @@ const {
 
 vi.mock("@/services/petitions", () => ({
   getPetitions: (...args: unknown[]) => mockGetPetitions(...args),
+}));
+
+vi.mock("@/services/governing-body", () => ({
+  fetchGoverningBody: (...args: unknown[]) => mockFetchGoverningBody(...args),
 }));
 
 vi.mock("@/services/resident-support", () => ({
@@ -43,6 +53,8 @@ vi.mock("@/services/resident-support", () => ({
     mockChangeAdminResidentTicketPriority(...args),
   linkTicketPetition: (...args: unknown[]) => mockLinkTicketPetition(...args),
   uploadAdminResidentAttachment: (...args: unknown[]) => mockUploadAdminResidentAttachment(...args),
+  addTicketAssignee: (...args: unknown[]) => mockAddTicketAssignee(...args),
+  removeTicketAssignee: (...args: unknown[]) => mockRemoveTicketAssignee(...args),
 }));
 
 vi.mock("sonner", () => ({
@@ -108,6 +120,7 @@ const MOCK_TICKET = {
   },
   petition: null,
   messages: [],
+  assignees: [],
 };
 
 const MOCK_TICKET_WITH_PETITION = {
@@ -156,6 +169,7 @@ const MOCK_TICKET_WITH_MESSAGES = {
       isInternal: false,
       createdAt: new Date("2026-04-02T10:00:00Z").toISOString(),
       attachments: [],
+      author: { name: "Priya Sharma" },
     },
     {
       id: "msg-2",
@@ -166,8 +180,10 @@ const MOCK_TICKET_WITH_MESSAGES = {
       isInternal: true,
       createdAt: new Date("2026-04-03T10:00:00Z").toISOString(),
       attachments: [],
+      author: { name: "Admin User" },
     },
   ],
+  assignees: [],
 };
 
 // ── Helper ────────────────────────────────────────────────────────────────────
@@ -211,6 +227,25 @@ describe("AdminResidentTicketDetailPage", () => {
     mockChangeAdminResidentTicketPriority.mockResolvedValue(undefined);
     mockLinkTicketPetition.mockResolvedValue(MOCK_TICKET);
     mockUploadAdminResidentAttachment.mockResolvedValue({ id: "att-1" });
+    mockAddTicketAssignee.mockResolvedValue({
+      id: "a-1",
+      assignee: { id: "u-3", name: "Ravi Kumar" },
+    });
+    mockRemoveTicketAssignee.mockResolvedValue(undefined);
+    mockFetchGoverningBody.mockResolvedValue({
+      members: [
+        {
+          userId: "u-3",
+          name: "Ravi Kumar",
+          designation: "Secretary",
+          designationId: "d-1",
+          email: "r@r.com",
+          mobile: null,
+          assignedAt: new Date().toISOString(),
+        },
+      ],
+      designations: [],
+    });
     mockGetPetitions.mockResolvedValue({
       data: [
         { id: "pet-10", title: "Fix elevator urgently", type: "COMPLAINT", status: "DRAFT" },
@@ -566,10 +601,10 @@ describe("AdminResidentTicketDetailPage", () => {
   it("calls linkTicketPetition when petition selected and Link button clicked", async () => {
     await renderPage();
     await waitFor(() => {
-      expect(screen.getAllByRole("combobox").length).toBeGreaterThanOrEqual(2);
+      expect(screen.getAllByRole("combobox").length).toBeGreaterThanOrEqual(3);
     });
-    // Second combobox is the petition Select (first is priority)
-    const petitionSelect = screen.getAllByRole("combobox")[1];
+    // Third combobox is the petition Select (first is priority, second is assignee)
+    const petitionSelect = screen.getAllByRole("combobox")[2];
     fireEvent.click(petitionSelect);
     await waitFor(() => {
       fireEvent.click(screen.getByRole("option", { name: "Fix elevator urgently" }));
@@ -671,9 +706,9 @@ describe("AdminResidentTicketDetailPage", () => {
     mockLinkTicketPetition.mockRejectedValue(new Error("Link failed"));
     await renderPage();
     await waitFor(() => {
-      expect(screen.getAllByRole("combobox").length).toBeGreaterThanOrEqual(2);
+      expect(screen.getAllByRole("combobox").length).toBeGreaterThanOrEqual(3);
     });
-    const petitionSelect = screen.getAllByRole("combobox")[1];
+    const petitionSelect = screen.getAllByRole("combobox")[2];
     fireEvent.click(petitionSelect);
     await waitFor(() => {
       fireEvent.click(screen.getByRole("option", { name: "Fix elevator urgently" }));
@@ -702,5 +737,138 @@ describe("AdminResidentTicketDetailPage", () => {
     });
     const backLink = document.querySelector('a[href="/admin/resident-support"]');
     expect(backLink).toBeInTheDocument();
+  });
+
+  // ── Assigned Members ──────────────────────────────────────────────────────
+
+  it("shows assigned members card with member name", async () => {
+    const ticketWithAssignee = {
+      ...MOCK_TICKET,
+      assignees: [
+        {
+          id: "a-1",
+          userId: "u-3",
+          assignedAt: new Date().toISOString(),
+          assignee: {
+            id: "u-3",
+            name: "Ravi Kumar",
+            governingBodyMembership: { designation: { name: "Secretary" } },
+          },
+        },
+      ],
+    };
+    mockGetAdminResidentTicketDetail.mockResolvedValue(ticketWithAssignee);
+    await renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Ravi Kumar")).toBeInTheDocument();
+      expect(screen.getByText("· Secretary")).toBeInTheDocument();
+    });
+  });
+
+  it("shows Assign button for FULL_ACCESS admin", async () => {
+    await renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Assign")).toBeInTheDocument();
+    });
+  });
+
+  it("assign button calls addTicketAssignee and shows success toast", async () => {
+    await renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Assign")).toBeInTheDocument();
+    });
+    // Open the Select member combobox (index 1: priority=0, assign=1)
+    const assignSelect = screen.getAllByRole("combobox")[1];
+    fireEvent.click(assignSelect);
+    await waitFor(() => {
+      fireEvent.click(screen.getByRole("option", { name: /Ravi Kumar/ }));
+    });
+    fireEvent.click(screen.getByText("Assign"));
+    await waitFor(() => {
+      expect(mockAddTicketAssignee).toHaveBeenCalledWith("t-1", "u-3");
+      expect(mockToastSuccess).toHaveBeenCalledWith("Member assigned");
+    });
+  });
+
+  it("shows error toast when addTicketAssignee fails", async () => {
+    mockAddTicketAssignee.mockRejectedValue(new Error("Already assigned"));
+    await renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Assign")).toBeInTheDocument();
+    });
+    const assignSelect = screen.getAllByRole("combobox")[1];
+    fireEvent.click(assignSelect);
+    await waitFor(() => {
+      fireEvent.click(screen.getByRole("option", { name: /Ravi Kumar/ }));
+    });
+    fireEvent.click(screen.getByText("Assign"));
+    await waitFor(() => {
+      expect(mockToastError).toHaveBeenCalledWith("Already assigned");
+    });
+  });
+
+  it("remove button calls removeTicketAssignee and shows success toast", async () => {
+    const ticketWithAssignee = {
+      ...MOCK_TICKET,
+      assignees: [
+        {
+          id: "a-1",
+          userId: "u-3",
+          assignedAt: new Date().toISOString(),
+          assignee: {
+            id: "u-3",
+            name: "Ravi Kumar",
+            governingBodyMembership: { designation: { name: "Secretary" } },
+          },
+        },
+      ],
+    };
+    mockGetAdminResidentTicketDetail.mockResolvedValue(ticketWithAssignee);
+    await renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Remove")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText("Remove"));
+    await waitFor(() => {
+      expect(mockRemoveTicketAssignee).toHaveBeenCalledWith("t-1", "u-3");
+      expect(mockToastSuccess).toHaveBeenCalledWith("Member removed");
+    });
+  });
+
+  it("shows error toast when removeTicketAssignee fails", async () => {
+    mockRemoveTicketAssignee.mockRejectedValue(new Error("Not found"));
+    const ticketWithAssignee = {
+      ...MOCK_TICKET,
+      assignees: [
+        {
+          id: "a-1",
+          userId: "u-3",
+          assignedAt: new Date().toISOString(),
+          assignee: {
+            id: "u-3",
+            name: "Ravi Kumar",
+            governingBodyMembership: { designation: { name: "Secretary" } },
+          },
+        },
+      ],
+    };
+    mockGetAdminResidentTicketDetail.mockResolvedValue(ticketWithAssignee);
+    await renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Remove")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText("Remove"));
+    await waitFor(() => {
+      expect(mockToastError).toHaveBeenCalledWith("Not found");
+    });
+  });
+
+  it("hides assign controls for READ_NOTIFY admin when no assignees", async () => {
+    await renderPage("t-1", MOCK_READ_NOTIFY_ADMIN);
+    await waitFor(() => {
+      expect(screen.getByText("#42 — Broken elevator")).toBeInTheDocument();
+    });
+    // READ_NOTIFY sees no Assigned Members card when assignees is empty
+    expect(screen.queryByText("Assigned Members")).not.toBeInTheDocument();
   });
 });

@@ -6,6 +6,7 @@ import type {
   LinkPetitionInput,
 } from "@/lib/validations/resident-support";
 import type {
+  AssigneeItem,
   AttachmentItem,
   PaginatedResidentTickets,
   ResidentTicketDetail,
@@ -235,4 +236,28 @@ export async function getAdminResidentAttachments(ticketId: string): Promise<Att
   const res = await fetch(`${ADMIN_BASE}/${ticketId}/attachments`);
   if (!res.ok) throw new Error("Failed to fetch attachments");
   return res.json();
+}
+
+export async function addTicketAssignee(ticketId: string, userId: string): Promise<AssigneeItem> {
+  const res = await fetch(`${ADMIN_BASE}/${ticketId}/assignees`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId }),
+  });
+  if (!res.ok) {
+    const err = (await res.json()) as { error?: { message?: string } };
+    throw new Error(err.error?.message ?? "Failed to assign member");
+  }
+  return res.json() as Promise<AssigneeItem>;
+}
+
+export async function removeTicketAssignee(ticketId: string, userId: string): Promise<void> {
+  const res = await fetch(
+    `${ADMIN_BASE}/${ticketId}/assignees?userId=${encodeURIComponent(userId)}`,
+    { method: "DELETE" },
+  );
+  if (!res.ok) {
+    const err = (await res.json()) as { error?: { message?: string } };
+    throw new Error(err.error?.message ?? "Failed to remove assignee");
+  }
 }

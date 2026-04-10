@@ -312,7 +312,16 @@ export default function AdminResidentSupportPage() {
                       }}
                       /* v8 ignore stop */
                     >
-                      <TableCell className="font-mono text-xs">#{ticket.ticketNumber}</TableCell>
+                      <TableCell className="font-mono text-xs">
+                        <span className="flex items-center gap-1.5">
+                          #{ticket.ticketNumber}
+                          {/* v8 ignore start */}
+                          {ticket.status === "AWAITING_ADMIN" && (
+                            <span className="h-2 w-2 animate-pulse rounded-full bg-orange-500" />
+                          )}
+                          {/* v8 ignore stop */}
+                        </span>
+                      </TableCell>
                       <TableCell className="text-sm">
                         <span className="font-medium">{ticket.createdByUser.name}</span>
                         {unit && (

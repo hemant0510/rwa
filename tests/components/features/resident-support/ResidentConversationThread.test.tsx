@@ -16,6 +16,7 @@ const baseMsg: ResidentTicketMessageItem = {
   isInternal: false,
   createdAt: new Date().toISOString(),
   attachments: [],
+  author: { name: "Jane Resident" },
 };
 
 describe("ResidentConversationThread", () => {
@@ -24,21 +25,22 @@ describe("ResidentConversationThread", () => {
     expect(screen.getByText("No messages yet")).toBeInTheDocument();
   });
 
-  it("renders resident message with 'Resident' label", () => {
+  it("renders resident message with author name", () => {
     render(<ResidentConversationThread messages={[baseMsg]} />);
-    expect(screen.getByText("Resident")).toBeInTheDocument();
+    expect(screen.getByText("Jane Resident")).toBeInTheDocument();
     expect(screen.getByText("Hello there")).toBeInTheDocument();
   });
 
-  it("renders admin message with 'Admin' label", () => {
+  it("renders admin message with author name", () => {
     const adminMsg: ResidentTicketMessageItem = {
       ...baseMsg,
       id: "m-2",
       authorRole: "ADMIN",
       content: "We will look into it",
+      author: { name: "Admin User" },
     };
     render(<ResidentConversationThread messages={[adminMsg]} />);
-    expect(screen.getByText("Admin")).toBeInTheDocument();
+    expect(screen.getByText("Admin User")).toBeInTheDocument();
     expect(screen.getByText("We will look into it")).toBeInTheDocument();
   });
 
@@ -138,16 +140,17 @@ describe("ResidentConversationThread", () => {
     expect(svgs.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("renders both admin and resident messages together", () => {
+  it("renders both admin and resident messages with their names", () => {
     const adminMsg: ResidentTicketMessageItem = {
       ...baseMsg,
       id: "m-2",
       authorRole: "ADMIN",
       content: "Admin reply",
+      author: { name: "Admin User" },
     };
     render(<ResidentConversationThread messages={[baseMsg, adminMsg]} />);
-    expect(screen.getByText("Resident")).toBeInTheDocument();
-    expect(screen.getByText("Admin")).toBeInTheDocument();
+    expect(screen.getByText("Jane Resident")).toBeInTheDocument();
+    expect(screen.getByText("Admin User")).toBeInTheDocument();
     expect(screen.getByText("Hello there")).toBeInTheDocument();
     expect(screen.getByText("Admin reply")).toBeInTheDocument();
   });

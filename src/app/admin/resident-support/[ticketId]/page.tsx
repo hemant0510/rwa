@@ -35,6 +35,7 @@ import {
   RESIDENT_TICKET_PRIORITY_LABELS,
   VALID_TRANSITIONS,
 } from "@/lib/validations/resident-support";
+import { fetchGoverningBody } from "@/services/governing-body";
 import { getPetitions } from "@/services/petitions";
 import {
   getAdminResidentTicketDetail,
@@ -43,6 +44,8 @@ import {
   changeAdminResidentTicketPriority,
   linkTicketPetition,
   uploadAdminResidentAttachment,
+  addTicketAssignee,
+  removeTicketAssignee,
 } from "@/services/resident-support";
 
 const STATUS_ACTION_LABELS: Record<string, string> = {
@@ -98,11 +101,19 @@ export default function AdminResidentTicketDetailPage({
   const [replyContent, setReplyContent] = useState("");
   const [isInternal, setIsInternal] = useState(false);
   const [linkPetitionId, setLinkPetitionId] = useState("");
+  const [assignUserId, setAssignUserId] = useState("");
 
   const { data: petitionsData } = useQuery({
     queryKey: ["admin-petitions-for-link", societyId],
     queryFn: () => getPetitions(societyId, { limit: 100 }),
     enabled: isFullAccess && !!societyId,
+    staleTime: 60_000,
+  });
+
+  const { data: governingBodyData } = useQuery({
+    queryKey: ["governing-body"],
+    queryFn: fetchGoverningBody,
+    enabled: isFullAccess,
     staleTime: 60_000,
   });
 
@@ -170,6 +181,25 @@ export default function AdminResidentTicketDetailPage({
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey });
       toast.success("Petition created and linked");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const assignMutation = useMutation({
+    mutationFn: (userId: string) => addTicketAssignee(ticketId, userId),
+    onSuccess: () => {
+      setAssignUserId("");
+      void queryClient.invalidateQueries({ queryKey });
+      toast.success("Member assigned");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const unassignMutation = useMutation({
+    mutationFn: (userId: string) => removeTicketAssignee(ticketId, userId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey });
+      toast.success("Member removed");
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -393,6 +423,73 @@ export default function AdminResidentTicketDetailPage({
                     ))}
                   </SelectContent>
                 </Select>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Assigned Members */}
+          {(isFullAccess || (ticket.assignees?.length ?? 0) > 0) && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Assigned Members</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {(ticket.assignees?.length ?? 0) === 0 && (
+                  <p className="text-muted-foreground text-sm">No members assigned</p>
+                )}
+                {ticket.assignees?.map((a) => (
+                  <div key={a.id} className="flex items-center justify-between">
+                    <div className="text-sm">
+                      <span className="font-medium">{a.assignee.name}</span>
+                      {a.assignee.governingBodyMembership && (
+                        <span className="text-muted-foreground ml-1 text-xs">
+                          · {a.assignee.governingBodyMembership.designation.name}
+                        </span>
+                      )}
+                    </div>
+                    {isFullAccess && (
+                      <button
+                        onClick={() => unassignMutation.mutate(a.assignee.id)}
+                        disabled={unassignMutation.isPending}
+                        className="text-muted-foreground hover:text-destructive text-xs underline"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {isFullAccess && (
+                  <div className="flex gap-2 border-t pt-2">
+                    <Select value={assignUserId} onValueChange={setAssignUserId}>
+                      <SelectTrigger className="h-8 flex-1 text-xs">
+                        <SelectValue placeholder="Select member…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {/* v8 ignore start */}
+                        {governingBodyData?.members
+                          ?.filter(
+                            (m) => !ticket.assignees?.some((a) => a.assignee.id === m.userId),
+                          )
+                          .map((m) => (
+                            <SelectItem key={m.userId} value={m.userId}>
+                              <span className="text-xs">
+                                {m.name} · {m.designation}
+                              </span>
+                            </SelectItem>
+                          ))}
+                        {/* v8 ignore stop */}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => assignMutation.mutate(assignUserId)}
+                      disabled={!assignUserId || assignMutation.isPending}
+                    >
+                      Assign
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}

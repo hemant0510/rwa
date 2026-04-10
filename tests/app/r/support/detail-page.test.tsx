@@ -110,6 +110,7 @@ const BASE_TICKET = {
   createdByUser: { name: "Jane Resident" },
   petition: null,
   messages: [],
+  assignees: [],
 };
 
 const CLOSED_TICKET = { ...BASE_TICKET, status: "CLOSED" as const, closedAt: NOW };
@@ -170,6 +171,7 @@ const MOCK_MESSAGE = {
   isInternal: false,
   createdAt: NOW,
   attachments: [],
+  author: { name: "Jane Resident" },
 };
 
 const MOCK_ADMIN_MESSAGE = {
@@ -178,6 +180,7 @@ const MOCK_ADMIN_MESSAGE = {
   authorId: "admin-1",
   authorRole: "ADMIN",
   content: "Hello from admin",
+  author: { name: "Admin User" },
 };
 
 // ── Helper ───────────────────────────────────────────────────────────────────
@@ -390,10 +393,11 @@ describe("ResidentTicketDetailPage", () => {
       });
     });
 
-    it("hides reply form for non-creator", async () => {
+    it("shows reply form for non-creator resident (community participation)", async () => {
       renderPage(MOCK_OTHER_USER);
-      await waitFor(() => screen.getByText("Broken elevator"));
-      expect(screen.queryByRole("button", { name: /send reply/i })).not.toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: /send reply/i })).toBeInTheDocument();
+      });
     });
 
     it("hides reply form for closed ticket", async () => {
@@ -749,6 +753,40 @@ describe("ResidentTicketDetailPage", () => {
       await waitFor(() => {
         expect(mockToastSuccess).toHaveBeenCalled();
       });
+    });
+  });
+
+  // ── Handled By card ───────────────────────────────────────────────────────
+
+  describe("Handled By", () => {
+    it("shows Handled By card when ticket has assignees", async () => {
+      mockGetResidentTicketDetail.mockResolvedValue({
+        ...BASE_TICKET,
+        assignees: [
+          {
+            id: "a-1",
+            userId: "u-3",
+            assignedAt: NOW,
+            assignee: {
+              id: "u-3",
+              name: "Ravi Kumar",
+              governingBodyMembership: { designation: { name: "Secretary" } },
+            },
+          },
+        ],
+      });
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText("Handled By")).toBeInTheDocument();
+        expect(screen.getByText("Ravi Kumar")).toBeInTheDocument();
+        expect(screen.getByText("· Secretary")).toBeInTheDocument();
+      });
+    });
+
+    it("hides Handled By card when ticket has no assignees", async () => {
+      renderPage();
+      await waitFor(() => screen.getByText("Broken elevator"));
+      expect(screen.queryByText("Handled By")).not.toBeInTheDocument();
     });
   });
 });

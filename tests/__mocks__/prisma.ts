@@ -268,6 +268,12 @@ export const mockPrisma = {
     delete: vi.fn(),
     count: vi.fn(),
   },
+  residentTicketAssignee: {
+    findMany: vi.fn(),
+    findUnique: vi.fn(),
+    create: vi.fn(),
+    delete: vi.fn(),
+  },
   $transaction: vi.fn((arg: unknown) => {
     if (typeof arg === "function") {
       return (arg as (tx: typeof mockPrisma) => Promise<unknown>)(mockPrisma);

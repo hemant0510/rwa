@@ -22,6 +22,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
 import {
+  RESIDENT_TICKET_PRIORITIES,
+  RESIDENT_TICKET_PRIORITY_LABELS,
   RESIDENT_TICKET_STATUSES,
   RESIDENT_TICKET_TYPES,
   RESIDENT_TICKET_TYPE_LABELS,
@@ -56,6 +58,7 @@ function CreateTicketDialog({ open, onOpenChange, onSubmit, isPending }: CreateT
   const [type, setType] = useState<string>("");
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
+  const [priority, setPriority] = useState<string>("MEDIUM");
   const [errors, setErrors] = useState<Partial<Record<keyof CreateResidentTicketInput, string>>>(
     {},
   );
@@ -65,6 +68,7 @@ function CreateTicketDialog({ open, onOpenChange, onSubmit, isPending }: CreateT
       setType("");
       setSubject("");
       setDescription("");
+      setPriority("MEDIUM");
       setErrors({});
     }
     onOpenChange(isOpen);
@@ -72,7 +76,7 @@ function CreateTicketDialog({ open, onOpenChange, onSubmit, isPending }: CreateT
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const parsed = createResidentTicketSchema.safeParse({ type, subject, description });
+    const parsed = createResidentTicketSchema.safeParse({ type, subject, description, priority });
     if (!parsed.success) {
       const fieldErrors: Partial<Record<keyof CreateResidentTicketInput, string>> = {};
       for (const issue of parsed.error.issues) {
@@ -121,6 +125,22 @@ function CreateTicketDialog({ open, onOpenChange, onSubmit, isPending }: CreateT
               maxLength={200}
             />
             {errors.subject && <p className="text-destructive text-xs">{errors.subject}</p>}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="ticket-priority">Priority</Label>
+            <Select value={priority} onValueChange={setPriority}>
+              <SelectTrigger id="ticket-priority">
+                <SelectValue placeholder="Select priority" />
+              </SelectTrigger>
+              <SelectContent>
+                {RESIDENT_TICKET_PRIORITIES.map((p) => (
+                  <SelectItem key={p} value={p}>
+                    {RESIDENT_TICKET_PRIORITY_LABELS[p]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-1.5">
@@ -178,6 +198,11 @@ function TicketRow({ ticket, isOwn }: TicketRowProps) {
             <span className="text-muted-foreground shrink-0 font-mono text-xs">
               #{ticket.ticketNumber}
             </span>
+            {/* v8 ignore start */}
+            {ticket.status === "AWAITING_RESIDENT" && (
+              <span className="h-2 w-2 animate-pulse rounded-full bg-orange-500" />
+            )}
+            {/* v8 ignore stop */}
             <ResidentTicketTypeBadge type={ticket.type} />
             <ResidentTicketStatusBadge status={ticket.status} />
           </div>

@@ -26,6 +26,20 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
           orderBy: { createdAt: "asc" },
           include: {
             attachments: true,
+            author: { select: { name: true } },
+          },
+        },
+        assignees: {
+          include: {
+            assignee: {
+              select: {
+                id: true,
+                name: true,
+                governingBodyMembership: {
+                  select: { designation: { select: { name: true } } },
+                },
+              },
+            },
           },
         },
       },

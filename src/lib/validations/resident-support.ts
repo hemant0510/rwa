@@ -69,6 +69,7 @@ export const createResidentTicketSchema = z.object({
   type: z.enum(RESIDENT_TICKET_TYPES),
   subject: z.string().min(5, "Subject must be at least 5 characters").max(200),
   description: z.string().min(20, "Description must be at least 20 characters").max(5000),
+  priority: z.enum(RESIDENT_TICKET_PRIORITIES).optional().default("MEDIUM"),
 });
 
 export type CreateResidentTicketInput = z.infer<typeof createResidentTicketSchema>;
@@ -98,6 +99,12 @@ export const linkPetitionSchema = z.object({
 });
 
 export type LinkPetitionInput = z.infer<typeof linkPetitionSchema>;
+
+export const assignTicketSchema = z.object({
+  userId: z.string().uuid("Invalid user ID"),
+});
+
+export type AssignTicketInput = z.infer<typeof assignTicketSchema>;
 
 export const ALLOWED_ATTACHMENT_MIME_TYPES = [
   "image/jpeg",

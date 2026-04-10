@@ -391,4 +391,21 @@ describe("AdminResidentSupportPage", () => {
     const awaitingLabel = screen.getByText("Awaiting Admin");
     expect(awaitingLabel).toBeInTheDocument();
   });
+
+  it("shows attention dot on AWAITING_ADMIN ticket", async () => {
+    const awaitingTicket = { ...MOCK_TICKET, status: "AWAITING_ADMIN" };
+    mockGetAdminResidentTickets.mockResolvedValue({
+      data: [awaitingTicket],
+      total: 1,
+      page: 1,
+      limit: 20,
+    });
+    await renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Broken elevator")).toBeInTheDocument();
+    });
+    // The ticket row should contain the pulsing dot (span with animate-pulse class)
+    const dots = document.querySelectorAll(".animate-pulse");
+    expect(dots.length).toBeGreaterThan(0);
+  });
 });

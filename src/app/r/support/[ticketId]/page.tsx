@@ -310,7 +310,7 @@ export default function ResidentTicketDetailPage() {
     ticket.resolvedAt != null &&
     differenceInDays(new Date(), new Date(ticket.resolvedAt)) <= 7;
 
-  const canReply = isCreator && !isClosed;
+  const canReply = !isClosed;
 
   return (
     <div className="space-y-6">
@@ -517,6 +517,27 @@ export default function ResidentTicketDetailPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Handled By card */}
+          {(ticket.assignees?.length ?? 0) > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Handled By</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-1">
+                {ticket.assignees?.map((a) => (
+                  <div key={a.id} className="text-sm">
+                    <span className="font-medium">{a.assignee.name}</span>
+                    {a.assignee.governingBodyMembership && (
+                      <span className="text-muted-foreground ml-1 text-xs">
+                        · {a.assignee.governingBodyMembership.designation.name}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Petition linking card */}
           <PetitionLinkCard

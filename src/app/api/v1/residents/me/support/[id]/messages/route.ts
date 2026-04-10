@@ -19,19 +19,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const ticket = await prisma.residentTicket.findUnique({
       where: { id, societyId: resident.societyId },
-      select: { id: true, status: true, createdBy: true },
+      select: { id: true, status: true },
     });
 
     if (!ticket)
       return errorResponse({ code: "NOT_FOUND", message: "Ticket not found", status: 404 });
-
-    if (ticket.createdBy !== resident.userId) {
-      return errorResponse({
-        code: "FORBIDDEN",
-        message: "Only ticket creator can post messages",
-        status: 403,
-      });
-    }
 
     if (ticket.status === "CLOSED") {
       return errorResponse({

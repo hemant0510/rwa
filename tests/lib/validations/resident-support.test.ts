@@ -126,15 +126,22 @@ describe("createResidentTicketSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("does NOT accept priority field (residents cannot set priority)", () => {
+  it("accepts priority field with valid value", () => {
     const result = createResidentTicketSchema.safeParse({
       ...validInput,
       priority: "HIGH",
     });
-    // Zod strips unknown keys by default, so it succeeds but priority is not in output
     expect(result.success).toBe(true);
     if (result.success) {
-      expect("priority" in result.data).toBe(false);
+      expect(result.data.priority).toBe("HIGH");
+    }
+  });
+
+  it("defaults priority to MEDIUM when not provided", () => {
+    const result = createResidentTicketSchema.safeParse(validInput);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.priority).toBe("MEDIUM");
     }
   });
 });
