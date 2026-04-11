@@ -67,4 +67,9 @@ describe("Header", () => {
     const buttons = screen.getAllByRole("button");
     expect(buttons).toHaveLength(1);
   });
+
+  it("renders searchBar when provided", () => {
+    render(<Header title="Test" searchBar={<input data-testid="search-bar" />} />);
+    expect(screen.getByTestId("search-bar")).toBeInTheDocument();
+  });
 });

@@ -106,14 +106,19 @@ function renderPage() {
 
 /** Fill all required fields in step 0 (Society Info) */
 async function fillStep0(user: ReturnType<typeof userEvent.setup>) {
+  // Typing the name auto-fills Short Code via deriveSocietyCode ("Eden Estate RWA" → "EDEST")
   await user.type(screen.getByLabelText(/society name/i), "Eden Estate RWA");
-  await user.type(screen.getByLabelText(/society code/i), "EDEN");
-  await user.type(screen.getByLabelText(/city/i), "Gurugram");
-  await user.type(screen.getByLabelText(/pincode/i), "122001");
-  // The mocked Select renders as a native <select>. Two selects on step 0:
-  // [0] = Society Type (defaults to INDEPENDENT_SECTOR, already valid), [1] = State
+  // Wait for the auto-derived code to be at least 4 chars (useEffect fires after name change)
+  await waitFor(() => {
+    const codeInput = screen.getByLabelText(/short code/i) as HTMLInputElement;
+    expect(codeInput.value.length).toBeGreaterThanOrEqual(4);
+  });
+  // Select state BEFORE typing city — the state onValueChange calls setValue("city", ""),
+  // so typing city first and selecting state second would clear the city field.
   const selects = screen.getAllByRole("combobox");
   await user.selectOptions(selects[1], "HR"); // pick Haryana for state
+  await user.type(screen.getByLabelText(/city/i), "Gurugram");
+  await user.type(screen.getByLabelText(/pincode/i), "122001");
   // Accept terms
   await user.click(screen.getByRole("checkbox"));
 }
@@ -153,7 +158,7 @@ describe("RegisterSocietyPage", () => {
     renderPage();
     expect(screen.getByText(/step 1 of 3/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/society name/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/society code/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/short code/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/city/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/pincode/i)).toBeInTheDocument();
   });
@@ -200,30 +205,30 @@ describe("RegisterSocietyPage", () => {
   it("shows minimum-chars warning when code is 1-3 characters", async () => {
     const user = userEvent.setup();
     renderPage();
-    await user.type(screen.getByLabelText(/society code/i), "ED");
-    expect(screen.getByText(/minimum 4 characters required/i)).toBeInTheDocument();
+    await user.type(screen.getByLabelText(/short code/i), "ED");
+    expect(screen.getByText(/minimum 4 characters/i)).toBeInTheDocument();
   });
 
   it("hides minimum-chars warning when code reaches 4 characters", async () => {
     const user = userEvent.setup();
     renderPage();
-    await user.type(screen.getByLabelText(/society code/i), "EDEN");
-    expect(screen.queryByText(/minimum 4 characters required/i)).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText(/short code/i), "EDEN");
+    expect(screen.queryByText(/minimum 4 characters/i)).not.toBeInTheDocument();
   });
 
   it("shows code-available message when code check returns available", async () => {
     const user = userEvent.setup();
     renderPage();
-    await user.type(screen.getByLabelText(/society code/i), "EDEN");
-    await waitFor(() => expect(screen.getByText(/✓ code is available/i)).toBeInTheDocument());
+    await user.type(screen.getByLabelText(/short code/i), "EDEN");
+    await waitFor(() => expect(screen.getByText(/✓ available/i)).toBeInTheDocument());
   });
 
   it("shows code-taken message when code check returns unavailable", async () => {
     mockCheckSocietyCode.mockResolvedValue({ available: false });
     const user = userEvent.setup();
     renderPage();
-    await user.type(screen.getByLabelText(/society code/i), "EDEN");
-    await waitFor(() => expect(screen.getByText(/✗ code already taken/i)).toBeInTheDocument());
+    await user.type(screen.getByLabelText(/short code/i), "EDEN");
+    await waitFor(() => expect(screen.getByText(/✗ already taken/i)).toBeInTheDocument());
   });
 
   // ── Step 0 — Next button gating ───────────────────────────────────────────
@@ -237,7 +242,7 @@ describe("RegisterSocietyPage", () => {
     const user = userEvent.setup();
     renderPage();
     await user.type(screen.getByLabelText(/society name/i), "Eden Estate RWA");
-    await user.type(screen.getByLabelText(/society code/i), "EDEN");
+    await user.type(screen.getByLabelText(/short code/i), "EDEN");
     await user.type(screen.getByLabelText(/city/i), "Gurugram");
     await user.type(screen.getByLabelText(/pincode/i), "122001");
     const selects = screen.getAllByRole("combobox");
@@ -289,7 +294,7 @@ describe("RegisterSocietyPage", () => {
     renderPage();
     await goToStep3(user);
     expect(screen.getByText(/step 3 of 3/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/full name/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/your name/i)).toBeInTheDocument();
   });
 
   it("Back button on step 3 returns to step 2", async () => {
@@ -451,7 +456,7 @@ describe("RegisterSocietyPage", () => {
     const user = userEvent.setup();
     renderPage();
     await goToStep3(user);
-    expect(screen.getByLabelText(/full name/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/your name/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/^email/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/mobile.*optional/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/^password/i)).toBeInTheDocument();
@@ -499,7 +504,7 @@ describe("RegisterSocietyPage", () => {
     const user = userEvent.setup();
     renderPage();
     await goToStep3(user);
-    await user.type(screen.getByLabelText(/full name/i), "Hemant Bhagat");
+    await user.type(screen.getByLabelText(/your name/i), "Hemant Bhagat");
     await user.type(screen.getByLabelText(/^email/i), "hemant@example.com");
     await user.type(screen.getByLabelText(/^password/i), "password123");
     await user.type(screen.getByLabelText(/confirm password/i), "password123");
@@ -512,7 +517,7 @@ describe("RegisterSocietyPage", () => {
 
   async function fillAndSubmit(user: ReturnType<typeof userEvent.setup>) {
     await goToStep3(user);
-    await user.type(screen.getByLabelText(/full name/i), "Hemant Bhagat");
+    await user.type(screen.getByLabelText(/your name/i), "Hemant Bhagat");
     await user.type(screen.getByLabelText(/^email/i), "hemant@example.com");
     await user.type(screen.getByLabelText(/^password/i), "password123");
     await user.type(screen.getByLabelText(/confirm password/i), "password123");
@@ -623,7 +628,7 @@ describe("RegisterSocietyPage", () => {
     await goToStep3(user);
 
     // Type admin name and email but use mismatched passwords
-    await user.type(screen.getByLabelText(/full name/i), "H");
+    await user.type(screen.getByLabelText(/your name/i), "H");
     await user.type(screen.getByLabelText(/^email/i), "hemant@example.com");
     await user.type(screen.getByLabelText(/^password/i), "password123");
     await user.type(screen.getByLabelText(/confirm password/i), "different123");
