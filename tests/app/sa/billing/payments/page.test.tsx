@@ -40,7 +40,24 @@ function renderPage() {
   );
 }
 
-const mockClaim = {
+const mockClaim: {
+  id: string;
+  societyId: string;
+  subscriptionId: string;
+  amount: number;
+  utrNumber: string;
+  paymentDate: string;
+  screenshotUrl: string | null;
+  status: string;
+  verifiedBy: string | null;
+  verifiedAt: string | null;
+  rejectionReason: string | null;
+  periodStart: string | null;
+  periodEnd: string | null;
+  createdAt: string;
+  society: { name: string };
+  subscription: { planId: string };
+} = {
   id: "claim-1",
   societyId: "soc-1",
   subscriptionId: "sub-1",

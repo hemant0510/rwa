@@ -204,7 +204,8 @@ describe("PaymentClaimForm", () => {
   });
 
   it("disables submit button while submitting", async () => {
-    let resolveSubmit!: (v: unknown) => void;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let resolveSubmit!: (v: any) => void;
     mockSubmit.mockReturnValue(
       new Promise((r) => {
         resolveSubmit = r;
@@ -225,7 +226,8 @@ describe("PaymentClaimForm", () => {
   });
 
   it("disables submit button while uploading", async () => {
-    let resolveUpload!: (v: unknown) => void;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let resolveUpload!: (v: any) => void;
     mockUpload.mockReturnValue(
       new Promise((r) => {
         resolveUpload = r;

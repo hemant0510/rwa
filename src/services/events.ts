@@ -305,6 +305,7 @@ export interface ResidentEventFinance {
   totalExpenses: number;
   netAmount: number;
   disposition: string | null;
+  isSettled: boolean;
   expenses: Array<{ description: string; amount: number }>;
 }
 

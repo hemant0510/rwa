@@ -21,7 +21,11 @@ vi.mock("sonner", () => ({
 const mockUpdatePlatformUpiSetup = vi.mocked(updatePlatformUpiSetup);
 const mockUploadPlatformQr = vi.mocked(uploadPlatformQr);
 
-const defaultInitialValues = {
+const defaultInitialValues: {
+  platformUpiId: string | null;
+  platformUpiQrUrl: string | null;
+  platformUpiAccountName: string | null;
+} = {
   platformUpiId: null,
   platformUpiQrUrl: null,
   platformUpiAccountName: null,
@@ -253,7 +257,8 @@ describe("PlatformPaymentSetupForm", () => {
   });
 
   it("disables save button while submitting", async () => {
-    let resolveSubmit!: (v: unknown) => void;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let resolveSubmit!: (v: any) => void;
     mockUpdatePlatformUpiSetup.mockReturnValue(
       new Promise((resolve) => {
         resolveSubmit = resolve;
@@ -278,7 +283,8 @@ describe("PlatformPaymentSetupForm", () => {
   });
 
   it("disables save button while uploading", async () => {
-    let resolveUpload!: (v: unknown) => void;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let resolveUpload!: (v: any) => void;
     mockUploadPlatformQr.mockReturnValue(
       new Promise((resolve) => {
         resolveUpload = resolve;

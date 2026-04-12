@@ -44,6 +44,7 @@ describe("announcements service", () => {
         body: "Test body content",
         priority: "NORMAL",
         scope: "ALL",
+        societyIds: [],
         sentVia: ["IN_APP"],
       });
       expect(result.id).toBe("ann-new");
@@ -64,6 +65,7 @@ describe("announcements service", () => {
           body: "Test body content",
           priority: "NORMAL",
           scope: "ALL",
+          societyIds: [],
           sentVia: ["IN_APP"],
         }),
       ).rejects.toThrow("Validation failed");
@@ -80,6 +82,7 @@ describe("announcements service", () => {
           body: "Test body content",
           priority: "NORMAL",
           scope: "ALL",
+          societyIds: [],
           sentVia: ["IN_APP"],
         }),
       ).rejects.toThrow("Failed to create announcement");

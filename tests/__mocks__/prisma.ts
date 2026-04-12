@@ -147,6 +147,7 @@ export const mockPrisma = {
     update: vi.fn(),
     deleteMany: vi.fn(),
     count: vi.fn(),
+    aggregate: vi.fn(),
   },
   pet: {
     deleteMany: vi.fn(),

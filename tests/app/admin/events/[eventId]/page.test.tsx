@@ -731,7 +731,7 @@ describe("Admin EventDetailPage", () => {
     await user.click(screen.getByRole("tab", { name: /Details/i }));
     await waitFor(() => screen.getByText("Event Details"));
     // No Edit/Delete buttons inside the Details card for non-DRAFT
-    const card = screen.getByText("Event Details").closest("[data-slot='card']")!;
+    const card = screen.getByText("Event Details").closest("[data-slot='card']") as HTMLElement;
     expect(within(card).queryByRole("button", { name: /^Edit$/i })).not.toBeInTheDocument();
     expect(within(card).queryByRole("button", { name: /^Delete$/i })).not.toBeInTheDocument();
   });

@@ -199,7 +199,7 @@ describe("AdminClaimsPage", () => {
   });
 
   it("renders without crashing when user has no societyId", () => {
-    mockUseAuthClaims.mockReturnValueOnce({ user: null });
+    mockUseAuthClaims.mockReturnValueOnce({ user: null } as never);
     mockFetch.mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ claims: [], total: 0, page: 1, pageSize: 20 }),

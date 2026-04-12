@@ -33,9 +33,8 @@ const mockCreateClient = vi.hoisted(() =>
   vi.fn().mockReturnValue({ storage: mockSupabaseStorage }),
 );
 // Controllable parseBody spy — defaults to undefined so real impl is used unless overridden per test
-const mockParseBody = vi.hoisted(() =>
-  vi.fn<Parameters<typeof import("@/lib/api-helpers").parseBody>>(),
-);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockParseBody = vi.hoisted(() => vi.fn<any>());
 
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 vi.mock("@/lib/get-current-user", () => ({ getCurrentUser: mockGetCurrentUser }));
@@ -45,8 +44,13 @@ vi.mock("@/lib/api-helpers", async (importOriginal) => {
   const real = await importOriginal<typeof import("@/lib/api-helpers")>();
   return {
     ...real,
-    parseBody: (...args: Parameters<typeof real.parseBody>) =>
-      mockParseBody.getMockImplementation() ? mockParseBody(...args) : real.parseBody(...args),
+    parseBody: (...args: Parameters<typeof real.parseBody>) => {
+      if (mockParseBody.getMockImplementation()) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return (mockParseBody as any)(...args);
+      }
+      return real.parseBody(...args);
+    },
   };
 });
 
@@ -672,7 +676,7 @@ describe("PATCH /api/v1/societies/[id]/petitions/[petitionId] — internal guard
 
   it("returns 500 when parseBody resolves with data=null and error=null", async () => {
     // Simulate the internal guard: data is null but error is also null (dead code path)
-    mockParseBody.mockResolvedValue({ data: null, error: null });
+    mockParseBody.mockResolvedValue({ data: null, error: null } as never);
     const res = await PATCH(makePatchRequest({ title: "New title" }), makeDetailParams());
     expect(res.status).toBe(500);
     mockParseBody.mockReset();

@@ -30,7 +30,16 @@ const mockSettings = {
   annualFee: 2000,
   gracePeriodDays: 30,
   feeSessionStartMonth: 4,
-  feeSessions: [],
+  feeSessions: [] as Array<{
+    id: string;
+    sessionYear: string;
+    annualFee: number;
+    joiningFee: number;
+    sessionStart: string;
+    sessionEnd: string;
+    gracePeriodEnd: string;
+    status: string;
+  }>,
 };
 
 const mockSession = {

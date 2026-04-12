@@ -23,7 +23,11 @@ const mockUploadSocietyQr = vi.mocked(uploadSocietyQr);
 
 const SOCIETY_ID = "soc-1";
 
-const defaultInitialValues = {
+const defaultInitialValues: {
+  upiId: string | null;
+  upiQrUrl: string | null;
+  upiAccountName: string | null;
+} = {
   upiId: null,
   upiQrUrl: null,
   upiAccountName: null,
@@ -261,7 +265,8 @@ describe("PaymentSetupForm", () => {
   });
 
   it("disables save button while submitting", async () => {
-    let resolveSubmit!: (v: unknown) => void;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let resolveSubmit!: (v: any) => void;
     mockUpdateUpiSetup.mockReturnValue(
       new Promise((resolve) => {
         resolveSubmit = resolve;
@@ -282,7 +287,8 @@ describe("PaymentSetupForm", () => {
   });
 
   it("disables save button while uploading", async () => {
-    let resolveUpload!: (v: unknown) => void;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let resolveUpload!: (v: any) => void;
     mockUploadSocietyQr.mockReturnValue(
       new Promise((resolve) => {
         resolveUpload = resolve;

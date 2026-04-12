@@ -103,7 +103,7 @@ describe("ConfirmPaymentPage", () => {
   it("shows 'Fee not found' when feeId is null", async () => {
     mockUseSearchParams.mockReturnValue({
       get: () => null,
-    } as ReturnType<typeof useSearchParams>);
+    } as unknown as ReturnType<typeof useSearchParams>);
     mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({ fees: [] }) });
     renderPage();
     await waitFor(() => {

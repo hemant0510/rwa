@@ -125,7 +125,7 @@ function renderPage(userOverrides: Record<string, unknown> = {}) {
     id: "u1",
     name: "Admin User",
     role: "RWA_ADMIN" as const,
-    permission: "FULL_ACCESS",
+    permission: "FULL_ACCESS" as const,
     societyId: "soc-1",
     societyName: "Eden Estate",
     societyCode: "EDEN",

@@ -41,8 +41,8 @@ describe("residents service", () => {
 
     it("fetches residents with docStatus param", async () => {
       mockFetch.mockResolvedValue(okJson({ data: [], total: 0 }));
-      await getResidents("soc-1", { docStatus: "PENDING" });
-      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining("docStatus=PENDING"));
+      await getResidents("soc-1", { docStatus: "full" });
+      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining("docStatus=full"));
     });
 
     it("throws on error", async () => {

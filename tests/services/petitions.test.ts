@@ -387,7 +387,7 @@ describe("petitions service", () => {
   });
 
   describe("signPetition", () => {
-    const signData = { method: "DIGITAL" as const };
+    const signData = { method: "DRAWN" as const, signatureDataUrl: "data:image/png;base64,abc" };
 
     it("sends POST to sign endpoint", async () => {
       mockFetch.mockResolvedValue(okJson({ signedAt: "2025-11-01T10:00:00Z" }));
