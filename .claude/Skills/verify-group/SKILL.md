@@ -44,6 +44,8 @@ Do NOT rely on previous session output or memory alone — read actual source fi
 
 Execute categories A–G (same as `/implement-group` Step 7).
 
+**Backend-only group shortcut**: If the group contains ONLY API routes, utilities, services, validations, or types — and the plan explicitly marks all UI as "already done" or "skip during implementation" — then Categories C, D, and E are auto-✅ N/A. Skip those three and audit only A, B, F, G. Note "C/D/E: N/A — backend-only group" in the report.
+
 **Critical differences from implement-group audit:**
 
 - **Category C (Page Navigation)**: check the plan's global UI Pages Summary for ALL rows, not just rows in the group section. Every "Extend" page listed anywhere in the plan must exist. If it doesn't and belongs to this group → create it.

@@ -111,7 +111,7 @@ If output shows 0% coverage, you MUST either write tests or add the file to `vit
 
 **Note on shared test files**: Some source files share one test file. Check if a test already exists for this source before creating a new one.
 
-**Large group handling**: If a group has more than 5 source files, split into two sub-sessions:
+**Large group handling**: If a group has more than 10 source files, split into two sub-sessions:
 
 - First half: implement → test → Steps 5–7 → commit
 - Second half: implement → test → Steps 5–7 → commit
@@ -165,6 +165,8 @@ Re-read the extracted group spec section. Also grep the plan file for global sec
 grep -n "UI Pages Summary\|Component Inventory\|API Endpoints\|Test File Map" <plan-file>
 # Read those sections (offset/limit) to find rows relevant to this group
 ```
+
+**Backend-only group shortcut**: If the group contains ONLY API routes, utilities, services, validations, or types — and explicitly has no pages or components (e.g. the plan marks all UI as "already done" or "skip during implementation") — then Categories C, D, and E are auto-✅ N/A. Skip those three and audit only A, B, F, G. Note "C/D/E: N/A — backend-only group" in the report.
 
 Verify each category:
 

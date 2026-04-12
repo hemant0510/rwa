@@ -95,15 +95,15 @@ Pass condition:
 
 ## Stage 3 — BUILD CHECK
 
-Determine whether this stage is required by reading the plan's Quality Gate section:
+**Always run.** `npx tsc --noEmit` only validates TypeScript types. `npm run build` additionally validates Next.js conventions that tsc misses: invalid route export names (e.g. a helper function accidentally exported from a `route.ts`), page/layout prop constraints, and bundling errors. Skipping build is how those errors survive to CI.
 
 ```bash
-grep -n "npm run build" <plan-file>
+npm run build
 ```
 
-**If found:** run `npm run build`. Read the plan's Quality Gate section to identify what success looks like (it will describe expected artifacts or outcomes specific to this plan). Verify those outcomes. Fix root cause if build fails — re-run lint + tsc + build before proceeding.
+Fix root cause if build fails — re-run lint + tsc + build before proceeding. Do not mark Stage 3 ✅ without actually running it.
 
-**If not found:** skip this stage. Mark it ⏭️ Skipped in the report.
+**Exception**: if the group contains ONLY pure utility/library files (`src/lib/**`, `src/services/**`) with no `route.ts`, `page.tsx`, or `layout.tsx` changes, you may skip. Mark it ⏭️ Skipped (utils-only) in the report.
 
 ---
 
@@ -146,5 +146,5 @@ If any stage has a remaining ❌ after your best fix attempt, mark it ❌ and de
 - Never skip a stage to save time
 - Never claim "build passed" without running it
 - Never claim "audit passed" without reading actual source files
-- If a phase has 10+ files, split into two sub-sessions: implement first half → Stages 2–4 → commit → implement second half → Stages 2–4 → commit
+- If a phase has 10+ source files, split into two sub-sessions: implement first half → Stages 2–4 → commit → implement second half → Stages 2–4 → commit
 - After the ship report prints "Ready to commit: YES", stop. The user commits manually.
