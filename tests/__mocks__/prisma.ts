@@ -63,9 +63,6 @@ export const mockPrisma = {
   notification: {
     deleteMany: vi.fn(),
   },
-  dependent: {
-    deleteMany: vi.fn(),
-  },
   visitorLog: {
     deleteMany: vi.fn(),
   },
@@ -134,6 +131,27 @@ export const mockPrisma = {
     delete: vi.fn(),
   },
   vehicle: {
+    findUnique: vi.fn(),
+    findFirst: vi.fn(),
+    findMany: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    deleteMany: vi.fn(),
+    count: vi.fn(),
+  },
+  dependent: {
+    findUnique: vi.fn(),
+    findFirst: vi.fn(),
+    findMany: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    deleteMany: vi.fn(),
+    count: vi.fn(),
+  },
+  pet: {
+    deleteMany: vi.fn(),
+  },
+  domesticHelper: {
     deleteMany: vi.fn(),
   },
   superAdmin: {

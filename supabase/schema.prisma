@@ -287,6 +287,96 @@ enum SubscriptionChangeType {
   AUTO_SUSPENDED
 }
 
+// Household Registry enums
+enum RelationshipType {
+  SPOUSE
+  FATHER
+  MOTHER
+  SON
+  DAUGHTER
+  BROTHER
+  SISTER
+  FATHER_IN_LAW
+  MOTHER_IN_LAW
+  SON_IN_LAW
+  DAUGHTER_IN_LAW
+  GRANDFATHER
+  GRANDMOTHER
+  GRANDSON
+  GRANDDAUGHTER
+  UNCLE
+  AUNT
+  NEPHEW
+  NIECE
+  COUSIN
+  GUARDIAN
+  OTHER
+}
+
+enum BloodGroup {
+  A_POS
+  A_NEG
+  B_POS
+  B_NEG
+  AB_POS
+  AB_NEG
+  O_POS
+  O_NEG
+  UNKNOWN
+}
+
+enum VehicleType {
+  TWO_WHEELER
+  TWO_WHEELER_EV
+  FOUR_WHEELER
+  FOUR_WHEELER_EV
+  BICYCLE
+  COMMERCIAL
+  OTHER
+}
+
+enum PetType {
+  DOG
+  CAT
+  BIRD
+  FISH
+  RABBIT
+  OTHER
+}
+
+enum PetApprovalStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+}
+
+enum HelperCategory {
+  MAID
+  COOK
+  DRIVER
+  NANNY
+  GARDENER
+  WATCHMAN_PERSONAL
+  OTHER
+}
+
+enum HelperStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum HouseholdStatus {
+  NOT_SET
+  DECLARED_NONE
+  HAS_ENTRIES
+}
+
+enum VehicleStatus {
+  NOT_SET
+  DECLARED_NONE
+  HAS_ENTRIES
+}
+
 // ═══════════════════════════════════════════════════
 // CORE MVP MODELS (1–14)
 // ═══════════════════════════════════════════════════
@@ -361,6 +451,12 @@ model Society {
   paymentClaims            PaymentClaim[]
   subscriptionPaymentClaims SubscriptionPaymentClaim[]
   residentTickets           ResidentTicket[]
+  pets                      Pet[]
+  domesticHelpers           DomesticHelper[]
+
+  // Household registry settings
+  allowResidentVehicleSearch Boolean @default(true) @map("allow_resident_vehicle_search")
+  maxVehiclesPerUnit         Int     @default(5)    @map("max_vehicles_per_unit")
 
   @@map("societies")
 }
@@ -456,6 +552,19 @@ model User {
   residentTicketMessages     ResidentTicketMessage[]   @relation("ResidentTicketMessageAuthor")
   residentTicketAssignments  ResidentTicketAssignee[]  @relation("ResidentTicketAssignees")
   residentTicketAssignedByMe ResidentTicketAssignee[]  @relation("ResidentTicketAssignedBy")
+
+  // Household registry fields
+  showInDirectory      Boolean         @default(false) @map("show_in_directory")
+  showPhoneInDirectory Boolean         @default(false) @map("show_phone_in_directory")
+  bloodGroup           BloodGroup?     @map("blood_group")
+  householdStatus      HouseholdStatus @default(NOT_SET) @map("household_status")
+  vehicleStatus        VehicleStatus   @default(NOT_SET) @map("vehicle_status")
+
+  // Household registry relations
+  vehiclesOwned   Vehicle[]        @relation("VehicleOwner")
+  pets            Pet[]
+  petsApproved    Pet[]            @relation("PetApprovedBy")
+  domesticHelpers DomesticHelper[]
 
   @@unique([societyId, email])
   @@map("users")
@@ -954,17 +1063,35 @@ model VisitorLog {
 
 /// 21. Dependent — resident family members (Phase 2).
 model Dependent {
-  id           String    @id @default(uuid()) @db.Uuid
-  userId       String    @map("user_id") @db.Uuid
-  societyId    String    @map("society_id") @db.Uuid
-  name         String    @db.VarChar(100)
-  relationship String    @db.VarChar(30)
-  dateOfBirth  DateTime? @map("date_of_birth") @db.Date
-  createdAt    DateTime  @default(now()) @map("created_at")
+  id                 String           @id @default(uuid()) @db.Uuid
+  userId             String           @map("user_id") @db.Uuid
+  societyId          String           @map("society_id") @db.Uuid
+  memberId           String?          @unique @map("member_id") @db.VarChar(60)
+  memberSeq          Int              @map("member_seq")
+  name               String           @db.VarChar(100)
+  relationship       RelationshipType
+  otherRelationship  String?          @map("other_relationship") @db.VarChar(50)
+  dateOfBirth        DateTime?        @map("date_of_birth") @db.Date
+  bloodGroup         BloodGroup?      @map("blood_group")
+  mobile             String?          @db.VarChar(15)
+  email              String?          @db.VarChar(100)
+  occupation         String?          @db.VarChar(100)
+  photoUrl           String?          @map("photo_url") @db.VarChar(500)
+  idProofUrl         String?          @map("id_proof_url") @db.VarChar(500)
+  isEmergencyContact Boolean          @default(false) @map("is_emergency_contact")
+  emergencyPriority  Int?             @map("emergency_priority")
+  medicalNotes       String?          @map("medical_notes") @db.VarChar(500)
+  isActive           Boolean          @default(true) @map("is_active")
+  deactivatedAt      DateTime?        @map("deactivated_at")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
 
-  user         User      @relation(fields: [userId], references: [id])
-  society      Society   @relation(fields: [societyId], references: [id])
+  user     User      @relation(fields: [userId], references: [id])
+  society  Society   @relation(fields: [societyId], references: [id])
+  vehicles Vehicle[]
 
+  @@unique([userId, memberSeq])
+  @@index([societyId, userId])
   @@map("dependents")
 }
 
@@ -986,28 +1113,106 @@ model BlacklistedNumber {
 
 /// 23. Vehicle — resident vehicle registration (self-service).
 model Vehicle {
-  id                 String    @id @default(uuid()) @db.Uuid
-  unitId             String    @map("unit_id") @db.Uuid
-  societyId          String    @map("society_id") @db.Uuid
-  vehicleType        String    @map("vehicle_type") @db.VarChar(20) // 2-Wheeler/4-Wheeler/EV/Bicycle
-  registrationNumber String    @map("registration_number") @db.VarChar(20)
-  make               String?   @db.VarChar(50)
-  model              String?   @db.VarChar(50)
-  colour             String?   @db.VarChar(30)
-  parkingSlot        String?   @map("parking_slot") @db.VarChar(20) // Phase 2
-  stickerNumber      String?   @map("sticker_number") @db.VarChar(20) // Phase 2
-  evSlot             String?   @map("ev_slot") @db.VarChar(20) // Phase 2
-  validFrom          DateTime? @map("valid_from") @db.Date
-  validTo            DateTime? @map("valid_to") @db.Date
-  isActive           Boolean   @default(true) @map("is_active")
-  createdAt          DateTime  @default(now()) @map("created_at")
-  updatedAt          DateTime  @updatedAt @map("updated_at")
+  id                 String      @id @default(uuid()) @db.Uuid
+  unitId             String      @map("unit_id") @db.Uuid
+  societyId          String      @map("society_id") @db.Uuid
+  vehicleType        VehicleType @map("vehicle_type")
+  registrationNumber String      @map("registration_number") @db.VarChar(20)
+  make               String?     @db.VarChar(50)
+  model              String?     @db.VarChar(50)
+  colour             String?     @db.VarChar(30)
+  parkingSlot        String?     @map("parking_slot") @db.VarChar(20)
+  stickerNumber      String?     @map("sticker_number") @db.VarChar(20)
+  evSlot             String?     @map("ev_slot") @db.VarChar(20)
+  isActive           Boolean     @default(true) @map("is_active")
+  validFrom          DateTime?   @map("valid_from") @db.Date
+  validTo            DateTime?   @map("valid_to") @db.Date
 
-  unit               Unit      @relation(fields: [unitId], references: [id])
-  society            Society   @relation(fields: [societyId], references: [id])
+  // Owner fields
+  ownerId            String      @map("owner_id") @db.Uuid
+  dependentOwnerId   String?     @map("dependent_owner_id") @db.Uuid
+
+  // Document & expiry fields
+  vehiclePhotoUrl    String?     @map("vehicle_photo_url") @db.VarChar(500)
+  rcDocUrl           String?     @map("rc_doc_url") @db.VarChar(500)
+  rcExpiry           DateTime?   @map("rc_expiry") @db.Date
+  insuranceUrl       String?     @map("insurance_url") @db.VarChar(500)
+  insuranceExpiry    DateTime?   @map("insurance_expiry") @db.Date
+  pucExpiry          DateTime?   @map("puc_expiry") @db.Date
+  fastagId           String?     @map("fastag_id") @db.VarChar(30)
+  notes              String?     @db.VarChar(300)
+  createdAt          DateTime    @default(now()) @map("created_at")
+  updatedAt          DateTime    @updatedAt @map("updated_at")
+
+  unit             Unit       @relation(fields: [unitId], references: [id])
+  society          Society    @relation(fields: [societyId], references: [id])
+  owner            User       @relation("VehicleOwner", fields: [ownerId], references: [id])
+  dependentOwner   Dependent? @relation(fields: [dependentOwnerId], references: [id])
 
   @@index([societyId, registrationNumber])
+  @@index([societyId, ownerId])
   @@map("vehicles")
+}
+
+/// 24a. Pet — Phase 2 stub for resident pets (schema now, UI later).
+model Pet {
+  id             String            @id @default(uuid()) @db.Uuid
+  userId         String            @map("user_id") @db.Uuid
+  societyId      String            @map("society_id") @db.Uuid
+  petId          String?           @unique @map("pet_id") @db.VarChar(60)
+  petSeq         Int               @map("pet_seq")
+  name           String            @db.VarChar(50)
+  petType        PetType           @map("pet_type")
+  breed          String?           @db.VarChar(50)
+  colour         String?           @db.VarChar(30)
+  dateOfBirth    DateTime?         @map("date_of_birth") @db.Date
+  photoUrl       String?           @map("photo_url") @db.VarChar(500)
+  vaccinationUrl String?           @map("vaccination_url") @db.VarChar(500)
+  licenseUrl     String?           @map("license_url") @db.VarChar(500)
+  approvalStatus PetApprovalStatus @default(PENDING_APPROVAL) @map("approval_status")
+  approvedById   String?           @map("approved_by_id") @db.Uuid
+  approvedAt     DateTime?         @map("approved_at")
+  rejectedReason String?           @map("rejected_reason")
+  isActive       Boolean           @default(true) @map("is_active")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  user       User    @relation(fields: [userId], references: [id])
+  society    Society @relation(fields: [societyId], references: [id])
+  approvedBy User?   @relation("PetApprovedBy", fields: [approvedById], references: [id])
+
+  @@unique([userId, petSeq])
+  @@map("pets")
+}
+
+/// 24b. DomesticHelper — Phase 2 stub for resident domestic helpers.
+model DomesticHelper {
+  id                 String         @id @default(uuid()) @db.Uuid
+  userId             String         @map("user_id") @db.Uuid
+  societyId          String         @map("society_id") @db.Uuid
+  helperId           String?        @unique @map("helper_id") @db.VarChar(60)
+  helperSeq          Int            @map("helper_seq")
+  name               String         @db.VarChar(100)
+  category           HelperCategory
+  otherCategory      String?        @map("other_category") @db.VarChar(50)
+  mobile             String?        @db.VarChar(15)
+  idProofUrl         String?        @map("id_proof_url") @db.VarChar(500)
+  photoUrl           String?        @map("photo_url") @db.VarChar(500)
+  policeVerified     Boolean        @default(false) @map("police_verified")
+  policeVerifDocUrl  String?        @map("police_verif_doc_url") @db.VarChar(500)
+  entryTimeFrom      String?        @map("entry_time_from") @db.VarChar(5)
+  entryTimeTo        String?        @map("entry_time_to") @db.VarChar(5)
+  entryDays          Json?          @map("entry_days")
+  address            String?        @db.VarChar(300)
+  status             HelperStatus   @default(ACTIVE)
+  createdAt          DateTime       @default(now()) @map("created_at")
+  updatedAt          DateTime       @updatedAt @map("updated_at")
+
+  user    User    @relation(fields: [userId], references: [id])
+  society Society @relation(fields: [societyId], references: [id])
+
+  @@unique([userId, helperSeq])
+  @@map("domestic_helpers")
 }
 
 /// 24. Designation — governing body designations per society.
