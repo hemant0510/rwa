@@ -17,10 +17,34 @@ vi.mock("@/lib/fee-calculator", () => ({
 
 import { GET } from "@/app/api/v1/residents/me/route";
 
+const userFixture = {
+  id: "u1",
+  name: "Hemant Bhagat",
+  email: "hemant@test.com",
+  mobile: "9876543210",
+  rwaid: "EDEN-001",
+  status: "ACTIVE_PAID",
+  ownershipType: "OWNER",
+  photoUrl: null,
+  idProofUrl: null,
+  ownershipProofUrl: null,
+  isEmailVerified: false,
+  bloodGroup: null,
+  householdStatus: "NOT_SET",
+  vehicleStatus: "NOT_SET",
+  consentWhatsapp: false,
+  showInDirectory: false,
+  society: { name: "Eden Estate", societyCode: "EDEN" },
+  userUnits: [{ unit: { displayLabel: "A-101" } }],
+  governingBodyMembership: null,
+};
+
 describe("GET /api/v1/residents/me", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(console, "error").mockImplementation(() => {});
     mockGetActiveSocietyId.mockResolvedValue(null);
+    mockPrisma.$transaction.mockResolvedValue([0, 0, null]);
   });
 
   it("returns 401 when not authenticated", async () => {
@@ -51,19 +75,7 @@ describe("GET /api/v1/residents/me", () => {
       data: { user: { id: "auth-1" } },
       error: null,
     });
-    mockPrisma.user.findFirst.mockResolvedValue({
-      id: "u1",
-      name: "Hemant Bhagat",
-      email: "hemant@test.com",
-      mobile: "9876543210",
-      rwaid: "EDEN-001",
-      status: "ACTIVE_PAID",
-      ownershipType: "OWNER",
-      society: { name: "Eden Estate", societyCode: "EDEN" },
-      userUnits: [{ unit: { displayLabel: "A-101" } }],
-      governingBodyMembership: null,
-    });
-    mockPrisma.membershipFee.findFirst.mockResolvedValue(null);
+    mockPrisma.user.findFirst.mockResolvedValue(userFixture);
 
     const res = await GET();
     const body = await res.json();
@@ -75,9 +87,15 @@ describe("GET /api/v1/residents/me", () => {
     expect(body.rwaid).toBe("EDEN-001");
     expect(body.status).toBe("ACTIVE_PAID");
     expect(body.ownershipType).toBe("OWNER");
+    expect(body.bloodGroup).toBeNull();
+    expect(body.householdStatus).toBe("NOT_SET");
+    expect(body.vehicleStatus).toBe("NOT_SET");
+    expect(body.showInDirectory).toBe(false);
     expect(body.societyName).toBe("Eden Estate");
     expect(body.unit).toBe("A-101");
     expect(body.designation).toBeNull();
+    expect(body.completeness).toBeDefined();
+    expect(body.completeness.percentage).toBe(10); // mobile only → A2 (10/100)
   });
 
   it("returns designation when user is governing body member", async () => {
@@ -86,18 +104,10 @@ describe("GET /api/v1/residents/me", () => {
       error: null,
     });
     mockPrisma.user.findFirst.mockResolvedValue({
-      id: "u1",
-      name: "Hemant",
-      email: "h@test.com",
-      mobile: "9999999999",
-      rwaid: "EDEN-001",
-      status: "ACTIVE_PAID",
-      ownershipType: "OWNER",
-      society: { name: "Eden Estate", societyCode: "EDEN" },
+      ...userFixture,
       userUnits: [],
       governingBodyMembership: { designation: { name: "President" } },
     });
-    mockPrisma.membershipFee.findFirst.mockResolvedValue(null);
 
     const res = await GET();
     const body = await res.json();
@@ -110,24 +120,17 @@ describe("GET /api/v1/residents/me", () => {
       data: { user: { id: "auth-1" } },
       error: null,
     });
-    mockPrisma.user.findFirst.mockResolvedValue({
-      id: "u1",
-      name: "Test",
-      email: "t@test.com",
-      mobile: "1111111111",
-      rwaid: "TEST-001",
-      status: "ACTIVE_PAID",
-      ownershipType: "OWNER",
-      society: { name: "Test", societyCode: "TEST" },
-      userUnits: [],
-      governingBodyMembership: null,
-    });
-    mockPrisma.membershipFee.findFirst.mockResolvedValue({
-      sessionYear: "2025-26",
-      amountDue: 1200,
-      amountPaid: 1200,
-      status: "PAID",
-    });
+    mockPrisma.user.findFirst.mockResolvedValue(userFixture);
+    mockPrisma.$transaction.mockResolvedValue([
+      0,
+      0,
+      {
+        sessionYear: "2025-26",
+        amountDue: 1200,
+        amountPaid: 1200,
+        status: "PAID",
+      },
+    ]);
 
     const res = await GET();
     const body = await res.json();
@@ -144,19 +147,7 @@ describe("GET /api/v1/residents/me", () => {
       data: { user: { id: "auth-1" } },
       error: null,
     });
-    mockPrisma.user.findFirst.mockResolvedValue({
-      id: "u1",
-      name: "Test",
-      email: "t@test.com",
-      mobile: "1111111111",
-      rwaid: "TEST-001",
-      status: "ACTIVE_PAID",
-      ownershipType: "OWNER",
-      society: { name: "Test", societyCode: "TEST" },
-      userUnits: [],
-      governingBodyMembership: null,
-    });
-    mockPrisma.membershipFee.findFirst.mockResolvedValue(null);
+    mockPrisma.user.findFirst.mockResolvedValue(userFixture);
 
     const res = await GET();
     const body = await res.json();
@@ -169,19 +160,7 @@ describe("GET /api/v1/residents/me", () => {
       data: { user: { id: "auth-1" } },
       error: null,
     });
-    mockPrisma.user.findFirst.mockResolvedValue({
-      id: "u1",
-      name: "Test",
-      email: "t@test.com",
-      mobile: "1111111111",
-      rwaid: "TEST-001",
-      status: "ACTIVE_PAID",
-      ownershipType: "OWNER",
-      society: { name: "Test", societyCode: "TEST" },
-      userUnits: [],
-      governingBodyMembership: null,
-    });
-    mockPrisma.membershipFee.findFirst.mockResolvedValue(null);
+    mockPrisma.user.findFirst.mockResolvedValue(userFixture);
 
     await GET();
 
@@ -193,6 +172,61 @@ describe("GET /api/v1/residents/me", () => {
         }),
       }),
     );
+  });
+
+  it("includes completeness object based on user data", async () => {
+    mockSupabaseClient.auth.getUser.mockResolvedValueOnce({
+      data: { user: { id: "auth-1" } },
+      error: null,
+    });
+    mockPrisma.user.findFirst.mockResolvedValue({
+      ...userFixture,
+      photoUrl: "photo.jpg",
+      isEmailVerified: true,
+      bloodGroup: "O_POS",
+      idProofUrl: "id.pdf",
+      ownershipProofUrl: "proof.pdf",
+      householdStatus: "HAS_ENTRIES",
+      vehicleStatus: "HAS_ENTRIES",
+    });
+    mockPrisma.$transaction.mockResolvedValue([1, 1, null]);
+
+    const res = await GET();
+    const body = await res.json();
+    expect(body.completeness.percentage).toBe(100);
+    expect(body.completeness.tier).toBe("VERIFIED");
+    expect(body.completeness.items).toHaveLength(9);
+    expect(body.completeness.nextIncompleteItem).toBeNull();
+  });
+
+  it("completeness reflects missing photo as incomplete", async () => {
+    mockSupabaseClient.auth.getUser.mockResolvedValueOnce({
+      data: { user: { id: "auth-1" } },
+      error: null,
+    });
+    mockPrisma.user.findFirst.mockResolvedValue(userFixture);
+
+    const res = await GET();
+    const body = await res.json();
+    expect(body.completeness.nextIncompleteItem.key).toBe("A1");
+    expect(body.completeness.items.find((i: { key: string }) => i.key === "A1").completed).toBe(
+      false,
+    );
+  });
+
+  it("returns null societyName when society relation is missing", async () => {
+    mockSupabaseClient.auth.getUser.mockResolvedValueOnce({
+      data: { user: { id: "auth-1" } },
+      error: null,
+    });
+    mockPrisma.user.findFirst.mockResolvedValue({
+      ...userFixture,
+      society: null,
+    });
+
+    const res = await GET();
+    const body = await res.json();
+    expect(body.societyName).toBeNull();
   });
 
   it("handles server errors gracefully", async () => {

@@ -27,6 +27,7 @@ export async function getResidents(
     ownershipType?: string;
     year?: string;
     docStatus?: "none" | "partial" | "full";
+    completeness?: "incomplete" | "basic" | "standard" | "complete" | "verified";
   },
 ) {
   const searchParams = new URLSearchParams();
@@ -39,6 +40,7 @@ export async function getResidents(
     searchParams.set("ownershipType", params.ownershipType);
   if (params?.year && params.year !== "all") searchParams.set("year", params.year);
   if (params?.docStatus) searchParams.set("docStatus", params.docStatus);
+  if (params?.completeness) searchParams.set("completeness", params.completeness);
 
   const res = await fetch(`${API_BASE}/residents?societyId=${societyId}&${searchParams}`);
   if (!res.ok) throw new Error("Failed to fetch residents");

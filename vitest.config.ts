@@ -101,6 +101,8 @@ export default defineConfig({
         "src/app/api/v1/admin/vehicles/**",
         "src/app/api/v1/residents/me/settings/**",
         "src/app/api/v1/residents/me/profile/**",
+        "src/lib/utils/profile-completeness.ts",
+        "src/services/profile.ts",
       ],
       exclude: [
         "src/lib/prisma.ts",

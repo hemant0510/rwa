@@ -4,6 +4,18 @@ import { internalError, forbiddenError, unauthorizedError } from "@/lib/api-help
 import { getFullAccessAdmin } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { computeCompleteness, type TierLabel } from "@/lib/utils/profile-completeness";
+
+const COMPLETENESS_FILTERS = ["incomplete", "basic", "standard", "complete", "verified"] as const;
+type CompletenessFilter = (typeof COMPLETENESS_FILTERS)[number];
+
+function tierMatches(tier: TierLabel, filter: CompletenessFilter) {
+  if (filter === "incomplete") return tier !== "VERIFIED";
+  if (filter === "basic") return tier === "BASIC";
+  if (filter === "standard") return tier === "STANDARD";
+  if (filter === "complete") return tier === "COMPLETE";
+  return tier === "VERIFIED";
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,6 +27,12 @@ export async function GET(request: NextRequest) {
     const ownershipType = searchParams.get("ownershipType");
     const year = searchParams.get("year");
     const docStatus = searchParams.get("docStatus"); // "none" | "partial" | "full"
+    const completenessParam = searchParams.get("completeness");
+    const completenessFilter = COMPLETENESS_FILTERS.includes(
+      completenessParam as CompletenessFilter,
+    )
+      ? (completenessParam as CompletenessFilter)
+      : null;
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "20");
 
@@ -130,21 +148,54 @@ export async function GET(request: NextRequest) {
             orderBy: { createdAt: "asc" },
             select: { registrationNumber: true },
           },
+          dependents: {
+            where: { isEmergencyContact: true, isActive: true },
+            select: { id: true, bloodGroup: true },
+            take: 5,
+          },
         },
       }),
       prisma.user.count({ where }),
     ]);
 
-    // Generate signed photo URLs + map family/vehicle summaries
+    // Generate signed photo URLs + map family/vehicle summaries + completeness
     const supabaseAdmin = createAdminClient();
-    const dataWithPhotos = await Promise.all(
+    const dataEnriched = await Promise.all(
       data.map(async (resident) => {
         const familyCount = resident._count?.dependents ?? 0;
         const vehicleSummary = {
           count: resident.vehiclesOwned?.length ?? 0,
           firstReg: resident.vehiclesOwned?.[0]?.registrationNumber ?? null,
         };
-        const base = { ...resident, familyCount, vehicleSummary };
+
+        const hasEmergencyContact = (resident.dependents?.length ?? 0) > 0;
+        const emergencyContactHasBloodGroup = (resident.dependents ?? []).some(
+          (d: { bloodGroup: string | null }) => d.bloodGroup !== null,
+        );
+
+        const completeness = computeCompleteness({
+          photoUrl: resident.photoUrl,
+          mobile: resident.mobile,
+          isEmailVerified: resident.isEmailVerified,
+          bloodGroup: resident.bloodGroup,
+          idProofUrl: resident.idProofUrl,
+          ownershipProofUrl: resident.ownershipProofUrl,
+          ownershipType: resident.ownershipType,
+          hasEmergencyContact,
+          householdStatus: resident.householdStatus,
+          vehicleStatus: resident.vehicleStatus,
+          consentWhatsapp: resident.consentWhatsapp,
+          showInDirectory: resident.showInDirectory,
+          emergencyContactHasBloodGroup,
+        });
+
+        const base = {
+          ...resident,
+          familyCount,
+          vehicleSummary,
+          completenessScore: completeness.percentage,
+          tier: completeness.tier,
+        };
 
         if (!resident.photoUrl) return base;
         const { data: signedData } = await supabaseAdmin.storage
@@ -154,7 +205,12 @@ export async function GET(request: NextRequest) {
       }),
     );
 
-    return NextResponse.json({ data: dataWithPhotos, total, page, limit });
+    // Completeness filter applied in-memory after fetch — page size may shrink
+    const filtered = completenessFilter
+      ? dataEnriched.filter((r) => tierMatches(r.tier, completenessFilter))
+      : dataEnriched;
+
+    return NextResponse.json({ data: filtered, total, page, limit });
   } catch {
     return internalError("Failed to fetch residents");
   }

@@ -45,6 +45,12 @@ describe("residents service", () => {
       expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining("docStatus=full"));
     });
 
+    it("fetches residents with completeness param", async () => {
+      mockFetch.mockResolvedValue(okJson({ data: [], total: 0 }));
+      await getResidents("soc-1", { completeness: "incomplete" });
+      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining("completeness=incomplete"));
+    });
+
     it("throws on error", async () => {
       mockFetch.mockResolvedValue({ ok: false });
       await expect(getResidents("soc-1")).rejects.toThrow("Failed to fetch residents");

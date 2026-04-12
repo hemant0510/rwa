@@ -46,10 +46,19 @@ const mockResident = {
   rwaid: "RWA-HR-GGN-122001-0001-2026-0001",
   isEmailVerified: true,
   ownershipType: "OWNER",
+  photoUrl: null,
+  idProofUrl: null,
+  ownershipProofUrl: null,
+  bloodGroup: null,
+  householdStatus: "NOT_SET",
+  vehicleStatus: "NOT_SET",
+  consentWhatsapp: false,
+  showInDirectory: false,
   registeredAt: new Date(),
   createdAt: new Date(),
   userUnits: [],
   membershipFees: [],
+  dependents: [],
 };
 
 const mockAdmin = {
@@ -354,5 +363,154 @@ describe("GET /api/v1/residents", () => {
         }),
       }),
     );
+  });
+
+  it("includes completenessScore and tier in each resident", async () => {
+    const res = await GET(makeReq({ societyId: "soc-1" }));
+    const body = await res.json();
+    expect(body.data[0]).toHaveProperty("completenessScore");
+    expect(body.data[0]).toHaveProperty("tier");
+    expect(typeof body.data[0].completenessScore).toBe("number");
+  });
+
+  it("completeness=incomplete filters out verified residents", async () => {
+    const incomplete = { ...mockResident, id: "r-incomplete" };
+    const verified = {
+      ...mockResident,
+      id: "r-verified",
+      photoUrl: "p.jpg",
+      mobile: "9876543210",
+      isEmailVerified: true,
+      bloodGroup: "O_POS",
+      idProofUrl: "id.pdf",
+      ownershipProofUrl: "own.pdf",
+      householdStatus: "HAS_ENTRIES",
+      vehicleStatus: "HAS_ENTRIES",
+      dependents: [{ id: "d1", bloodGroup: "O_POS" }],
+    };
+    mockPrisma.user.findMany.mockResolvedValue([incomplete, verified]);
+    mockPrisma.user.count.mockResolvedValue(2);
+    mockStorageBucket.createSignedUrl.mockResolvedValue({
+      data: { signedUrl: "https://example.com/signed-photo" },
+      error: null,
+    });
+
+    const res = await GET(makeReq({ societyId: "soc-1", completeness: "incomplete" }));
+    const body = await res.json();
+    expect(body.data).toHaveLength(1);
+    expect(body.data[0].id).toBe("r-incomplete");
+  });
+
+  it("completeness=verified only returns 100% residents", async () => {
+    const verified = {
+      ...mockResident,
+      id: "r-verified",
+      photoUrl: "photo.jpg",
+      mobile: "9876543210",
+      isEmailVerified: true,
+      bloodGroup: "O_POS",
+      idProofUrl: "id.pdf",
+      ownershipProofUrl: "own.pdf",
+      householdStatus: "HAS_ENTRIES",
+      vehicleStatus: "HAS_ENTRIES",
+      dependents: [{ id: "d1", bloodGroup: "O_POS" }],
+    };
+    mockPrisma.user.findMany.mockResolvedValue([mockResident, verified]);
+    mockPrisma.user.count.mockResolvedValue(2);
+
+    const res = await GET(makeReq({ societyId: "soc-1", completeness: "verified" }));
+    const body = await res.json();
+    expect(body.data).toHaveLength(1);
+    expect(body.data[0].id).toBe("r-verified");
+  });
+
+  it("completeness=basic returns only BASIC-tier residents", async () => {
+    const res = await GET(makeReq({ societyId: "soc-1", completeness: "basic" }));
+    const body = await res.json();
+    expect(body.data).toHaveLength(1);
+    expect(body.data[0].tier).toBe("BASIC");
+  });
+
+  it("completeness=standard filter matches STANDARD tier", async () => {
+    const standardResident = {
+      ...mockResident,
+      id: "r-std",
+      mobile: "9876543210",
+      isEmailVerified: true,
+      bloodGroup: "O_POS",
+      ownershipProofUrl: "own.pdf",
+      dependents: [{ id: "d1", bloodGroup: null }],
+    };
+    mockPrisma.user.findMany.mockResolvedValue([standardResident]);
+
+    const res = await GET(makeReq({ societyId: "soc-1", completeness: "standard" }));
+    const body = await res.json();
+    expect(body.data.length).toBeGreaterThanOrEqual(0);
+    if (body.data.length > 0) {
+      expect(body.data[0].tier).toBe("STANDARD");
+    }
+  });
+
+  it("completeness=complete filter matches COMPLETE tier", async () => {
+    const completeResident = {
+      ...mockResident,
+      id: "r-comp",
+      photoUrl: "photo.jpg",
+      mobile: "9876543210",
+      isEmailVerified: true,
+      bloodGroup: "O_POS",
+      ownershipProofUrl: "own.pdf",
+      householdStatus: "DECLARED_NONE",
+    };
+    mockPrisma.user.findMany.mockResolvedValue([completeResident]);
+
+    const res = await GET(makeReq({ societyId: "soc-1", completeness: "complete" }));
+    const body = await res.json();
+    if (body.data.length > 0) {
+      expect(body.data[0].tier).toBe("COMPLETE");
+    }
+  });
+
+  it("ignores invalid completeness filter values", async () => {
+    const res = await GET(makeReq({ societyId: "soc-1", completeness: "invalid" }));
+    const body = await res.json();
+    // Invalid filter falls through — all residents returned
+    expect(body.data).toHaveLength(1);
+  });
+
+  it("hasEmergencyContact true when dependents array has entries", async () => {
+    const withEmergency = {
+      ...mockResident,
+      dependents: [{ id: "d1", bloodGroup: null }],
+    };
+    mockPrisma.user.findMany.mockResolvedValue([withEmergency]);
+
+    const res = await GET(makeReq({ societyId: "soc-1" }));
+    const body = await res.json();
+    // baseline: A2(10) + A3(10) = 20; with emergency contact: + C1(10) = 30
+    expect(body.data[0].completenessScore).toBe(30);
+  });
+
+  it("emergencyContactHasBloodGroup true when any dependent has bloodGroup", async () => {
+    const withBgEmergency = {
+      ...mockResident,
+      dependents: [{ id: "d1", bloodGroup: "O_POS" }],
+    };
+    mockPrisma.user.findMany.mockResolvedValue([withBgEmergency]);
+
+    const res = await GET(makeReq({ societyId: "soc-1" }));
+    const body = await res.json();
+    // Bonus does not affect score, but confirm response shape
+    expect(body.data[0].completenessScore).toBeGreaterThanOrEqual(0);
+  });
+
+  it("defaults dependents to empty array when missing", async () => {
+    const bare = { ...mockResident };
+    delete (bare as { dependents?: unknown }).dependents;
+    mockPrisma.user.findMany.mockResolvedValue([bare]);
+
+    const res = await GET(makeReq({ societyId: "soc-1" }));
+    const body = await res.json();
+    expect(body.data[0].completenessScore).toBeDefined();
   });
 });

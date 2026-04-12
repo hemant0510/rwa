@@ -19,6 +19,12 @@ export interface User {
   registeredAt: string;
   approvedAt: string | null;
   createdAt: string;
+  bloodGroup?: string | null;
+  householdStatus?: "NOT_SET" | "DECLARED_NONE" | "HAS_ENTRIES";
+  vehicleStatus?: "NOT_SET" | "DECLARED_NONE" | "HAS_ENTRIES";
+  showInDirectory?: boolean;
+  completenessScore?: number;
+  tier?: TierLabel;
 }
 
 export type UserRole = "RWA_ADMIN" | "RESIDENT";
@@ -55,3 +61,28 @@ export const RESIDENT_STATUS_LABELS: Record<ResidentStatus, string> = {
   TRANSFERRED_DEACTIVATED: "Transferred",
   TENANT_DEPARTED: "Tenant Departed",
 };
+
+export type TierLabel = "BASIC" | "STANDARD" | "COMPLETE" | "VERIFIED";
+
+export interface CompletenessItem {
+  key: string;
+  label: string;
+  completed: boolean;
+  points: number;
+}
+
+export interface CompletenessBonus {
+  key: string;
+  label: string;
+  completed: boolean;
+}
+
+export interface CompletenessResult {
+  percentage: number;
+  tier: TierLabel;
+  earned: number;
+  possible: number;
+  items: CompletenessItem[];
+  bonus: CompletenessBonus[];
+  nextIncompleteItem: CompletenessItem | null;
+}
