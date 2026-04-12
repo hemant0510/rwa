@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search");
+    const optinOnly = searchParams.get("optinOnly") !== "false";
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "20");
 
@@ -33,6 +34,10 @@ export async function GET(request: NextRequest) {
       status: { in: APPROVED_STATUSES },
       id: { not: user.userId },
     };
+
+    if (optinOnly) {
+      where.showInDirectory = true;
+    }
 
     if (search) {
       where.OR = [
@@ -54,6 +59,7 @@ export async function GET(request: NextRequest) {
           mobile: true,
           ownershipType: true,
           photoUrl: true,
+          showPhoneInDirectory: true,
           userUnits: {
             select: { unit: { select: { displayLabel: true } } },
             take: 1,
@@ -78,7 +84,7 @@ export async function GET(request: NextRequest) {
           id: r.id,
           name: r.name,
           email: r.email,
-          mobile: maskMobile(r.mobile),
+          mobile: r.showPhoneInDirectory ? maskMobile(r.mobile) : null,
           ownershipType: r.ownershipType,
           unit: r.userUnits[0]?.unit?.displayLabel ?? null,
           photoUrl: photoSignedUrl,

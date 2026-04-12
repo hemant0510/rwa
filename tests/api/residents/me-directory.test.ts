@@ -49,7 +49,7 @@ describe("GET /api/v1/residents/me/directory", () => {
     expect(body.error.code).toBe("FORBIDDEN");
   });
 
-  it("returns paginated residents with masked mobile and photoUrl", async () => {
+  it("returns paginated residents with masked mobile and photoUrl when showPhoneInDirectory=true", async () => {
     mockGetCurrentUser.mockResolvedValue(currentUser);
     mockPrisma.user.findMany.mockResolvedValue([
       {
@@ -59,6 +59,7 @@ describe("GET /api/v1/residents/me/directory", () => {
         mobile: "9876543210",
         ownershipType: "OWNER",
         photoUrl: "soc-1/u2/photo.jpg",
+        showPhoneInDirectory: true,
         userUnits: [{ unit: { displayLabel: "A-101" } }],
       },
       {
@@ -68,6 +69,7 @@ describe("GET /api/v1/residents/me/directory", () => {
         mobile: "8765432109",
         ownershipType: "TENANT",
         photoUrl: null,
+        showPhoneInDirectory: true,
         userUnits: [],
       },
     ]);
@@ -99,6 +101,52 @@ describe("GET /api/v1/residents/me/directory", () => {
     expect(body.total).toBe(2);
     expect(body.page).toBe(1);
     expect(body.limit).toBe(20);
+  });
+
+  it("returns mobile: null when showPhoneInDirectory=false", async () => {
+    mockGetCurrentUser.mockResolvedValue(currentUser);
+    mockPrisma.user.findMany.mockResolvedValue([
+      {
+        id: "u2",
+        name: "Anita Patel",
+        email: "anita@test.com",
+        mobile: "9876543210",
+        ownershipType: "OWNER",
+        photoUrl: null,
+        showPhoneInDirectory: false,
+        userUnits: [],
+      },
+    ]);
+    mockPrisma.user.count.mockResolvedValue(1);
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+    expect(body.residents[0].mobile).toBeNull();
+  });
+
+  it("filters by showInDirectory=true by default (optinOnly)", async () => {
+    mockGetCurrentUser.mockResolvedValue(currentUser);
+    mockPrisma.user.findMany.mockResolvedValue([]);
+    mockPrisma.user.count.mockResolvedValue(0);
+
+    await GET(makeRequest());
+
+    expect(mockPrisma.user.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ showInDirectory: true }),
+      }),
+    );
+  });
+
+  it("omits the showInDirectory filter when optinOnly=false", async () => {
+    mockGetCurrentUser.mockResolvedValue(currentUser);
+    mockPrisma.user.findMany.mockResolvedValue([]);
+    mockPrisma.user.count.mockResolvedValue(0);
+
+    await GET(makeRequest({ optinOnly: "false" }));
+
+    const arg = mockPrisma.user.findMany.mock.calls[0][0];
+    expect(arg.where.showInDirectory).toBeUndefined();
   });
 
   it("excludes current user from directory", async () => {
@@ -181,7 +229,7 @@ describe("GET /api/v1/residents/me/directory", () => {
     expect(body.total).toBe(50);
   });
 
-  it("handles resident with null mobile and photoUrl", async () => {
+  it("handles resident with null mobile and photoUrl (phone visible)", async () => {
     mockGetCurrentUser.mockResolvedValue(currentUser);
     mockPrisma.user.findMany.mockResolvedValue([
       {
@@ -191,6 +239,7 @@ describe("GET /api/v1/residents/me/directory", () => {
         mobile: null,
         ownershipType: null,
         photoUrl: null,
+        showPhoneInDirectory: true,
         userUnits: [],
       },
     ]);
@@ -231,6 +280,7 @@ describe("GET /api/v1/residents/me/directory", () => {
         mobile: "9876543210",
         ownershipType: "OWNER",
         photoUrl: "soc-1/u2/photo.jpg",
+        showPhoneInDirectory: true,
         userUnits: [{ unit: { displayLabel: "A-101" } }],
       },
     ]);

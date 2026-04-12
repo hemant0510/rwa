@@ -199,6 +199,19 @@ ALTER TABLE societies
   ADD COLUMN allow_resident_vehicle_search BOOLEAN NOT NULL DEFAULT TRUE,
   ADD COLUMN max_vehicles_per_unit         INT     NOT NULL DEFAULT 5;
 
+-- One-time data migration (Group 6): preserve existing directory behaviour
+-- for currently-active residents after optinOnly filter ships. Without this,
+-- the directory would appear empty on deploy. showPhoneInDirectory stays FALSE;
+-- residents opt in to phone visibility explicitly.
+UPDATE users SET show_in_directory = true
+WHERE status IN (
+  'ACTIVE_PAID',
+  'ACTIVE_PENDING',
+  'ACTIVE_OVERDUE',
+  'ACTIVE_PARTIAL',
+  'ACTIVE_EXEMPTED'
+);
+
 -- ═══════════════════════════════════════════════════════
 -- STEP 8: Indexes
 -- NOTE: idx_vehicles_society_reg (society_id, registration_number) already exists.
