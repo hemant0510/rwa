@@ -8,6 +8,7 @@ import {
   uploadVehiclePhoto,
   uploadVehicleRc,
   uploadVehicleInsurance,
+  searchVehicles,
 } from "@/services/vehicles";
 
 const mockFetch = vi.fn();
@@ -212,6 +213,46 @@ describe("vehicles service", () => {
       mockFetch.mockResolvedValue(errorNoJson());
       const file = new File(["x"], "rc.pdf", { type: "application/pdf" });
       await expect(uploadVehicleRc("veh-1", file)).rejects.toThrow("Failed to upload RC document");
+    });
+  });
+
+  // ── searchVehicles ──────────────────────────────────────────────────────────
+
+  describe("searchVehicles", () => {
+    const mockResults = [
+      {
+        id: "veh-1",
+        registrationNumber: "DL3CAB1234",
+        vehicleType: "FOUR_WHEELER",
+        make: "Maruti",
+        model: "Swift",
+        colour: "White",
+        unit: { displayLabel: "A-101" },
+        owner: { name: "Resident User" },
+        dependentOwner: null,
+      },
+    ];
+
+    it("fetches vehicles by search query", async () => {
+      mockFetch.mockResolvedValue(okJson({ vehicles: mockResults }));
+      const result = await searchVehicles("DL3");
+      expect(result).toHaveLength(1);
+      expect(result[0].registrationNumber).toBe("DL3CAB1234");
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining("/api/v1/residents/me/vehicles/search?q=DL3"),
+      );
+    });
+
+    it("throws error message from API on failure", async () => {
+      mockFetch.mockResolvedValue(errorJson("Search query must be at least 3 characters"));
+      await expect(searchVehicles("DL")).rejects.toThrow(
+        "Search query must be at least 3 characters",
+      );
+    });
+
+    it("throws fallback message when error has no json", async () => {
+      mockFetch.mockResolvedValue(errorNoJson());
+      await expect(searchVehicles("DL3")).rejects.toThrow("Failed to search vehicles");
     });
   });
 

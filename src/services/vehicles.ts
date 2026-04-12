@@ -113,6 +113,30 @@ export async function uploadVehicleRc(id: string, file: File): Promise<{ url: st
   return res.json();
 }
 
+export interface VehicleSearchResult {
+  id: string;
+  registrationNumber: string;
+  vehicleType: string;
+  make: string | null;
+  model: string | null;
+  colour: string | null;
+  unit: { displayLabel: string } | null;
+  owner: { name: string } | null;
+  dependentOwner: { name: string } | null;
+}
+
+export async function searchVehicles(q: string): Promise<VehicleSearchResult[]> {
+  const url = new URL("/api/v1/residents/me/vehicles/search", "http://localhost");
+  url.searchParams.set("q", q);
+  const res = await fetch(url.pathname + url.search);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.error?.message ?? "Failed to search vehicles");
+  }
+  const body = await res.json();
+  return body.vehicles;
+}
+
 export async function uploadVehicleInsurance(id: string, file: File): Promise<{ url: string }> {
   const formData = new FormData();
   formData.append("file", file);
