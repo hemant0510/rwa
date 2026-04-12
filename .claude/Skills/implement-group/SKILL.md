@@ -66,6 +66,19 @@ There is no third option. A plan saying "no test needed" only means the original
 - If it does NOT exist: treat it as a "New" page and create it
 - The "Extend" label in a plan assumes the page already exists — a missing "Extend" page is a plan error, not a reason to skip
 
+**e2) "UI already complete / skip" page verification — NEVER TRUST THE LABEL**: If the plan marks any page or component as "UI already complete", "skip during implementation", "UI done", "reference only", or any similar phrase, treat it as a hypothesis, not a fact. For EVERY such file:
+
+1. Grep or `ls` the filesystem at the expected path to confirm the file exists:
+   ```bash
+   ls src/app/r/profile/family/page.tsx  # adjust to each claimed path
+   ```
+2. If the file does NOT exist → this is a plan error. STOP. Do not apply the backend-only shortcut in Step 7. You have two options:
+   - Build the missing UI file now as part of this group (preferred if the plan has a wireframe/spec for it), OR
+   - Report it explicitly as a plan error in Step 8 and ask the user whether to add it to this group's scope or a separate plan
+3. If the file exists but the group's APIs require UI changes to be usable → grep the file for the expected integration (link, section, form field) and verify it's actually present. A file that exists but doesn't wire up the new backend is still a gap.
+
+Why this matters: "UI already complete" is the exact label that caused a prior multi-phase plan to ship with zero working UI. The plan author claimed the UI was done; no one checked the filesystem; the user only discovered it after all phases were marked green. Never repeat that.
+
 ---
 
 ## Step 3 — TodoWrite task list
@@ -166,7 +179,18 @@ grep -n "UI Pages Summary\|Component Inventory\|API Endpoints\|Test File Map" <p
 # Read those sections (offset/limit) to find rows relevant to this group
 ```
 
-**Backend-only group shortcut**: If the group contains ONLY API routes, utilities, services, validations, or types — and explicitly has no pages or components (e.g. the plan marks all UI as "already done" or "skip during implementation") — then Categories C, D, and E are auto-✅ N/A. Skip those three and audit only A, B, F, G. Note "C/D/E: N/A — backend-only group" in the report.
+**Backend-only group shortcut — TWO conditions required, both empirical**:
+
+The shortcut can only be applied if BOTH are true:
+
+1. The group's file table lists ZERO pages, components, or client modules (`src/app/**/page.tsx`, `src/app/**/layout.tsx`, `src/components/**`).
+2. Every page or component the group's APIs are meant to feed — whether marked "Extend", "UI already complete", "reference only", or "skip during implementation" — has been filesystem-verified to exist per Step 2e and 2e2.
+
+If both conditions hold, Categories C, D, and E are auto-✅ N/A. Note "C/D/E: N/A — backend-only group, UI pre-existence verified on disk" in the report.
+
+If the plan _claims_ UI exists but Step 2e2 found missing files → the shortcut DOES NOT APPLY. You must either build the missing UI in this group or report the gap in Step 8 and let the user decide.
+
+Plan labels are not evidence. `ls` is evidence.
 
 Verify each category:
 
@@ -185,12 +209,14 @@ Verify each category:
 **C. Page Navigation Checklist** — for every page in the group AND every page in the plan's global UI Pages Summary that this group touches:
 
 ```
-✅/❌ /path — New or Extend?
+✅/❌ /path — New, Extend, or "UI already complete"?
      New: navigation entry point exists (link/card from parent, sidebar item, etc.)
      Extend: target file confirmed to exist AND extension confirmed to be present
+     UI already complete / skip / reference only: target file confirmed to exist on
+       disk — if NOT, this is a plan error and the shortcut does not apply
 ```
 
-If any "Extend" page doesn't exist → create it. If any "New" page has no navigation entry → add one.
+If any "Extend" or "UI already complete" page doesn't exist → create it (or report as plan gap if out of scope). If any "New" page has no navigation entry → add one. NEVER trust the label alone; `ls` is the source of truth.
 
 **D. UI Spec Checklist** — for every page, read its wireframe/spec element by element:
 

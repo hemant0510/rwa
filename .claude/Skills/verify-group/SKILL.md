@@ -44,11 +44,39 @@ Do NOT rely on previous session output or memory alone — read actual source fi
 
 Execute categories A–G (same as `/implement-group` Step 7).
 
-**Backend-only group shortcut**: If the group contains ONLY API routes, utilities, services, validations, or types — and the plan explicitly marks all UI as "already done" or "skip during implementation" — then Categories C, D, and E are auto-✅ N/A. Skip those three and audit only A, B, F, G. Note "C/D/E: N/A — backend-only group" in the report.
+### Mandatory pre-audit check — filesystem-verify every UI claim
+
+Before running the audit, grep the plan for every label that asserts pre-existing UI, and verify each claimed file exists on disk:
+
+```bash
+grep -nE "UI already complete|UI done|skip during implementation|reference only|already complete" <plan-file>
+```
+
+For every file path referenced by those sections, run `ls` (or the Read tool) at the expected path. Build a list:
+
+```
+✅ src/app/r/profile/family/page.tsx        — exists
+❌ src/app/r/profile/vehicles/page.tsx      — MISSING (plan claims "UI done")
+```
+
+Any ❌ on this list is a plan error and MUST be fixed in this audit — either by building the missing UI in this session, or by explicitly reporting it in Step 5 so the user can decide next steps. A ❌ here DISABLES the backend-only shortcut below.
+
+### Backend-only group shortcut — TWO conditions required, both empirical
+
+The shortcut can only apply if BOTH are true:
+
+1. The group's file table lists ZERO pages, components, or client modules.
+2. The pre-audit check above found zero missing files — every page or component the group's APIs feed exists on disk.
+
+If both hold, Categories C, D, and E are auto-✅ N/A. Note "C/D/E: N/A — backend-only group, UI pre-existence verified on disk" in the report.
+
+If any UI claim fails the pre-audit check, the shortcut DOES NOT APPLY. You must audit C/D/E normally, and fix or report every gap.
+
+Plan labels are not evidence. `ls` is evidence.
 
 **Critical differences from implement-group audit:**
 
-- **Category C (Page Navigation)**: check the plan's global UI Pages Summary for ALL rows, not just rows in the group section. Every "Extend" page listed anywhere in the plan must exist. If it doesn't and belongs to this group → create it.
+- **Category C (Page Navigation)**: check the plan's global UI Pages Summary for ALL rows, not just rows in the group section. Every page labeled "Extend", "UI already complete", "skip during implementation", or similar must be confirmed to exist on disk. A missing file is a plan error — create it or report it, never silently mark ✅.
 - **Category G (Tests)**: for each source file in this group, run the per-file coverage command empirically. **Do not read the plan's "no test needed" claim and mark ✅ — the plan is not the pre-commit hook.** Run the command, read the output, see the number. Zero percent = commit will fail.
 
 ---
