@@ -19,7 +19,6 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -384,50 +383,63 @@ export default function ResidentEventsPage() {
           description={showAll ? "No events to display." : "No upcoming events at the moment."}
         />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {events.map((event) => (
-            <Card
-              key={event.id}
-              className="hover:bg-muted/30 cursor-pointer transition-colors"
-              onClick={() => handleSelectEvent(event)}
-            >
-              <CardContent className="space-y-3 pt-4 pb-4">
-                <div className="flex items-start justify-between gap-2">
-                  <h3 className="text-sm leading-tight font-semibold">{event.title}</h3>
-                  <Badge variant="outline" className="shrink-0 text-xs">
-                    {CATEGORY_LABELS[event.category] ?? event.category}
-                  </Badge>
+        <div className="bg-card divide-y rounded-xl border shadow-sm">
+          {events.map((event) => {
+            const eventDate = new Date(event.eventDate);
+            const regBadge = getCardRegistrationBadge(event);
+            return (
+              <button
+                key={event.id}
+                type="button"
+                className="hover:bg-muted/40 flex w-full items-center gap-4 px-4 py-3.5 text-left transition-colors sm:px-5"
+                onClick={() => handleSelectEvent(event)}
+              >
+                {/* Date block */}
+                <div className="bg-primary/8 border-primary/20 flex w-12 shrink-0 flex-col items-center rounded-lg border py-2">
+                  <span className="text-primary text-xs font-semibold uppercase">
+                    {format(eventDate, "MMM")}
+                  </span>
+                  <span className="text-primary text-xl leading-tight font-bold">
+                    {format(eventDate, "d")}
+                  </span>
                 </div>
 
-                <div className="text-muted-foreground space-y-1 text-xs">
-                  <div className="flex items-center gap-1.5">
-                    <CalendarDays className="h-3.5 w-3.5" />
-                    {format(new Date(event.eventDate), "dd MMM yyyy")}
+                {/* Details */}
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1">
+                    <span className="text-sm leading-tight font-semibold">{event.title}</span>
+                    <Badge variant="outline" className="shrink-0 text-[10px] leading-tight">
+                      {CATEGORY_LABELS[event.category] ?? event.category}
+                    </Badge>
                   </div>
-                  {event.location && (
-                    <div className="flex items-center gap-1.5">
-                      <MapPin className="h-3.5 w-3.5" />
-                      {event.location}
+
+                  <div className="text-muted-foreground mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs">
+                    {event.location && (
+                      <span className="flex items-center gap-1">
+                        <MapPin className="h-3 w-3 shrink-0" />
+                        {event.location}
+                      </span>
+                    )}
+                    <span className="text-primary font-medium">{getFeeDisplay(event)}</span>
+                  </div>
+
+                  {(regBadge || event.status === "COMPLETED") && (
+                    <div className="mt-1.5 flex items-center gap-2">
+                      {regBadge}
+                      {event.status === "COMPLETED" && event.settledAt && (
+                        <span className="text-primary text-xs font-medium">View summary →</span>
+                      )}
+                      {event.status === "COMPLETED" && !event.settledAt && (
+                        <Badge variant="secondary" className="text-[10px]">
+                          Completed
+                        </Badge>
+                      )}
                     </div>
                   )}
                 </div>
-
-                <div className="flex items-center justify-between">
-                  <span className="text-primary text-sm font-medium">{getFeeDisplay(event)}</span>
-                  {getCardRegistrationBadge(event)}
-                </div>
-
-                {event.status === "COMPLETED" && event.settledAt && (
-                  <p className="text-primary text-xs font-medium">View financial summary →</p>
-                )}
-                {event.status === "COMPLETED" && !event.settledAt && (
-                  <Badge variant="secondary" className="text-xs">
-                    Completed
-                  </Badge>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+              </button>
+            );
+          })}
         </div>
       )}
 

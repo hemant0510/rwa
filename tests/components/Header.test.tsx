@@ -72,4 +72,10 @@ describe("Header", () => {
     render(<Header title="Test" searchBar={<input data-testid="search-bar" />} />);
     expect(screen.getByTestId("search-bar")).toBeInTheDocument();
   });
+
+  it("renders avatar without error when userPhotoUrl is provided", () => {
+    render(<Header title="Test" userPhotoUrl="https://example.com/photo.jpg" userName="Hemant" />);
+    // AvatarImage is instantiated; initials fallback still visible since image never loads in jsdom
+    expect(screen.getByText("H")).toBeInTheDocument();
+  });
 });

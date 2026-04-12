@@ -4,7 +4,7 @@ import Link from "next/link";
 
 import { LogOut, Menu, User } from "lucide-react";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -18,6 +18,8 @@ interface HeaderProps {
   title: string;
   subtitle?: string;
   userName?: string;
+  userPhotoUrl?: string | null;
+  profileHref?: string;
   onMenuToggle?: () => void;
   onSignOut?: () => void;
   showMenuButton?: boolean;
@@ -29,6 +31,8 @@ export function Header({
   title,
   subtitle,
   userName = "User",
+  userPhotoUrl,
+  profileHref = "/admin/profile",
   onMenuToggle,
   onSignOut,
   showMenuButton,
@@ -65,13 +69,14 @@ export function Header({
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-9 w-9 rounded-full">
               <Avatar className="h-9 w-9">
+                {userPhotoUrl && <AvatarImage src={userPhotoUrl} alt={userName} />}
                 <AvatarFallback>{initials}</AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem asChild>
-              <Link href="/admin/profile">
+              <Link href={profileHref}>
                 <User className="mr-2 h-4 w-4" />
                 Profile
               </Link>

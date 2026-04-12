@@ -273,7 +273,8 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [BASE_EVENT] });
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText("15 Mar 2026")).toBeInTheDocument();
+      expect(screen.getByText("Mar")).toBeInTheDocument();
+      expect(screen.getByText("15")).toBeInTheDocument();
     });
   });
 
@@ -391,7 +392,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [COMPLETED_SETTLED] });
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText("View financial summary →")).toBeInTheDocument();
+      expect(screen.getByText("View summary →")).toBeInTheDocument();
     });
   });
 
@@ -409,7 +410,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [BASE_EVENT] });
     renderPage();
     await waitFor(() => screen.getByText("Holi 2026"));
-    fireEvent.click(screen.getByText("Holi 2026").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Holi 2026").closest("button")!);
     await waitFor(() => {
       expect(screen.getByRole("dialog")).toBeInTheDocument();
     });
@@ -421,7 +422,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [BASE_EVENT] });
     renderPage();
     await waitFor(() => screen.getByText("Holi 2026"));
-    fireEvent.click(screen.getByText("Holi 2026").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Holi 2026").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getAllByText("Club House").length).toBeGreaterThan(0);
@@ -431,7 +432,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [BASE_EVENT] });
     renderPage();
     await waitFor(() => screen.getByText("Holi 2026"));
-    fireEvent.click(screen.getByText("Holi 2026").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Holi 2026").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText("Annual Holi celebration")).toBeInTheDocument();
@@ -442,7 +443,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [ev] });
     renderPage();
     await waitFor(() => screen.getByText("Holi 2026"));
-    fireEvent.click(screen.getByText("Holi 2026").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Holi 2026").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText(/Registration closes.*10 Mar 2026/)).toBeInTheDocument();
@@ -453,7 +454,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [ev] });
     renderPage();
     await waitFor(() => screen.getByText("Sports Day"));
-    fireEvent.click(screen.getByText("Sports Day").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Sports Day").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText(/Estimated budget.*50,000/)).toBeInTheDocument();
@@ -464,7 +465,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [ev] });
     renderPage();
     await waitFor(() => screen.getByText("Sports Day"));
-    fireEvent.click(screen.getByText("Sports Day").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Sports Day").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText(/Min. participants.*50/)).toBeInTheDocument();
@@ -474,7 +475,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [BASE_EVENT] });
     renderPage();
     await waitFor(() => screen.getByText("Holi 2026"));
-    fireEvent.click(screen.getByText("Holi 2026").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Holi 2026").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText("10 registered")).toBeInTheDocument();
@@ -484,7 +485,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [BASE_EVENT] });
     renderPage();
     await waitFor(() => screen.getByText("Holi 2026"));
-    fireEvent.click(screen.getByText("Holi 2026").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Holi 2026").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const closeButton = document.querySelector("[data-radix-collection-item]") as Element;
     if (closeButton) {
@@ -500,7 +501,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [FREE_EVENT] });
     renderPage();
     await waitFor(() => screen.getByText("AGM Meeting"));
-    fireEvent.click(screen.getByText("AGM Meeting").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("AGM Meeting").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByRole("button", { name: /I'm In/i })).toBeInTheDocument();
@@ -510,7 +511,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [FREE_EVENT] });
     renderPage();
     await waitFor(() => screen.getByText("AGM Meeting"));
-    fireEvent.click(screen.getByText("AGM Meeting").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("AGM Meeting").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     // FREE + PER_PERSON still shows member count selector for headcount tracking
@@ -525,7 +526,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [BASE_EVENT] });
     renderPage();
     await waitFor(() => screen.getByText("Holi 2026"));
-    fireEvent.click(screen.getByText("Holi 2026").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Holi 2026").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText("How many family members?")).toBeInTheDocument();
@@ -535,7 +536,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [BASE_EVENT] });
     renderPage();
     await waitFor(() => screen.getByText("Holi 2026"));
-    fireEvent.click(screen.getByText("Holi 2026").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Holi 2026").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     // Default memberCount=1: 1 × ₹200 = ₹200
@@ -546,7 +547,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [BASE_EVENT] });
     renderPage();
     await waitFor(() => screen.getByText("Holi 2026"));
-    fireEvent.click(screen.getByText("Holi 2026").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Holi 2026").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     const stepperSection = within(dialog).getByText("How many family members?").parentElement!;
@@ -561,7 +562,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [BASE_EVENT] });
     renderPage();
     await waitFor(() => screen.getByText("Holi 2026"));
-    fireEvent.click(screen.getByText("Holi 2026").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Holi 2026").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     const stepperSection = within(dialog).getByText("How many family members?").parentElement!;
@@ -576,7 +577,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [BASE_EVENT] });
     renderPage();
     await waitFor(() => screen.getByText("Holi 2026"));
-    fireEvent.click(screen.getByText("Holi 2026").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Holi 2026").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByRole("button", { name: /Register.*₹200/i })).toBeInTheDocument();
@@ -588,7 +589,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [FIXED_PER_HOUSEHOLD] });
     renderPage();
     await waitFor(() => screen.getByText("Picnic"));
-    fireEvent.click(screen.getByText("Picnic").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Picnic").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     expect(screen.queryByText("How many family members?")).not.toBeInTheDocument();
   });
@@ -597,7 +598,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [FIXED_PER_HOUSEHOLD] });
     renderPage();
     await waitFor(() => screen.getByText("Picnic"));
-    fireEvent.click(screen.getByText("Picnic").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Picnic").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByRole("button", { name: /Register.*₹1,000/i })).toBeInTheDocument();
@@ -609,7 +610,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [FLEXIBLE_POLLING] });
     renderPage();
     await waitFor(() => screen.getByText("Sports Day"));
-    fireEvent.click(screen.getByText("Sports Day").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Sports Day").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByRole("button", { name: /I'm Interested/i })).toBeInTheDocument();
@@ -619,7 +620,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [FLEXIBLE_POLLING] });
     renderPage();
     await waitFor(() => screen.getByText("Sports Day"));
-    fireEvent.click(screen.getByText("Sports Day").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Sports Day").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText("How many family members?")).toBeInTheDocument();
@@ -631,7 +632,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [FLEXIBLE_PAYMENT] });
     renderPage();
     await waitFor(() => screen.getByText("Diwali 2026"));
-    fireEvent.click(screen.getByText("Diwali 2026").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Diwali 2026").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByRole("button", { name: /Register.*₹500/i })).toBeInTheDocument();
@@ -643,7 +644,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [CONTRIBUTION_PER_HOUSEHOLD] });
     renderPage();
     await waitFor(() => screen.getByText("Mata ki Chowki"));
-    fireEvent.click(screen.getByText("Mata ki Chowki").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Mata ki Chowki").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByRole("button", { name: /I'm Participating/i })).toBeInTheDocument();
@@ -659,7 +660,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [ev] });
     renderPage();
     await waitFor(() => screen.getByText("AGM Meeting"));
-    fireEvent.click(screen.getByText("AGM Meeting").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("AGM Meeting").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText("Going ✓")).toBeInTheDocument();
@@ -673,7 +674,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [ev] });
     renderPage();
     await waitFor(() => screen.getByText("Mata ki Chowki"));
-    fireEvent.click(screen.getByText("Mata ki Chowki").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Mata ki Chowki").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText("Participating ✓")).toBeInTheDocument();
@@ -689,7 +690,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [ev] });
     renderPage();
     await waitFor(() => screen.getByText("Sports Day"));
-    fireEvent.click(screen.getByText("Sports Day").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Sports Day").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText(/You're interested \(3 members\)/)).toBeInTheDocument();
@@ -704,7 +705,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [ev] });
     renderPage();
     await waitFor(() => screen.getByText("Sports Day"));
-    fireEvent.click(screen.getByText("Sports Day").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Sports Day").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText(/You're interested \(1 member\)/)).toBeInTheDocument();
@@ -720,7 +721,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [ev] });
     renderPage();
     await waitFor(() => screen.getByText("Holi 2026"));
-    fireEvent.click(screen.getByText("Holi 2026").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Holi 2026").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText("Payment Required")).toBeInTheDocument();
@@ -740,7 +741,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [ev] });
     renderPage();
     await waitFor(() => screen.getByText("Holi 2026"));
-    fireEvent.click(screen.getByText("Holi 2026").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Holi 2026").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     expect(
@@ -756,7 +757,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [ev] });
     renderPage();
     await waitFor(() => screen.getByText("Holi 2026"));
-    fireEvent.click(screen.getByText("Holi 2026").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Holi 2026").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText(/1 member\b/)).toBeInTheDocument();
@@ -769,7 +770,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [ev] });
     renderPage();
     await waitFor(() => screen.getByText("Holi 2026"));
-    fireEvent.click(screen.getByText("Holi 2026").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Holi 2026").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText("Registration closed")).toBeInTheDocument();
@@ -780,7 +781,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [ev] });
     renderPage();
     await waitFor(() => screen.getByText("Holi 2026"));
-    fireEvent.click(screen.getByText("Holi 2026").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Holi 2026").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText("Event full")).toBeInTheDocument();
@@ -790,7 +791,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [COMPLETED_SETTLED] });
     renderPage();
     await waitFor(() => screen.getByText("Navratri 2025"));
-    fireEvent.click(screen.getByText("Navratri 2025").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Navratri 2025").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText("This event has ended.")).toBeInTheDocument();
@@ -803,7 +804,7 @@ describe("ResidentEventsPage", () => {
     mockRegisterForEvent.mockResolvedValue({ id: "r1", status: "CONFIRMED" });
     renderPage();
     await waitFor(() => screen.getByText("AGM Meeting"));
-    fireEvent.click(screen.getByText("AGM Meeting").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("AGM Meeting").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     fireEvent.click(within(dialog).getByRole("button", { name: /I'm In/i }));
@@ -817,7 +818,7 @@ describe("ResidentEventsPage", () => {
     mockRegisterForEvent.mockResolvedValue({ id: "r1", status: "PENDING" });
     renderPage();
     await waitFor(() => screen.getByText("Holi 2026"));
-    fireEvent.click(screen.getByText("Holi 2026").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Holi 2026").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     // Increment member count to 2
@@ -835,7 +836,7 @@ describe("ResidentEventsPage", () => {
     mockRegisterForEvent.mockResolvedValue({ id: "r1", status: "CONFIRMED" });
     renderPage();
     await waitFor(() => screen.getByText("AGM Meeting"));
-    fireEvent.click(screen.getByText("AGM Meeting").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("AGM Meeting").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: /I'm In/i }));
     await waitFor(() => {
@@ -848,7 +849,7 @@ describe("ResidentEventsPage", () => {
     mockRegisterForEvent.mockRejectedValue(new Error("Event is full"));
     renderPage();
     await waitFor(() => screen.getByText("AGM Meeting"));
-    fireEvent.click(screen.getByText("AGM Meeting").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("AGM Meeting").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: /I'm In/i }));
     await waitFor(() => {
@@ -865,7 +866,7 @@ describe("ResidentEventsPage", () => {
     mockCancelRegistration.mockResolvedValue({ id: "r1", status: "CANCELLED" });
     renderPage();
     await waitFor(() => screen.getByText("Sports Day"));
-    fireEvent.click(screen.getByText("Sports Day").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Sports Day").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     fireEvent.click(within(dialog).getByRole("button", { name: /Cancel Interest/i }));
@@ -883,7 +884,7 @@ describe("ResidentEventsPage", () => {
     mockCancelRegistration.mockResolvedValue({ id: "r1", status: "CANCELLED" });
     renderPage();
     await waitFor(() => screen.getByText("Sports Day"));
-    fireEvent.click(screen.getByText("Sports Day").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Sports Day").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     fireEvent.click(
       within(screen.getByRole("dialog")).getByRole("button", { name: /Cancel Interest/i }),
@@ -902,7 +903,7 @@ describe("ResidentEventsPage", () => {
     mockCancelRegistration.mockRejectedValue(new Error("Cannot cancel after payment"));
     renderPage();
     await waitFor(() => screen.getByText("Sports Day"));
-    fireEvent.click(screen.getByText("Sports Day").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Sports Day").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     fireEvent.click(
       within(screen.getByRole("dialog")).getByRole("button", { name: /Cancel Interest/i }),
@@ -921,7 +922,7 @@ describe("ResidentEventsPage", () => {
     mockCancelRegistration.mockResolvedValue({ id: "r1", status: "CANCELLED" });
     renderPage();
     await waitFor(() => screen.getByText("Holi 2026"));
-    fireEvent.click(screen.getByText("Holi 2026").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Holi 2026").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     fireEvent.click(
       within(screen.getByRole("dialog")).getByRole("button", { name: /Cancel Registration/i }),
@@ -938,7 +939,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEventFinances.mockResolvedValue(MOCK_FINANCES);
     renderPage();
     await waitFor(() => screen.getByText("Navratri 2025"));
-    fireEvent.click(screen.getByText("Navratri 2025").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Navratri 2025").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     await waitFor(() => {
@@ -951,7 +952,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEventFinances.mockResolvedValue(MOCK_FINANCES);
     renderPage();
     await waitFor(() => screen.getByText("Navratri 2025"));
-    fireEvent.click(screen.getByText("Navratri 2025").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Navratri 2025").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     await waitFor(() => {
@@ -965,7 +966,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEventFinances.mockResolvedValue(MOCK_FINANCES);
     renderPage();
     await waitFor(() => screen.getByText("Navratri 2025"));
-    fireEvent.click(screen.getByText("Navratri 2025").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Navratri 2025").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     await waitFor(() => {
@@ -985,7 +986,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEventFinances.mockResolvedValue(deficitFinances);
     renderPage();
     await waitFor(() => screen.getByText("Navratri 2025"));
-    fireEvent.click(screen.getByText("Navratri 2025").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Navratri 2025").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     await waitFor(() => {
@@ -1001,7 +1002,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEventFinances.mockResolvedValue(MOCK_FINANCES);
     renderPage();
     await waitFor(() => screen.getByText("Navratri 2025"));
-    fireEvent.click(screen.getByText("Navratri 2025").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Navratri 2025").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     await waitFor(() => {
@@ -1016,7 +1017,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [COMPLETED_UNSETTLED] });
     renderPage();
     await waitFor(() => screen.getByText("Dussehra 2025"));
-    fireEvent.click(screen.getByText("Dussehra 2025").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Dussehra 2025").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     expect(
@@ -1029,7 +1030,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEventFinances.mockReturnValue(new Promise(() => {})); // never resolves
     renderPage();
     await waitFor(() => screen.getByText("Navratri 2025"));
-    fireEvent.click(screen.getByText("Navratri 2025").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Navratri 2025").closest("button")!);
     await waitFor(() => {
       expect(screen.getByRole("dialog")).toBeInTheDocument();
     });
@@ -1045,7 +1046,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [BASE_EVENT] });
     renderPage();
     await waitFor(() => screen.getByText("Holi 2026"));
-    fireEvent.click(screen.getByText("Holi 2026").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Holi 2026").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     expect(mockGetResidentEventFinances).not.toHaveBeenCalled();
   });
@@ -1101,7 +1102,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [ev] });
     renderPage();
     await waitFor(() => screen.getByText("Holi 2026"));
-    fireEvent.click(screen.getByText("Holi 2026").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Holi 2026").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText("Registration not open")).toBeInTheDocument();
@@ -1115,7 +1116,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEventFinances.mockResolvedValue(finances);
     renderPage();
     await waitFor(() => screen.getByText("Navratri 2025"));
-    fireEvent.click(screen.getByText("Navratri 2025").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Navratri 2025").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     await waitFor(() => {
@@ -1129,7 +1130,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEventFinances.mockResolvedValue(finances);
     renderPage();
     await waitFor(() => screen.getByText("Navratri 2025"));
-    fireEvent.click(screen.getByText("Navratri 2025").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Navratri 2025").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     await waitFor(() => {
@@ -1143,7 +1144,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEventFinances.mockResolvedValue(finances);
     renderPage();
     await waitFor(() => screen.getByText("Navratri 2025"));
-    fireEvent.click(screen.getByText("Navratri 2025").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Navratri 2025").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     await waitFor(() => {
@@ -1157,7 +1158,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEventFinances.mockResolvedValue(finances);
     renderPage();
     await waitFor(() => screen.getByText("Navratri 2025"));
-    fireEvent.click(screen.getByText("Navratri 2025").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Navratri 2025").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     await waitFor(() => {
@@ -1171,7 +1172,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEventFinances.mockResolvedValue(finances);
     renderPage();
     await waitFor(() => screen.getByText("Navratri 2025"));
-    fireEvent.click(screen.getByText("Navratri 2025").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Navratri 2025").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     await waitFor(() => {
@@ -1187,7 +1188,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEventFinances.mockResolvedValue(finances);
     renderPage();
     await waitFor(() => screen.getByText("Navratri 2025"));
-    fireEvent.click(screen.getByText("Navratri 2025").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Navratri 2025").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     await waitFor(() => {
@@ -1232,7 +1233,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [ev] });
     renderPage();
     await waitFor(() => screen.getByText("Holi 2026"));
-    fireEvent.click(screen.getByText("Holi 2026").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Holi 2026").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).queryByText(/registered/)).not.toBeInTheDocument();
@@ -1245,7 +1246,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [ev] });
     renderPage();
     await waitFor(() => screen.getByText("Holi 2026"));
-    fireEvent.click(screen.getByText("Holi 2026").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Holi 2026").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).queryByText("Annual Holi celebration")).not.toBeInTheDocument();
@@ -1256,7 +1257,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [ev] });
     renderPage();
     await waitFor(() => screen.getByText("Holi 2026"));
-    fireEvent.click(screen.getByText("Holi 2026").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Holi 2026").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).queryByText("Club House")).not.toBeInTheDocument();
@@ -1268,7 +1269,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [BASE_EVENT] });
     renderPage();
     await waitFor(() => screen.getByText("Holi 2026"));
-    fireEvent.click(screen.getByText("Holi 2026").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Holi 2026").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     const stepperSection = within(dialog).getByText("How many family members?").parentElement!;
@@ -1289,7 +1290,7 @@ describe("ResidentEventsPage", () => {
     const user = userEvent.setup();
     renderPage();
     await waitFor(() => screen.getByText("Holi 2026"));
-    fireEvent.click(screen.getByText("Holi 2026").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Holi 2026").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     // Press Escape to close the sheet — Radix calls onOpenChange(false)
     await user.keyboard("{Escape}");
@@ -1314,7 +1315,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [ev] });
     renderPage();
     await waitFor(() => screen.getByText("Holi 2026"));
-    fireEvent.click(screen.getByText("Holi 2026").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Holi 2026").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByRole("button", { name: /^Register$/i })).toBeInTheDocument();
@@ -1325,7 +1326,7 @@ describe("ResidentEventsPage", () => {
     mockRegisterForEvent.mockReturnValue(new Promise(() => {})); // never resolves
     renderPage();
     await waitFor(() => screen.getByText("AGM Meeting"));
-    fireEvent.click(screen.getByText("AGM Meeting").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("AGM Meeting").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     fireEvent.click(within(dialog).getByRole("button", { name: /I'm In/i }));
@@ -1342,7 +1343,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [ev] });
     renderPage();
     await waitFor(() => screen.getByText("Holi 2026"));
-    fireEvent.click(screen.getByText("Holi 2026").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Holi 2026").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     // Fallback: raw string shown in sheet badges
@@ -1355,7 +1356,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEventFinances.mockResolvedValue(null);
     renderPage();
     await waitFor(() => screen.getByText("Navratri 2025"));
-    fireEvent.click(screen.getByText("Navratri 2025").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Navratri 2025").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     await waitFor(() => {
@@ -1369,7 +1370,7 @@ describe("ResidentEventsPage", () => {
     mockGetResidentEvents.mockResolvedValue({ data: [BASE_EVENT] });
     renderPage();
     await waitFor(() => screen.getByText("Holi 2026"));
-    fireEvent.click(screen.getByText("Holi 2026").closest("[class*='cursor-pointer']")!);
+    fireEvent.click(screen.getByText("Holi 2026").closest("button")!);
     await waitFor(() => screen.getByRole("dialog"));
     const dialog = screen.getByRole("dialog");
     const stepperSection = within(dialog).getByText("How many family members?").parentElement!;
