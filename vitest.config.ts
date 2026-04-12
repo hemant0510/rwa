@@ -96,6 +96,9 @@ export default defineConfig({
         "src/app/api/v1/residents/me/support/**",
         "src/app/api/v1/admin/resident-support/**",
         "src/app/r/support/**",
+        "src/app/api/v1/residents/[id]/family/**",
+        "src/app/api/v1/residents/[id]/vehicles/**",
+        "src/app/api/v1/admin/vehicles/**",
       ],
       exclude: [
         "src/lib/prisma.ts",

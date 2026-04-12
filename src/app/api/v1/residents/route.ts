@@ -122,20 +122,35 @@ export async function GET(request: NextRequest) {
             orderBy: { createdAt: "desc" },
             take: 1,
           },
+          _count: {
+            select: { dependents: { where: { isActive: true } } },
+          },
+          vehiclesOwned: {
+            where: { isActive: true },
+            orderBy: { createdAt: "asc" },
+            select: { registrationNumber: true },
+          },
         },
       }),
       prisma.user.count({ where }),
     ]);
 
-    // Generate signed photo URLs for residents that have photos
+    // Generate signed photo URLs + map family/vehicle summaries
     const supabaseAdmin = createAdminClient();
     const dataWithPhotos = await Promise.all(
       data.map(async (resident) => {
-        if (!resident.photoUrl) return resident;
+        const familyCount = resident._count?.dependents ?? 0;
+        const vehicleSummary = {
+          count: resident.vehiclesOwned?.length ?? 0,
+          firstReg: resident.vehiclesOwned?.[0]?.registrationNumber ?? null,
+        };
+        const base = { ...resident, familyCount, vehicleSummary };
+
+        if (!resident.photoUrl) return base;
         const { data: signedData } = await supabaseAdmin.storage
           .from("resident-photos")
           .createSignedUrl(resident.photoUrl, 60 * 60);
-        return { ...resident, photoUrl: signedData?.signedUrl ?? null };
+        return { ...base, photoUrl: signedData?.signedUrl ?? null };
       }),
     );
 

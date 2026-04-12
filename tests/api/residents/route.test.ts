@@ -315,4 +315,44 @@ describe("GET /api/v1/residents", () => {
       ]),
     );
   });
+
+  it("includes familyCount and vehicleSummary in each resident response", async () => {
+    const residentWithCounts = {
+      ...mockResident,
+      _count: { dependents: 3 },
+      vehiclesOwned: [{ registrationNumber: "DL3CAB1234" }, { registrationNumber: "MH12AB5678" }],
+    };
+    mockPrisma.user.findMany.mockResolvedValue([residentWithCounts]);
+
+    const res = await GET(makeReq({ societyId: "soc-1" }));
+    const body = await res.json();
+    expect(body.data[0].familyCount).toBe(3);
+    expect(body.data[0].vehicleSummary).toEqual({ count: 2, firstReg: "DL3CAB1234" });
+  });
+
+  it("defaults familyCount to 0 and vehicleSummary to empty when _count and vehicles are missing", async () => {
+    const bareResident = { ...mockResident };
+    mockPrisma.user.findMany.mockResolvedValue([bareResident]);
+
+    const res = await GET(makeReq({ societyId: "soc-1" }));
+    const body = await res.json();
+    expect(body.data[0].familyCount).toBe(0);
+    expect(body.data[0].vehicleSummary).toEqual({ count: 0, firstReg: null });
+  });
+
+  it("queries vehicles sorted by createdAt asc with registrationNumber selected", async () => {
+    await GET(makeReq({ societyId: "soc-1" }));
+    expect(mockPrisma.user.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: expect.objectContaining({
+          _count: { select: { dependents: { where: { isActive: true } } } },
+          vehiclesOwned: {
+            where: { isActive: true },
+            orderBy: { createdAt: "asc" },
+            select: { registrationNumber: true },
+          },
+        }),
+      }),
+    );
+  });
 });

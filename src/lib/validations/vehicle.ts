@@ -28,5 +28,18 @@ export const vehicleUpdateSchema = vehicleBaseSchema
   .omit({ unitId: true }) // unitId cannot be changed after creation
   .partial();
 
+// Admin-only vehicle update — restricted to slot/sticker/validity fields.
+// Cannot change: registrationNumber, ownerId, vehicleType, document URLs.
+export const vehicleAdminUpdateSchema = z
+  .object({
+    parkingSlot: z.string().max(20).nullable().optional(),
+    stickerNumber: z.string().max(20).nullable().optional(),
+    evSlot: z.string().max(20).nullable().optional(),
+    validFrom: z.string().date().nullable().optional(),
+    validTo: z.string().date().nullable().optional(),
+  })
+  .strict();
+
 export type VehicleInput = z.infer<typeof vehicleSchema>;
 export type VehicleUpdateInput = z.infer<typeof vehicleUpdateSchema>;
+export type VehicleAdminUpdateInput = z.infer<typeof vehicleAdminUpdateSchema>;
