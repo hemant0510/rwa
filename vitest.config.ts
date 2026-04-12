@@ -100,6 +100,7 @@ export default defineConfig({
         "src/app/api/v1/residents/[id]/vehicles/**",
         "src/app/api/v1/admin/vehicles/**",
         "src/app/api/v1/residents/me/settings/**",
+        "src/app/api/v1/residents/me/profile/**",
       ],
       exclude: [
         "src/lib/prisma.ts",
