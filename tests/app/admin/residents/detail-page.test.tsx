@@ -1597,4 +1597,54 @@ describe("ResidentDetailPage", () => {
     );
     expect(screen.queryByText("Edit Resident")).not.toBeInTheDocument();
   });
+
+  it("renders Overview / Family / Vehicles tabs on detail page", async () => {
+    mockGetResident.mockResolvedValue({ ...MOCK_ACTIVE_RESIDENT });
+    mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({ url: null }) });
+    await renderPage();
+    await waitFor(() => {
+      expect(screen.getByRole("tab", { name: "Overview" })).toBeInTheDocument();
+    });
+    expect(screen.getByRole("tab", { name: "Family" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Vehicles" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Overview" })).toHaveAttribute("data-state", "active");
+  });
+
+  it("switches to Family tab and fetches family data", async () => {
+    mockGetResident.mockResolvedValue({ ...MOCK_ACTIVE_RESIDENT });
+    mockFetch.mockImplementation((url: string) => {
+      if (typeof url === "string" && url.includes("/family")) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ members: [] }) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ url: null }) });
+    });
+    const user = userEvent.setup();
+    await renderPage();
+    await waitFor(() => {
+      expect(screen.getByRole("tab", { name: "Family" })).toBeInTheDocument();
+    });
+    await user.click(screen.getByRole("tab", { name: "Family" }));
+    await waitFor(() => {
+      expect(screen.getByText(/no family members/i)).toBeInTheDocument();
+    });
+  });
+
+  it("switches to Vehicles tab and fetches vehicle data", async () => {
+    mockGetResident.mockResolvedValue({ ...MOCK_ACTIVE_RESIDENT });
+    mockFetch.mockImplementation((url: string) => {
+      if (typeof url === "string" && url.includes("/vehicles")) {
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ vehicles: [] }) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ url: null }) });
+    });
+    const user = userEvent.setup();
+    await renderPage();
+    await waitFor(() => {
+      expect(screen.getByRole("tab", { name: "Vehicles" })).toBeInTheDocument();
+    });
+    await user.click(screen.getByRole("tab", { name: "Vehicles" }));
+    await waitFor(() => {
+      expect(screen.getByText(/no vehicles/i)).toBeInTheDocument();
+    });
+  });
 });

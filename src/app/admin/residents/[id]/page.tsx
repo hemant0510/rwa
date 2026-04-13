@@ -29,6 +29,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { ResidentFamilyTab } from "@/components/features/admin/ResidentFamilyTab";
+import { ResidentVehiclesTab } from "@/components/features/admin/ResidentVehiclesTab";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -61,6 +63,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSocietyId } from "@/hooks/useSocietyId";
 import { maskMobile } from "@/lib/utils";
 import {
@@ -315,137 +318,161 @@ export default function ResidentDetailPage({ params }: { params: Promise<{ id: s
         </div>
       )}
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Personal Details</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <DetailRow label="RWAID" value={resident.rwaid || "Not assigned"} />
-            <DetailRow label="Name" value={resident.name} />
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground flex items-center gap-1 text-sm">
-                <Phone className="h-3 w-3" /> Mobile
-              </span>
-              <div className="flex items-center gap-1.5">
-                <span className="font-mono text-sm font-medium">
-                  {mobileRevealed ? resident.mobile : maskMobile(resident.mobile)}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-5 w-5"
-                  onClick={() => setMobileRevealed((v) => !v)}
-                  aria-label={mobileRevealed ? "Hide mobile number" : "Show mobile number"}
-                >
-                  {mobileRevealed ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-                </Button>
-              </div>
-            </div>
-            {resident.email && (
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground flex items-center gap-1 text-sm">
-                  <Mail className="h-3 w-3" /> Email
-                </span>
-                <span className="text-sm font-medium">{resident.email}</span>
-              </div>
-            )}
-            <DetailRow label="Ownership" value={resident.ownershipType || "—"} />
-            <DetailRow
-              label="Registered"
-              value={format(new Date(resident.registeredAt), "dd MMM yyyy, hh:mm a")}
-            />
-            {resident.approvedAt && (
-              <DetailRow
-                label="Approved"
-                value={format(new Date(resident.approvedAt), "dd MMM yyyy, hh:mm a")}
-              />
-            )}
-          </CardContent>
-        </Card>
+      <Tabs defaultValue="overview">
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="family">Family</TabsTrigger>
+          <TabsTrigger value="vehicles">Vehicles</TabsTrigger>
+        </TabsList>
 
-        {residentData.units && residentData.units.length > 0 && (
+        <TabsContent value="overview" className="space-y-6">
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Personal Details</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <DetailRow label="RWAID" value={resident.rwaid || "Not assigned"} />
+                <DetailRow label="Name" value={resident.name} />
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground flex items-center gap-1 text-sm">
+                    <Phone className="h-3 w-3" /> Mobile
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono text-sm font-medium">
+                      {mobileRevealed ? resident.mobile : maskMobile(resident.mobile)}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5"
+                      onClick={() => setMobileRevealed((v) => !v)}
+                      aria-label={mobileRevealed ? "Hide mobile number" : "Show mobile number"}
+                    >
+                      {mobileRevealed ? (
+                        <EyeOff className="h-3 w-3" />
+                      ) : (
+                        <Eye className="h-3 w-3" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+                {resident.email && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground flex items-center gap-1 text-sm">
+                      <Mail className="h-3 w-3" /> Email
+                    </span>
+                    <span className="text-sm font-medium">{resident.email}</span>
+                  </div>
+                )}
+                <DetailRow label="Ownership" value={resident.ownershipType || "—"} />
+                <DetailRow
+                  label="Registered"
+                  value={format(new Date(resident.registeredAt), "dd MMM yyyy, hh:mm a")}
+                />
+                {resident.approvedAt && (
+                  <DetailRow
+                    label="Approved"
+                    value={format(new Date(resident.approvedAt), "dd MMM yyyy, hh:mm a")}
+                  />
+                )}
+              </CardContent>
+            </Card>
+
+            {residentData.units && residentData.units.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Home className="h-4 w-4" />
+                    Unit Address
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {residentData.units.map((unit) => (
+                    <div key={unit.id} className="bg-muted/30 rounded-md border p-3">
+                      <p className="font-mono font-medium">{unit.displayLabel}</p>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {residentData.fees && residentData.fees.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Fee Records</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {residentData.fees.map((fee) => (
+                    <div
+                      key={fee.id}
+                      className="flex items-center justify-between rounded-md border px-4 py-3"
+                    >
+                      <div>
+                        <p className="font-medium">{fee.sessionYear}</p>
+                        <p className="text-muted-foreground text-sm">
+                          Due: {"\u20B9"}
+                          {fee.amountDue.toLocaleString("en-IN")} | Paid: {"\u20B9"}
+                          {fee.amountPaid.toLocaleString("en-IN")}
+                        </p>
+                      </div>
+                      <StatusBadge status={fee.status as FeeStatus} />
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Documents */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Home className="h-4 w-4" />
-                Unit Address
+                <FileText className="h-4 w-4" />
+                Documents
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              {residentData.units.map((unit) => (
-                <div key={unit.id} className="bg-muted/30 rounded-md border p-3">
-                  <p className="font-mono font-medium">{unit.displayLabel}</p>
-                </div>
-              ))}
+            <CardContent className="space-y-3">
+              <AdminDocCard
+                label="ID Proof"
+                hint="Aadhaar card, Voter ID, Passport, or Driving Licence"
+                hasUploaded={!!residentData.idProofUrl}
+                getEndpoint={`/api/v1/residents/${id}/id-proof`}
+                uploadEndpoint={`/api/v1/residents/${id}/id-proof`}
+                deleteEndpoint={`/api/v1/residents/${id}/id-proof`}
+                accentClass="bg-blue-400"
+              />
+              <AdminDocCard
+                label={
+                  resident.ownershipType === "TENANT"
+                    ? "Tenancy / Rental Agreement"
+                    : "Ownership Proof"
+                }
+                hint={
+                  resident.ownershipType === "TENANT"
+                    ? "Rental agreement or leave & licence deed"
+                    : "Sale deed, registry copy, property tax receipt, or mutation"
+                }
+                hasUploaded={!!residentData.ownershipProofUrl}
+                getEndpoint={`/api/v1/residents/${id}/ownership-proof`}
+                uploadEndpoint={`/api/v1/residents/${id}/ownership-proof`}
+                deleteEndpoint={`/api/v1/residents/${id}/ownership-proof`}
+                accentClass="bg-emerald-400"
+              />
             </CardContent>
           </Card>
-        )}
-      </div>
+        </TabsContent>
 
-      {residentData.fees && residentData.fees.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Fee Records</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {residentData.fees.map((fee) => (
-                <div
-                  key={fee.id}
-                  className="flex items-center justify-between rounded-md border px-4 py-3"
-                >
-                  <div>
-                    <p className="font-medium">{fee.sessionYear}</p>
-                    <p className="text-muted-foreground text-sm">
-                      Due: {"\u20B9"}
-                      {fee.amountDue.toLocaleString("en-IN")} | Paid: {"\u20B9"}
-                      {fee.amountPaid.toLocaleString("en-IN")}
-                    </p>
-                  </div>
-                  <StatusBadge status={fee.status as FeeStatus} />
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+        <TabsContent value="family">
+          <ResidentFamilyTab residentId={id} />
+        </TabsContent>
 
-      {/* Documents */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            Documents
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <AdminDocCard
-            label="ID Proof"
-            hint="Aadhaar card, Voter ID, Passport, or Driving Licence"
-            hasUploaded={!!residentData.idProofUrl}
-            getEndpoint={`/api/v1/residents/${id}/id-proof`}
-            uploadEndpoint={`/api/v1/residents/${id}/id-proof`}
-            deleteEndpoint={`/api/v1/residents/${id}/id-proof`}
-            accentClass="bg-blue-400"
-          />
-          <AdminDocCard
-            label={
-              resident.ownershipType === "TENANT" ? "Tenancy / Rental Agreement" : "Ownership Proof"
-            }
-            hint={
-              resident.ownershipType === "TENANT"
-                ? "Rental agreement or leave & licence deed"
-                : "Sale deed, registry copy, property tax receipt, or mutation"
-            }
-            hasUploaded={!!residentData.ownershipProofUrl}
-            getEndpoint={`/api/v1/residents/${id}/ownership-proof`}
-            uploadEndpoint={`/api/v1/residents/${id}/ownership-proof`}
-            deleteEndpoint={`/api/v1/residents/${id}/ownership-proof`}
-            accentClass="bg-emerald-400"
-          />
-        </CardContent>
-      </Card>
+        <TabsContent value="vehicles">
+          <ResidentVehiclesTab residentId={id} />
+        </TabsContent>
+      </Tabs>
 
       {/* Edit Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>

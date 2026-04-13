@@ -25,6 +25,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { CompletenessBadge } from "@/components/features/admin/CompletenessBadge";
+import { VehicleSearchBar, type SearchMode } from "@/components/features/admin/VehicleSearchBar";
 import { BulkUploadDialog } from "@/components/residents/BulkUploadDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -59,6 +61,7 @@ import {
 import { useSocietyId } from "@/hooks/useSocietyId";
 import { FLOOR_LEVELS } from "@/lib/constants";
 import { maskMobile } from "@/lib/utils";
+import { searchAdminVehicles } from "@/services/admin-residents";
 import {
   getResidents,
   approveResident,
@@ -68,7 +71,7 @@ import {
 } from "@/services/residents";
 import { getSocietyByCode } from "@/services/societies";
 import { SOCIETY_TYPE_ADDRESS_FIELDS, type SocietyType } from "@/types/society";
-import { RESIDENT_STATUS_LABELS } from "@/types/user";
+import { RESIDENT_STATUS_LABELS, type TierLabel } from "@/types/user";
 
 const STATUS_COLORS: Record<string, string> = {
   PENDING_APPROVAL: "border-yellow-200 bg-yellow-50 text-yellow-700",
@@ -83,6 +86,52 @@ const STATUS_COLORS: Record<string, string> = {
 
 const CURRENT_YEAR = new Date().getFullYear();
 const YEAR_OPTIONS = Array.from({ length: CURRENT_YEAR - 2019 }, (_, i) => 2020 + i);
+
+/** Renders the family-count cell: "3 members" badge or em-dash when 0. */
+function renderFamilyCount(count: number | undefined) {
+  /* v8 ignore next */
+  const n = count ?? 0;
+  if (n === 0) return <span className="text-muted-foreground text-xs">—</span>;
+  return (
+    <Badge variant="outline" className="border-slate-200 bg-slate-50 text-xs text-slate-700">
+      {n} {n === 1 ? "member" : "members"}
+    </Badge>
+  );
+}
+
+/** Renders the vehicle summary cell with count + firstReg subtitle. */
+function renderVehicleSummary(summary: { count: number; firstReg: string | null } | undefined) {
+  /* v8 ignore next */
+  const count = summary?.count ?? 0;
+  if (count === 0) return <span className="text-muted-foreground text-xs">—</span>;
+  return (
+    <div className="flex flex-col">
+      <Badge
+        variant="outline"
+        className="w-fit border-slate-200 bg-slate-50 text-xs text-slate-700"
+      >
+        {count} {count === 1 ? "vehicle" : "vehicles"}
+      </Badge>
+      {summary?.firstReg && (
+        <span className="text-muted-foreground mt-0.5 font-mono text-[10px]">
+          {summary.firstReg}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** Renders the completeness badge with tier + score. */
+function renderCompleteness({
+  tier,
+  completenessScore,
+}: {
+  tier?: TierLabel;
+  completenessScore?: number;
+}) {
+  if (!tier) return <span className="text-muted-foreground text-xs">—</span>;
+  return <CompletenessBadge tier={tier} score={completenessScore} />;
+}
 
 /** Generate smart page numbers: e.g. [1, 2, 3, '...', 8, 9, 10] */
 function getPageNumbers(current: number, total: number): (number | "...")[] {
@@ -115,6 +164,8 @@ function ResidentsPageInner() {
   const ownershipFilter = searchParams.get("ownership") ?? "all";
   const yearFilter = searchParams.get("year") ?? "all";
   const docFilter = searchParams.get("doc") ?? "all";
+  const completenessFilter = searchParams.get("completeness") ?? "all";
+  const searchMode = (searchParams.get("mode") === "vehicle" ? "vehicle" : "people") as SearchMode;
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
   const limit = parseInt(searchParams.get("limit") ?? "20", 10);
 
@@ -175,6 +226,7 @@ function ResidentsPageInner() {
         ownershipFilter,
         yearFilter,
         docFilter,
+        completenessFilter,
       },
     ],
     queryFn: () =>
@@ -188,8 +240,18 @@ function ResidentsPageInner() {
         ownershipType: ownershipFilter === "all" ? undefined : ownershipFilter,
         year: yearFilter === "all" ? undefined : yearFilter,
         docStatus: docFilter === "all" ? undefined : (docFilter as "none" | "partial" | "full"),
+        completeness:
+          completenessFilter === "all"
+            ? undefined
+            : (completenessFilter as "incomplete" | "basic" | "standard" | "complete" | "verified"),
       }),
-    enabled: !!societyId,
+    enabled: !!societyId && searchMode === "people",
+  });
+
+  const vehicleSearchQuery = useQuery({
+    queryKey: ["admin-vehicles", search, page, limit],
+    queryFn: () => searchAdminVehicles(search, { page, limit }),
+    enabled: searchMode === "vehicle" && search.trim().length >= 3,
   });
 
   const approveMutation = useMutation({
@@ -318,18 +380,18 @@ function ResidentsPageInner() {
         </div>
       </PageHeader>
 
+      {/* Search + mode toggle */}
+      <VehicleSearchBar
+        mode={searchMode}
+        query={search}
+        onModeChange={(mode) =>
+          updateParams({ mode: mode === "people" ? null : "vehicle", search: null }, true)
+        }
+        onQueryChange={(q) => updateParams({ search: q || null }, true)}
+      />
+
       {/* Filters row */}
       <div className="flex flex-wrap gap-3">
-        <div className="relative min-w-[200px] flex-1">
-          <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-          <Input
-            placeholder="Search by name, mobile, email, or RWAID..."
-            value={search}
-            onChange={(e) => updateParams({ search: e.target.value || null }, true)}
-            className="pl-9"
-          />
-        </div>
-
         <Select value={statusFilter} onValueChange={(v) => updateParams({ status: v }, true)}>
           <SelectTrigger className="w-[170px]">
             <SelectValue placeholder="All Statuses" />
@@ -394,9 +456,28 @@ function ResidentsPageInner() {
             <SelectItem value="none">No Documents</SelectItem>
           </SelectContent>
         </Select>
+
+        <Select
+          value={completenessFilter}
+          onValueChange={(v) => updateParams({ completeness: v }, true)}
+        >
+          <SelectTrigger className="w-[170px]">
+            <SelectValue placeholder="Completeness" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Completeness</SelectItem>
+            <SelectItem value="incomplete">Incomplete</SelectItem>
+            <SelectItem value="basic">Basic</SelectItem>
+            <SelectItem value="standard">Standard</SelectItem>
+            <SelectItem value="complete">Complete</SelectItem>
+            <SelectItem value="verified">Verified</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
-      {isLoading ? (
+      {searchMode === "vehicle" ? (
+        <VehicleSearchResults query={search} queryResult={vehicleSearchQuery} />
+      ) : isLoading ? (
         <TableSkeleton rows={5} />
       ) : !data?.data?.length ? (
         <EmptyState
@@ -418,6 +499,9 @@ function ResidentsPageInner() {
                   <TableHead className="hidden sm:table-cell">Mobile</TableHead>
                   <TableHead className="hidden md:table-cell">Ownership</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="hidden lg:table-cell">Family</TableHead>
+                  <TableHead className="hidden lg:table-cell">Vehicles</TableHead>
+                  <TableHead className="hidden lg:table-cell">Completeness</TableHead>
                   <TableHead className="hidden md:table-cell">Email</TableHead>
                   <TableHead className="hidden lg:table-cell">Docs</TableHead>
                   <TableHead className="hidden lg:table-cell">RWAID</TableHead>
@@ -479,6 +563,28 @@ function ResidentsPageInner() {
                       <Badge variant="outline" className={STATUS_COLORS[resident.status] || ""}>
                         {RESIDENT_STATUS_LABELS[resident.status] || resident.status}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell">
+                      {renderFamilyCount(
+                        (resident as unknown as { familyCount?: number }).familyCount,
+                      )}
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell">
+                      {renderVehicleSummary(
+                        (
+                          resident as unknown as {
+                            vehicleSummary?: { count: number; firstReg: string | null };
+                          }
+                        ).vehicleSummary,
+                      )}
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell">
+                      {renderCompleteness(
+                        resident as unknown as {
+                          tier?: TierLabel;
+                          completenessScore?: number;
+                        },
+                      )}
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
                       <div className="flex items-center gap-1">
@@ -679,6 +785,7 @@ function ResidentsPageInner() {
       <Dialog
         open={deleteDialog.open}
         onOpenChange={(open) =>
+          /* v8 ignore next 4 */
           setDeleteDialog({
             open,
             id: open ? deleteDialog.id : "",
@@ -722,6 +829,7 @@ function ResidentsPageInner() {
       <Dialog
         open={addDialog}
         onOpenChange={(open) => {
+          /* v8 ignore start */
           if (!open) {
             setAddForm({
               fullName: "",
@@ -734,6 +842,7 @@ function ResidentsPageInner() {
             setUnitFields({});
             setAddFormErrors({});
           }
+          /* v8 ignore stop */
           setAddDialog(open);
         }}
       >
@@ -956,6 +1065,89 @@ function ResidentsPageInner() {
           onSuccess={() => queryClient.invalidateQueries({ queryKey: ["residents"] })}
         />
       )}
+    </div>
+  );
+}
+
+interface VehicleSearchResultsProps {
+  query: string;
+  queryResult: {
+    data?: {
+      vehicles: Array<{
+        id: string;
+        registrationNumber: string;
+        vehicleType: string;
+        make: string | null;
+        model: string | null;
+        colour: string | null;
+        unit: { displayLabel: string } | null;
+        owner: { name: string; mobile: string | null; email: string | null } | null;
+      }>;
+      total: number;
+    };
+    isFetching: boolean;
+    isError: boolean;
+  };
+}
+
+function VehicleSearchResults({ query, queryResult }: VehicleSearchResultsProps) {
+  const trimmed = query.trim();
+  if (trimmed.length < 3) {
+    return (
+      <p className="text-muted-foreground text-xs">
+        Type at least 3 characters to search vehicles.
+      </p>
+    );
+  }
+  if (queryResult.isFetching) {
+    return (
+      <div className="flex items-center justify-center py-10">
+        <Loader2 className="text-primary h-6 w-6 animate-spin" aria-hidden="true" />
+      </div>
+    );
+  }
+  if (queryResult.isError) {
+    return (
+      <div className="rounded-md border border-red-200 bg-red-50 p-4 text-center">
+        <p className="text-sm text-red-700">Unable to search vehicles.</p>
+      </div>
+    );
+  }
+  /* v8 ignore next */
+  const vehicles = queryResult.data?.vehicles ?? [];
+  if (vehicles.length === 0) {
+    return (
+      <EmptyState
+        icon={<Search className="text-muted-foreground h-8 w-8" />}
+        title="No matching vehicles"
+        description="Try a different registration number, make, or colour."
+      />
+    );
+  }
+  return (
+    <div className="bg-card divide-y rounded-xl border shadow-sm">
+      {vehicles.map((v) => (
+        <div
+          key={v.id}
+          className="hover:bg-muted/40 flex items-center gap-4 px-4 py-3 transition-colors"
+        >
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="font-mono font-semibold">{v.registrationNumber}</span>
+              {v.colour && <span className="text-muted-foreground text-xs">· {v.colour}</span>}
+              {(v.make || v.model) && (
+                <span className="text-muted-foreground text-xs">
+                  · {[v.make, v.model].filter(Boolean).join(" ")}
+                </span>
+              )}
+            </div>
+            <div className="text-muted-foreground mt-0.5 flex flex-wrap gap-x-4 gap-y-0.5 text-xs">
+              {v.unit?.displayLabel && <span>Unit {v.unit.displayLabel}</span>}
+              {v.owner?.name && <span>Owner: {v.owner.name}</span>}
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

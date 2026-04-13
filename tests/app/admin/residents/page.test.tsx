@@ -45,6 +45,14 @@ vi.mock("@/services/societies", () => ({
   getSocietyByCode: (...args: unknown[]) => mockGetSocietyByCode(...args),
 }));
 
+const { mockSearchAdminVehicles } = vi.hoisted(() => ({
+  mockSearchAdminVehicles: vi.fn(),
+}));
+
+vi.mock("@/services/admin-residents", () => ({
+  searchAdminVehicles: (...args: unknown[]) => mockSearchAdminVehicles(...args),
+}));
+
 vi.mock("sonner", () => ({
   toast: {
     success: (...args: unknown[]) => mockToastSuccess(...args),
@@ -273,9 +281,7 @@ describe("AdminResidentsPage", () => {
   it("renders search input", () => {
     mockGetResidents.mockReturnValue(new Promise(() => {}));
     renderPage();
-    expect(
-      screen.getByPlaceholderText("Search by name, mobile, email, or RWAID..."),
-    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/search residents/i)).toBeInTheDocument();
   });
 
   it("renders filter dropdowns", () => {
@@ -736,7 +742,7 @@ describe("AdminResidentsPage", () => {
     await waitFor(() => {
       expect(screen.getByText("Rajesh Kumar")).toBeInTheDocument();
     });
-    const searchInput = screen.getByPlaceholderText("Search by name, mobile, email, or RWAID...");
+    const searchInput = screen.getByLabelText(/search residents/i);
     await user.type(searchInput, "test");
     await waitFor(() => {
       expect(mockRouterReplace).toHaveBeenCalled();
@@ -1776,7 +1782,7 @@ describe("AdminResidentsPage", () => {
     await waitFor(() => {
       expect(screen.getByText("Rajesh Kumar")).toBeInTheDocument();
     });
-    const searchInput = screen.getByPlaceholderText("Search by name, mobile, email, or RWAID...");
+    const searchInput = screen.getByLabelText(/search residents/i);
     // Clear the input
     await user.clear(searchInput);
     await waitFor(() => {
@@ -2382,5 +2388,264 @@ describe("AdminResidentsPage", () => {
       const btns = screen.getAllByRole("button", { name: /Add Resident/i });
       expect(btns[btns.length - 1]).toBeDisabled();
     });
+  });
+
+  // ── Phase 4 extensions: new columns + filters + vehicle search mode ──
+
+  it("renders family count badge for residents with members", async () => {
+    mockGetResidents.mockResolvedValue({
+      data: [
+        {
+          ...MOCK_RESIDENT_ACTIVE,
+          familyCount: 3,
+          vehicleSummary: { count: 0, firstReg: null },
+          tier: "STANDARD",
+          completenessScore: 55,
+        },
+      ],
+      total: 1,
+      page: 1,
+      limit: 20,
+    });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Rajesh Kumar")).toBeInTheDocument();
+    });
+    expect(screen.getByText(/3 members/i)).toBeInTheDocument();
+  });
+
+  it("renders em-dash for zero family/vehicle counts", async () => {
+    mockGetResidents.mockResolvedValue({
+      data: [
+        {
+          ...MOCK_RESIDENT_ACTIVE,
+          familyCount: 0,
+          vehicleSummary: { count: 0, firstReg: null },
+        },
+      ],
+      total: 1,
+      page: 1,
+      limit: 20,
+    });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Rajesh Kumar")).toBeInTheDocument();
+    });
+    // 2 em-dashes for family and vehicle columns
+    expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("renders vehicle summary with firstReg subtitle", async () => {
+    mockGetResidents.mockResolvedValue({
+      data: [
+        {
+          ...MOCK_RESIDENT_ACTIVE,
+          familyCount: 1,
+          vehicleSummary: { count: 2, firstReg: "DL3CAB1234" },
+          tier: "COMPLETE",
+          completenessScore: 80,
+        },
+      ],
+      total: 1,
+      page: 1,
+      limit: 20,
+    });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText(/2 vehicles/i)).toBeInTheDocument();
+    });
+    expect(screen.getByText("DL3CAB1234")).toBeInTheDocument();
+    expect(screen.getByText("1 member")).toBeInTheDocument();
+  });
+
+  it("renders completeness badge when tier present", async () => {
+    mockGetResidents.mockResolvedValue({
+      data: [
+        {
+          ...MOCK_RESIDENT_ACTIVE,
+          familyCount: 0,
+          vehicleSummary: { count: 0, firstReg: null },
+          tier: "VERIFIED",
+          completenessScore: 100,
+        },
+      ],
+      total: 1,
+      page: 1,
+      limit: 20,
+    });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByLabelText(/tier Verified/i)).toBeInTheDocument();
+    });
+  });
+
+  it("renders People / Vehicle search mode toggle", () => {
+    mockGetResidents.mockReturnValue(new Promise(() => {}));
+    renderPage();
+    expect(screen.getByRole("button", { name: /by name/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /by vehicle/i })).toBeInTheDocument();
+  });
+
+  it("switches to vehicle mode and searches vehicles", async () => {
+    mockSearchAdminVehicles.mockResolvedValue({
+      vehicles: [
+        {
+          id: "v1",
+          registrationNumber: "DL3CAB1234",
+          vehicleType: "FOUR_WHEELER",
+          make: "Maruti",
+          model: "Swift",
+          colour: "White",
+          unit: { displayLabel: "A-101" },
+          owner: { name: "Hemant", mobile: null, email: null },
+          dependentOwner: null,
+        },
+      ],
+      total: 1,
+      page: 1,
+      limit: 20,
+    });
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole("button", { name: /by vehicle/i }));
+    expect(mockRouterReplace).toHaveBeenCalled();
+  });
+
+  it("shows 'Type at least 3' guide when vehicle mode with no query", () => {
+    // Set URL to vehicle mode
+    mockSearchParams.set("mode", "vehicle");
+    mockGetResidents.mockReturnValue(new Promise(() => {}));
+    try {
+      renderPage();
+      expect(screen.getByText(/type at least 3 characters/i)).toBeInTheDocument();
+    } finally {
+      mockSearchParams.delete("mode");
+    }
+  });
+
+  it("renders vehicle search results when query is 3+ chars", async () => {
+    mockSearchParams.set("mode", "vehicle");
+    mockSearchParams.set("search", "DL3");
+    mockSearchAdminVehicles.mockResolvedValue({
+      vehicles: [
+        {
+          id: "v1",
+          registrationNumber: "DL3CAB1234",
+          vehicleType: "FOUR_WHEELER",
+          make: "Maruti",
+          model: "Swift",
+          colour: "White",
+          unit: { displayLabel: "A-101" },
+          owner: { name: "Hemant", mobile: null, email: null },
+          dependentOwner: null,
+        },
+      ],
+      total: 1,
+      page: 1,
+      limit: 20,
+    });
+    try {
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText("DL3CAB1234")).toBeInTheDocument();
+      });
+      expect(screen.getByText(/Owner: Hemant/i)).toBeInTheDocument();
+      expect(screen.getByText(/Unit A-101/i)).toBeInTheDocument();
+    } finally {
+      mockSearchParams.delete("mode");
+      mockSearchParams.delete("search");
+    }
+  });
+
+  it("renders vehicle search result with minimal fields (no colour/make)", async () => {
+    mockSearchParams.set("mode", "vehicle");
+    mockSearchParams.set("search", "DL3");
+    mockSearchAdminVehicles.mockResolvedValue({
+      vehicles: [
+        {
+          id: "v1",
+          registrationNumber: "DL3CAB1234",
+          vehicleType: "FOUR_WHEELER",
+          make: null,
+          model: null,
+          colour: null,
+          unit: null,
+          owner: null,
+          dependentOwner: null,
+        },
+      ],
+      total: 1,
+      page: 1,
+      limit: 20,
+    });
+    try {
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText("DL3CAB1234")).toBeInTheDocument();
+      });
+    } finally {
+      mockSearchParams.delete("mode");
+      mockSearchParams.delete("search");
+    }
+  });
+
+  it("renders empty state when vehicle search returns no matches", async () => {
+    mockSearchParams.set("mode", "vehicle");
+    mockSearchParams.set("search", "ZZZ");
+    mockSearchAdminVehicles.mockResolvedValue({
+      vehicles: [],
+      total: 0,
+      page: 1,
+      limit: 20,
+    });
+    try {
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText(/no matching vehicles/i)).toBeInTheDocument();
+      });
+    } finally {
+      mockSearchParams.delete("mode");
+      mockSearchParams.delete("search");
+    }
+  });
+
+  it("updates completeness filter when dropdown changes", async () => {
+    mockGetResidents.mockResolvedValue({
+      data: [
+        { ...MOCK_RESIDENT_ACTIVE, familyCount: 0, vehicleSummary: { count: 0, firstReg: null } },
+      ],
+      total: 1,
+      page: 1,
+      limit: 20,
+    });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Rajesh Kumar")).toBeInTheDocument();
+    });
+    // mock-select renders as native select; pick the one with 'verified' option
+    const selects = screen.getAllByTestId("mock-select");
+    const compSelect = selects.find((s) =>
+      Array.from(s.querySelectorAll("option")).some(
+        (o) => (o as HTMLOptionElement).value === "verified",
+      ),
+    );
+    expect(compSelect).toBeDefined();
+    fireEvent.change(compSelect!, { target: { value: "verified" } });
+    expect(mockRouterReplace).toHaveBeenCalled();
+  });
+
+  it("surfaces error state when vehicle search fails", async () => {
+    mockSearchParams.set("mode", "vehicle");
+    mockSearchParams.set("search", "DL3");
+    mockSearchAdminVehicles.mockRejectedValue(new Error("oops"));
+    try {
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText(/unable to search vehicles/i)).toBeInTheDocument();
+      });
+    } finally {
+      mockSearchParams.delete("mode");
+      mockSearchParams.delete("search");
+    }
   });
 });
