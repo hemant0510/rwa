@@ -554,7 +554,7 @@ model User {
   residentTicketAssignedByMe ResidentTicketAssignee[]  @relation("ResidentTicketAssignedBy")
 
   // Household registry fields
-  showInDirectory      Boolean         @default(false) @map("show_in_directory")
+  showInDirectory      Boolean         @default(true) @map("show_in_directory")
   showPhoneInDirectory Boolean         @default(false) @map("show_phone_in_directory")
   bloodGroup           BloodGroup?     @map("blood_group")
   householdStatus      HouseholdStatus @default(NOT_SET) @map("household_status")

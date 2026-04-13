@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
           id: r.id,
           name: r.name,
           email: r.email,
-          mobile: r.showPhoneInDirectory ? maskMobile(r.mobile) : null,
+          mobile: !r.mobile ? "—" : r.showPhoneInDirectory ? r.mobile : maskMobile(r.mobile),
           ownershipType: r.ownershipType,
           unit: r.userUnits[0]?.unit?.displayLabel ?? null,
           photoUrl: photoSignedUrl,

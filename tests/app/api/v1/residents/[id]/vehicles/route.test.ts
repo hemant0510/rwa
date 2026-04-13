@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ── Hoisted mocks ──────────────────────────────────────────────────────────
-const mockGetFullAccessAdmin = vi.hoisted(() => vi.fn());
+const mockGetCurrentUser = vi.hoisted(() => vi.fn());
 const mockPrisma = vi.hoisted(() => ({
   user: { findUnique: vi.fn() },
   userUnit: { findMany: vi.fn() },
@@ -11,7 +11,7 @@ const mockStorageBucket = vi.hoisted(() => ({
   createSignedUrl: vi.fn(),
 }));
 
-vi.mock("@/lib/get-current-user", () => ({ getFullAccessAdmin: mockGetFullAccessAdmin }));
+vi.mock("@/lib/get-current-user", () => ({ getCurrentUser: mockGetCurrentUser }));
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => ({ storage: { from: () => mockStorageBucket } }),
@@ -70,7 +70,7 @@ const makeContext = (id = "user-1") => ({
 describe("GET /api/v1/residents/[id]/vehicles", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetFullAccessAdmin.mockResolvedValue(mockAdmin);
+    mockGetCurrentUser.mockResolvedValue(mockAdmin);
     mockPrisma.user.findUnique.mockResolvedValue(mockResident);
     mockPrisma.userUnit.findMany.mockResolvedValue([{ unitId: "unit-1" }]);
     mockPrisma.vehicle.findMany.mockResolvedValue([mockVehicle]);
@@ -78,7 +78,7 @@ describe("GET /api/v1/residents/[id]/vehicles", () => {
   });
 
   it("returns 403 when user is not admin", async () => {
-    mockGetFullAccessAdmin.mockResolvedValue(null);
+    mockGetCurrentUser.mockResolvedValue(null);
     const res = await GET(makeRequest(), makeContext());
     expect(res.status).toBe(403);
   });

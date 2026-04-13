@@ -49,7 +49,7 @@ describe("GET /api/v1/residents/me/directory", () => {
     expect(body.error.code).toBe("FORBIDDEN");
   });
 
-  it("returns paginated residents with masked mobile and photoUrl when showPhoneInDirectory=true", async () => {
+  it("returns paginated residents with full mobile and photoUrl when showPhoneInDirectory=true", async () => {
     mockGetCurrentUser.mockResolvedValue(currentUser);
     mockPrisma.user.findMany.mockResolvedValue([
       {
@@ -84,7 +84,7 @@ describe("GET /api/v1/residents/me/directory", () => {
       id: "u2",
       name: "Anita Patel",
       email: "anita@test.com",
-      mobile: "XXXXX 43210",
+      mobile: "9876543210",
       ownershipType: "OWNER",
       unit: "A-101",
       photoUrl: "https://example.com/signed-photo",
@@ -93,7 +93,7 @@ describe("GET /api/v1/residents/me/directory", () => {
       id: "u3",
       name: "Vikram Singh",
       email: "vikram@test.com",
-      mobile: "XXXXX 32109",
+      mobile: "8765432109",
       ownershipType: "TENANT",
       unit: null,
       photoUrl: null,
@@ -103,7 +103,7 @@ describe("GET /api/v1/residents/me/directory", () => {
     expect(body.limit).toBe(20);
   });
 
-  it("returns mobile: null when showPhoneInDirectory=false", async () => {
+  it("returns masked mobile when showPhoneInDirectory=false", async () => {
     mockGetCurrentUser.mockResolvedValue(currentUser);
     mockPrisma.user.findMany.mockResolvedValue([
       {
@@ -121,7 +121,7 @@ describe("GET /api/v1/residents/me/directory", () => {
 
     const res = await GET(makeRequest());
     const body = await res.json();
-    expect(body.residents[0].mobile).toBeNull();
+    expect(body.residents[0].mobile).toBe("XXXXX 43210");
   });
 
   it("filters by showInDirectory=true by default (optinOnly)", async () => {

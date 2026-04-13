@@ -499,13 +499,13 @@ function ResidentsPageInner() {
                   <TableHead className="hidden sm:table-cell">Mobile</TableHead>
                   <TableHead className="hidden md:table-cell">Ownership</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="hidden lg:table-cell">Family</TableHead>
-                  <TableHead className="hidden lg:table-cell">Vehicles</TableHead>
-                  <TableHead className="hidden lg:table-cell">Completeness</TableHead>
-                  <TableHead className="hidden md:table-cell">Email</TableHead>
-                  <TableHead className="hidden lg:table-cell">Docs</TableHead>
-                  <TableHead className="hidden lg:table-cell">RWAID</TableHead>
-                  <TableHead className="hidden lg:table-cell">Registered</TableHead>
+                  <TableHead className="hidden md:table-cell">Family</TableHead>
+                  <TableHead className="hidden md:table-cell">Vehicles</TableHead>
+                  <TableHead>Completeness</TableHead>
+                  <TableHead className="hidden lg:table-cell">Email</TableHead>
+                  <TableHead className="hidden xl:table-cell">Docs</TableHead>
+                  <TableHead className="hidden xl:table-cell">RWAID</TableHead>
+                  <TableHead className="hidden xl:table-cell">Registered</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -564,12 +564,12 @@ function ResidentsPageInner() {
                         {RESIDENT_STATUS_LABELS[resident.status] || resident.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="hidden lg:table-cell">
+                    <TableCell className="hidden md:table-cell">
                       {renderFamilyCount(
                         (resident as unknown as { familyCount?: number }).familyCount,
                       )}
                     </TableCell>
-                    <TableCell className="hidden lg:table-cell">
+                    <TableCell className="hidden md:table-cell">
                       {renderVehicleSummary(
                         (
                           resident as unknown as {
@@ -578,7 +578,7 @@ function ResidentsPageInner() {
                         ).vehicleSummary,
                       )}
                     </TableCell>
-                    <TableCell className="hidden lg:table-cell">
+                    <TableCell>
                       {renderCompleteness(
                         resident as unknown as {
                           tier?: TierLabel;
@@ -586,7 +586,7 @@ function ResidentsPageInner() {
                         },
                       )}
                     </TableCell>
-                    <TableCell className="hidden md:table-cell">
+                    <TableCell className="hidden lg:table-cell">
                       <div className="flex items-center gap-1">
                         <Badge
                           variant="outline"
@@ -616,16 +616,16 @@ function ResidentsPageInner() {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="hidden lg:table-cell">
+                    <TableCell className="hidden xl:table-cell">
                       <DocStatusBadge
                         hasId={!!resident.idProofUrl}
                         hasOwnership={!!resident.ownershipProofUrl}
                       />
                     </TableCell>
-                    <TableCell className="hidden font-mono text-xs lg:table-cell">
+                    <TableCell className="hidden font-mono text-xs xl:table-cell">
                       {resident.rwaid || "—"}
                     </TableCell>
-                    <TableCell className="text-muted-foreground hidden text-sm lg:table-cell">
+                    <TableCell className="text-muted-foreground hidden text-sm xl:table-cell">
                       {format(new Date(resident.registeredAt), "dd MMM yyyy")}
                     </TableCell>
                     <TableCell className="text-right">

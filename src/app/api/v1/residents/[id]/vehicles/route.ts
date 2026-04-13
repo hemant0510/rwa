@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { forbiddenError, internalError, notFoundError } from "@/lib/api-helpers";
-import { getFullAccessAdmin } from "@/lib/get-current-user";
+import { getCurrentUser } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getExpiryStatus } from "@/lib/utils/vehicle-utils";
@@ -22,7 +22,7 @@ async function generateSignedUrl(path: string | null): Promise<string | null> {
 /** GET /api/v1/residents/[id]/vehicles — admin-only, returns all vehicles for resident's units */
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   try {
-    const admin = await getFullAccessAdmin();
+    const admin = await getCurrentUser("RWA_ADMIN");
     if (!admin) return forbiddenError("Admin access required");
 
     const { id } = await context.params;
