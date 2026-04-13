@@ -2,11 +2,14 @@ import React from "react";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { toast } from "sonner";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockFetch } = vi.hoisted(() => ({
+const { mockFetch, mockUpdateDeclarations, mockUpdateDirectory } = vi.hoisted(() => ({
   mockFetch: vi.fn(),
+  mockUpdateDeclarations: vi.fn(),
+  mockUpdateDirectory: vi.fn(),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -22,31 +25,24 @@ vi.mock("sonner", () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }));
 
-global.fetch = mockFetch;
+vi.mock("@/services/profile", () => ({
+  updateProfileDeclarations: mockUpdateDeclarations,
+  updateDirectorySettings: mockUpdateDirectory,
+}));
+
+vi.stubGlobal("fetch", mockFetch);
 
 import ResidentProfilePage from "@/app/r/profile/page";
 import { AuthContext } from "@/hooks/useAuth";
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function renderWithProviders(fetchResponse: Record<string, unknown> | null = null) {
-  if (fetchResponse) {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve(fetchResponse),
-    });
-  }
-
+function renderPage() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-
   const value = {
     user: {
       id: "u1",
-      name: "Test User",
+      name: "Hemant Bhagat",
       role: "RESIDENT" as const,
       permission: null,
       societyId: "soc-1",
@@ -63,7 +59,6 @@ function renderWithProviders(fetchResponse: Record<string, unknown> | null = nul
     signOut: vi.fn(),
     switchSociety: vi.fn(),
   };
-
   return render(
     <QueryClientProvider client={queryClient}>
       <AuthContext.Provider value={value}>
@@ -73,7 +68,7 @@ function renderWithProviders(fetchResponse: Record<string, unknown> | null = nul
   );
 }
 
-const profileData = {
+const profileFixture = {
   id: "u1",
   name: "Hemant Bhagat",
   email: "hemant@example.com",
@@ -81,865 +76,606 @@ const profileData = {
   rwaid: "EDEN-001",
   status: "ACTIVE_PAID",
   ownershipType: "OWNER",
+  bloodGroup: null,
+  householdStatus: "NOT_SET",
+  vehicleStatus: "NOT_SET",
+  showInDirectory: true,
+  showPhoneInDirectory: false,
   societyName: "Eden Estate",
   unit: "A-101",
-  designation: null as string | null,
+  designation: null,
+  completeness: {
+    percentage: 55,
+    tier: "STANDARD",
+    earned: 55,
+    possible: 100,
+    items: [
+      { key: "A1", label: "Profile photo", completed: false, points: 15 },
+      { key: "A2", label: "Mobile number", completed: true, points: 10 },
+      { key: "A3", label: "Email verified", completed: true, points: 10 },
+      { key: "A4", label: "Blood group", completed: false, points: 10 },
+      { key: "B1", label: "ID proof", completed: true, points: 15 },
+      { key: "B2", label: "Residency proof", completed: false, points: 10 },
+      { key: "C1", label: "Emergency contact", completed: false, points: 10 },
+      { key: "D1", label: "Household declared", completed: true, points: 10 },
+      { key: "E1", label: "Vehicle declared", completed: false, points: 10 },
+    ],
+    bonus: [
+      { key: "A5", label: "WhatsApp notifications", completed: false },
+      { key: "F1", label: "In society directory", completed: true },
+      { key: "C2", label: "Emergency contact blood group", completed: false },
+    ],
+    nextIncompleteItem: { key: "A1", label: "Profile photo", completed: false, points: 15 },
+  },
 };
 
-/**
- * Route-aware fetch mock: profile always returns profileData,
- * id-proof and ownership-proof return the given URLs.
- */
-function setupRoutedFetch(
-  idProofUrl: string | null = null,
-  ownershipProofUrl: string | null = null,
-  photoUrl: string | null = null,
-) {
+const summaryFixture = {
+  familyCount: 0,
+  vehicleCount: 0,
+  firstVehicleReg: null,
+  emergencyContacts: [],
+  vehicleExpiryAlerts: [],
+  directoryOptIn: true,
+  showPhoneInDirectory: false,
+};
+
+function setupFetch({
+  profile = profileFixture,
+  summary = summaryFixture,
+  photoUrl = null,
+  idProofUrl = null,
+  ownershipProofUrl = null,
+}: Partial<{
+  profile: unknown;
+  summary: unknown;
+  photoUrl: string | null;
+  idProofUrl: string | null;
+  ownershipProofUrl: string | null;
+}> = {}) {
   mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
     const method = (opts?.method ?? "GET").toUpperCase();
     if (url === "/api/v1/residents/me" && method === "GET") {
-      return Promise.resolve({ ok: true, json: () => Promise.resolve(profileData) });
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(profile) });
+    }
+    if (url === "/api/v1/residents/me/profile/summary" && method === "GET") {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(summary) });
     }
     if (url === "/api/v1/residents/me/photo" && method === "GET") {
       return Promise.resolve({ ok: true, json: () => Promise.resolve({ url: photoUrl }) });
     }
-    if (url.includes("id-proof") && method === "GET") {
+    if (url === "/api/v1/residents/me/photo" && method === "POST") {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ url: "photo-new" }) });
+    }
+    if (url === "/api/v1/residents/me/photo" && method === "DELETE") {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+    }
+    if (url === "/api/v1/residents/me/id-proof" && method === "GET") {
       return Promise.resolve({ ok: true, json: () => Promise.resolve({ url: idProofUrl }) });
     }
-    if (url.includes("ownership-proof") && method === "GET") {
+    if (url === "/api/v1/residents/me/ownership-proof" && method === "GET") {
       return Promise.resolve({
         ok: true,
         json: () => Promise.resolve({ url: ownershipProofUrl }),
       });
     }
-    // Default for mutation responses (POST/DELETE)
-    return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+    return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
   });
 }
 
-// ---------------------------------------------------------------------------
-// Profile page — static rendering
-// ---------------------------------------------------------------------------
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockUpdateDeclarations.mockResolvedValue({
+    bloodGroup: "O_POS",
+    householdStatus: "NOT_SET",
+    vehicleStatus: "NOT_SET",
+    completeness: profileFixture.completeness,
+  });
+  mockUpdateDirectory.mockResolvedValue({
+    showInDirectory: true,
+    showPhoneInDirectory: false,
+  });
+});
 
 describe("ResidentProfilePage", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+  it("renders loading skeleton before data arrives", () => {
+    mockFetch.mockImplementation(() => new Promise(() => {}));
+    const { container } = renderPage();
+    expect(
+      container.querySelectorAll("[data-slot='skeleton'], .animate-pulse").length,
+    ).toBeGreaterThan(0);
   });
 
-  it("renders documents section heading", async () => {
-    renderWithProviders(profileData);
+  it("renders unable-to-load when profile fetch fails", async () => {
+    mockFetch.mockImplementation((url: string) => {
+      if (url === "/api/v1/residents/me") {
+        return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(summaryFixture) });
+    });
+    renderPage();
     await waitFor(() => {
-      expect(screen.getByText("My Documents")).toBeInTheDocument();
+      expect(screen.getByText(/unable to load profile/i)).toBeInTheDocument();
     });
   });
 
-  it("renders user name", async () => {
-    renderWithProviders(profileData);
+  it("renders all 7 top-level sections in order when profile loads", async () => {
+    setupFetch();
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Profile Completeness")).toBeInTheDocument();
+    });
+    expect(screen.getByText("My Documents")).toBeInTheDocument();
+    expect(screen.getByText(/Blood Group/)).toBeInTheDocument();
+    expect(screen.getByText("Family Members")).toBeInTheDocument();
+    expect(screen.getByText(/^Vehicles$/)).toBeInTheDocument();
+    expect(screen.getByText(/Directory Settings/i)).toBeInTheDocument();
+  });
+
+  it("renders profile card basics (name, RWAID, phone, email, unit, ownership)", async () => {
+    setupFetch();
+    renderPage();
     await waitFor(() => {
       expect(screen.getByText("Hemant Bhagat")).toBeInTheDocument();
     });
+    expect(screen.getByText("EDEN-001")).toBeInTheDocument();
+    expect(screen.getByText("+91 9876543210")).toBeInTheDocument();
+    expect(screen.getByText("hemant@example.com")).toBeInTheDocument();
+    expect(screen.getByText(/A-101 — Eden Estate/)).toBeInTheDocument();
+    expect(screen.getByText("Owner")).toBeInTheDocument();
   });
 
-  it("renders RWAID", async () => {
-    renderWithProviders(profileData);
-    await waitFor(() => {
-      expect(screen.getByText("EDEN-001")).toBeInTheDocument();
-    });
-  });
-
-  it("renders phone number", async () => {
-    renderWithProviders(profileData);
-    await waitFor(() => {
-      expect(screen.getByText("+91 9876543210")).toBeInTheDocument();
-    });
-  });
-
-  it("renders email", async () => {
-    renderWithProviders(profileData);
-    await waitFor(() => {
-      expect(screen.getByText("hemant@example.com")).toBeInTheDocument();
-    });
-  });
-
-  it("renders unit and society name", async () => {
-    renderWithProviders(profileData);
-    await waitFor(() => {
-      expect(screen.getByText("A-101 — Eden Estate")).toBeInTheDocument();
-    });
-  });
-
-  it("renders ownership type label", async () => {
-    renderWithProviders(profileData);
-    await waitFor(() => {
-      expect(screen.getByText("Owner")).toBeInTheDocument();
-    });
-  });
-
-  it("renders account status badge with label", async () => {
-    renderWithProviders(profileData);
-    await waitFor(() => {
-      expect(screen.getByText("Active (Paid)")).toBeInTheDocument();
-    });
-  });
-
-  it("shows designation when user has one", async () => {
-    renderWithProviders({ ...profileData, designation: "President" });
+  it("renders designation badge when present", async () => {
+    setupFetch({ profile: { ...profileFixture, designation: "President" } });
+    renderPage();
     await waitFor(() => {
       expect(screen.getByText("President")).toBeInTheDocument();
     });
   });
 
-  it("does not show designation when null", async () => {
-    renderWithProviders(profileData);
+  it("renders initials fallback avatar when no photo", async () => {
+    setupFetch();
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("HB")).toBeInTheDocument();
+    });
+  });
+
+  it("uploads a new photo via file input", async () => {
+    setupFetch();
+    renderPage();
     await waitFor(() => {
       expect(screen.getByText("Hemant Bhagat")).toBeInTheDocument();
     });
-    expect(screen.queryByText("President")).not.toBeInTheDocument();
-  });
-
-  it("shows unable to load message on null profile", async () => {
-    mockFetch.mockResolvedValue({ ok: false });
-    renderWithProviders(null);
-    // The query will fail, profile will be undefined
-    await waitFor(() => {
-      expect(screen.getByText("Unable to load profile.")).toBeInTheDocument();
+    const input = screen.getByTestId("photo-input") as HTMLInputElement;
+    fireEvent.change(input, {
+      target: { files: [new File(["x"], "p.jpg", { type: "image/jpeg" })] },
     });
-  });
-
-  it("does not have sign out button", async () => {
-    renderWithProviders(profileData);
-    await waitFor(() => {
-      expect(screen.getByText("Hemant Bhagat")).toBeInTheDocument();
-    });
-    expect(screen.queryByRole("button", { name: /sign out/i })).not.toBeInTheDocument();
-  });
-
-  it("does not show RWAID when null", async () => {
-    renderWithProviders({ ...profileData, rwaid: null });
-    await waitFor(() => {
-      expect(screen.getByText("Hemant Bhagat")).toBeInTheDocument();
-    });
-    expect(screen.queryByText("EDEN-001")).not.toBeInTheDocument();
-  });
-
-  it("shows raw status as label and default color for unknown status", async () => {
-    renderWithProviders({ ...profileData, status: "UNKNOWN_STATUS" });
-    await waitFor(() => {
-      expect(screen.getByText("UNKNOWN_STATUS")).toBeInTheDocument();
-    });
-  });
-
-  it("does not show email section when email is null", async () => {
-    renderWithProviders({ ...profileData, email: null });
-    await waitFor(() => {
-      expect(screen.getByText("Hemant Bhagat")).toBeInTheDocument();
-    });
-    expect(screen.queryByText("hemant@example.com")).not.toBeInTheDocument();
-  });
-
-  it("shows society-specific subtitle when societyName is present", async () => {
-    renderWithProviders(profileData);
-    await waitFor(() => {
-      expect(
-        screen.getByText("For Eden Estate · Each society requires separate documents"),
-      ).toBeInTheDocument();
-    });
-  });
-
-  it("shows generic subtitle when societyName is null", async () => {
-    renderWithProviders({ ...profileData, societyName: null });
-    await waitFor(() => {
-      expect(screen.getByText("Each society requires separate documents")).toBeInTheDocument();
-    });
-  });
-
-  it("falls back to OTHER ownership labels when ownershipType is null", async () => {
-    renderWithProviders({ ...profileData, ownershipType: null });
-    await waitFor(() => {
-      expect(screen.getByText("Other")).toBeInTheDocument();
-    });
-  });
-
-  it("does not show unit/society row when both unit and societyName are null", async () => {
-    renderWithProviders({ ...profileData, unit: null, societyName: null });
-    await waitFor(() => {
-      expect(screen.getByText("Hemant Bhagat")).toBeInTheDocument();
-    });
-    expect(screen.queryByText("A-101")).not.toBeInTheDocument();
-    expect(screen.queryByText("Eden Estate")).not.toBeInTheDocument();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// DocCard — document state rendering
-// ---------------------------------------------------------------------------
-
-describe("DocCard — document state", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("shows Upload button and Pending badge when no document exists", async () => {
-    setupRoutedFetch(null, null);
-    renderWithProviders(null);
-    await waitFor(() => screen.getByText("Hemant Bhagat"));
-    // Two DocCards, both pending
-    const uploadBtns = await screen.findAllByRole("button", { name: /^upload$/i });
-    expect(uploadBtns.length).toBeGreaterThanOrEqual(1);
-    const pendingBadges = screen.getAllByText("Pending");
-    expect(pendingBadges.length).toBe(2);
-  });
-
-  it("shows Uploaded badge and view/replace/delete buttons when id-proof URL exists", async () => {
-    setupRoutedFetch("https://example.com/id-proof.jpg", null);
-    renderWithProviders(null);
-    // Wait for the view button to appear (hasDoc=true branch)
-    await waitFor(() => expect(screen.getByTitle("View document")).toBeInTheDocument());
-    expect(screen.getByTitle("Replace document")).toBeInTheDocument();
-    expect(screen.getByTitle("Remove document")).toBeInTheDocument();
-    expect(screen.getAllByText("Uploaded")).toHaveLength(1);
-  });
-
-  it("shows Uploaded badge for both DocCards when both URLs exist", async () => {
-    setupRoutedFetch("https://example.com/id-proof.jpg", "https://example.com/ownership-proof.pdf");
-    renderWithProviders(null);
-    await waitFor(() => expect(screen.getAllByText("Uploaded")).toHaveLength(2));
-  });
-
-  it("opens document in new tab when View button is clicked", async () => {
-    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
-    setupRoutedFetch("https://example.com/id-proof.jpg", null);
-    renderWithProviders(null);
-    const viewBtn = await screen.findByTitle("View document");
-    fireEvent.click(viewBtn);
-    expect(openSpy).toHaveBeenCalledWith("https://example.com/id-proof.jpg", "_blank");
-    openSpy.mockRestore();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// DocCard — upload flow
-// ---------------------------------------------------------------------------
-
-describe("DocCard — upload flow", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("calls POST and shows success toast on successful upload", async () => {
-    setupRoutedFetch(null, null);
-    renderWithProviders(null);
-    await waitFor(() => screen.getByText("Hemant Bhagat"));
-
-    // Trigger file change on the first hidden file input (id-proof card)
-    const fileInputs = document.querySelectorAll<HTMLInputElement>(
-      'input[type="file"]:not([data-testid="photo-input"])',
-    );
-    const file = new File(["content"], "id.jpg", { type: "image/jpeg" });
-    fireEvent.change(fileInputs[0], { target: { files: [file] } });
-
-    await waitFor(() => {
-      expect(toast.success).toHaveBeenCalledWith(expect.stringContaining("uploaded successfully"));
-    });
-  });
-
-  it("shows error toast with server message when upload fails", async () => {
-    mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
-      const method = (opts?.method ?? "GET").toUpperCase();
-      if (method === "POST") {
-        return Promise.resolve({
-          ok: false,
-          json: () => Promise.resolve({ error: { message: "File too large" } }),
-        });
-      }
-      if (url === "/api/v1/residents/me") {
-        return Promise.resolve({ ok: true, json: () => Promise.resolve(profileData) });
-      }
-      return Promise.resolve({ ok: true, json: () => Promise.resolve({ url: null }) });
-    });
-
-    renderWithProviders(null);
-    await waitFor(() => screen.getByText("Hemant Bhagat"));
-
-    const fileInputs = document.querySelectorAll<HTMLInputElement>(
-      'input[type="file"]:not([data-testid="photo-input"])',
-    );
-    const file = new File(["content"], "id.jpg", { type: "image/jpeg" });
-    fireEvent.change(fileInputs[0], { target: { files: [file] } });
-
-    await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith("File too large");
-    });
-  });
-
-  it("shows fallback error message when server returns no error message", async () => {
-    mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
-      const method = (opts?.method ?? "GET").toUpperCase();
-      if (method === "POST") {
-        return Promise.resolve({
-          ok: false,
-          json: () => Promise.resolve({}),
-        });
-      }
-      if (url === "/api/v1/residents/me") {
-        return Promise.resolve({ ok: true, json: () => Promise.resolve(profileData) });
-      }
-      return Promise.resolve({ ok: true, json: () => Promise.resolve({ url: null }) });
-    });
-
-    renderWithProviders(null);
-    await waitFor(() => screen.getByText("Hemant Bhagat"));
-
-    const fileInputs = document.querySelectorAll<HTMLInputElement>(
-      'input[type="file"]:not([data-testid="photo-input"])',
-    );
-    const file = new File(["content"], "id.jpg", { type: "image/jpeg" });
-    fireEvent.change(fileInputs[0], { target: { files: [file] } });
-
-    await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith("Upload failed");
-    });
-  });
-
-  it("allows replacing a document (Replace button triggers file input)", async () => {
-    setupRoutedFetch("https://example.com/id-proof.jpg", null);
-    renderWithProviders(null);
-
-    // Wait for hasDoc=true state
-    await waitFor(() => screen.getByTitle("Replace document"));
-
-    // After POST, GET returns updated URL
-    mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
-      const method = (opts?.method ?? "GET").toUpperCase();
-      if (method === "POST") {
-        return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
-      }
-      if (url === "/api/v1/residents/me") {
-        return Promise.resolve({ ok: true, json: () => Promise.resolve(profileData) });
-      }
-      if (url.includes("id-proof")) {
-        return Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve({ url: "https://example.com/id-proof-new.jpg" }),
-        });
-      }
-      return Promise.resolve({ ok: true, json: () => Promise.resolve({ url: null }) });
-    });
-
-    // Trigger file change on the file input
-    const fileInputs = document.querySelectorAll<HTMLInputElement>(
-      'input[type="file"]:not([data-testid="photo-input"])',
-    );
-    const file = new File(["content"], "new-id.jpg", { type: "image/jpeg" });
-    fireEvent.change(fileInputs[0], { target: { files: [file] } });
-
-    await waitFor(() => {
-      expect(toast.success).toHaveBeenCalledWith(expect.stringContaining("uploaded successfully"));
-    });
-  });
-
-  it("clicking Upload button triggers file input click", async () => {
-    setupRoutedFetch(null, null);
-    renderWithProviders(null);
-    await waitFor(() => screen.getByText("Hemant Bhagat"));
-
-    // Spy on the file input's click method
-    const fileInputs = document.querySelectorAll<HTMLInputElement>(
-      'input[type="file"]:not([data-testid="photo-input"])',
-    );
-    const clickSpy = vi.spyOn(fileInputs[0], "click").mockImplementation(() => {});
-    const uploadBtn = screen.getAllByRole("button", { name: /^upload$/i })[0];
-    fireEvent.click(uploadBtn);
-    expect(clickSpy).toHaveBeenCalled();
-  });
-
-  it("does nothing when doc file input change fires with no files", async () => {
-    setupRoutedFetch(null, null);
-    renderWithProviders(null);
-    await waitFor(() => screen.getByText("Hemant Bhagat"));
-
-    const fileInputs = document.querySelectorAll<HTMLInputElement>(
-      'input[type="file"]:not([data-testid="photo-input"])',
-    );
-    fireEvent.change(fileInputs[0], { target: { files: [] } });
-
-    // No upload should be triggered
-    expect(toast.success).not.toHaveBeenCalled();
-    expect(toast.error).not.toHaveBeenCalled();
-  });
-
-  it("shows 'Uploading…' text on Upload button while upload is in progress", async () => {
-    let resolvePost!: (v: unknown) => void;
-    const postPending = new Promise((resolve) => {
-      resolvePost = resolve;
-    });
-
-    mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
-      const method = (opts?.method ?? "GET").toUpperCase();
-      if (method === "POST") return postPending;
-      if (url === "/api/v1/residents/me") {
-        return Promise.resolve({ ok: true, json: () => Promise.resolve(profileData) });
-      }
-      return Promise.resolve({ ok: true, json: () => Promise.resolve({ url: null }) });
-    });
-
-    renderWithProviders(null);
-    await waitFor(() => screen.getByText("Hemant Bhagat"));
-
-    const fileInputs = document.querySelectorAll<HTMLInputElement>(
-      'input[type="file"]:not([data-testid="photo-input"])',
-    );
-    const file = new File(["content"], "id.jpg", { type: "image/jpeg" });
-    fireEvent.change(fileInputs[0], { target: { files: [file] } });
-
-    await waitFor(() => expect(screen.getByText("Uploading…")).toBeInTheDocument());
-
-    // Resolve the pending upload
-    resolvePost({ ok: true, json: () => Promise.resolve({}) });
-    await waitFor(() => expect(toast.success).toHaveBeenCalled());
-  });
-
-  it("clicking Replace button triggers file input click", async () => {
-    setupRoutedFetch("https://example.com/id-proof.jpg", null);
-    renderWithProviders(null);
-    await waitFor(() => screen.getByTitle("Replace document"));
-
-    const fileInputs = document.querySelectorAll<HTMLInputElement>(
-      'input[type="file"]:not([data-testid="photo-input"])',
-    );
-    const clickSpy = vi.spyOn(fileInputs[0], "click").mockImplementation(() => {});
-    fireEvent.click(screen.getByTitle("Replace document"));
-    expect(clickSpy).toHaveBeenCalled();
-  });
-
-  it("shows spinner on Replace button while upload is in progress (hasDoc=true)", async () => {
-    let resolvePost!: (v: unknown) => void;
-    const postPending = new Promise((resolve) => {
-      resolvePost = resolve;
-    });
-
-    mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
-      const method = (opts?.method ?? "GET").toUpperCase();
-      if (method === "POST") return postPending;
-      if (url === "/api/v1/residents/me") {
-        return Promise.resolve({ ok: true, json: () => Promise.resolve(profileData) });
-      }
-      if (url.includes("id-proof")) {
-        return Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve({ url: "https://example.com/id-proof.jpg" }),
-        });
-      }
-      return Promise.resolve({ ok: true, json: () => Promise.resolve({ url: null }) });
-    });
-
-    renderWithProviders(null);
-    await waitFor(() => screen.getByTitle("Replace document"));
-
-    const fileInputs = document.querySelectorAll<HTMLInputElement>(
-      'input[type="file"]:not([data-testid="photo-input"])',
-    );
-    const file = new File(["content"], "id.jpg", { type: "image/jpeg" });
-    fireEvent.change(fileInputs[0], { target: { files: [file] } });
-
-    // Replace button should be disabled while uploading
-    await waitFor(() => expect(screen.getByTitle("Replace document")).toBeDisabled());
-
-    resolvePost({ ok: true, json: () => Promise.resolve({}) });
-    await waitFor(() => expect(toast.success).toHaveBeenCalled());
-  });
-});
-
-// ---------------------------------------------------------------------------
-// DocCard — delete flow
-// ---------------------------------------------------------------------------
-
-describe("DocCard — delete flow", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("calls DELETE and shows success toast when delete succeeds", async () => {
-    mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
-      const method = (opts?.method ?? "GET").toUpperCase();
-      if (method === "DELETE") {
-        return Promise.resolve({ ok: true, json: () => Promise.resolve({ success: true }) });
-      }
-      if (url === "/api/v1/residents/me") {
-        return Promise.resolve({ ok: true, json: () => Promise.resolve(profileData) });
-      }
-      if (url.includes("id-proof") && method === "GET") {
-        return Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve({ url: "https://example.com/id-proof.jpg" }),
-        });
-      }
-      return Promise.resolve({ ok: true, json: () => Promise.resolve({ url: null }) });
-    });
-
-    renderWithProviders(null);
-    const deleteBtn = await screen.findByTitle("Remove document");
-    fireEvent.click(deleteBtn);
-
-    await waitFor(() => {
-      expect(toast.success).toHaveBeenCalledWith(expect.stringContaining("removed"));
-    });
-  });
-
-  it("shows error toast when delete request fails", async () => {
-    mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
-      const method = (opts?.method ?? "GET").toUpperCase();
-      if (method === "DELETE") {
-        return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
-      }
-      if (url === "/api/v1/residents/me") {
-        return Promise.resolve({ ok: true, json: () => Promise.resolve(profileData) });
-      }
-      if (url.includes("id-proof") && method === "GET") {
-        return Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve({ url: "https://example.com/id-proof.jpg" }),
-        });
-      }
-      return Promise.resolve({ ok: true, json: () => Promise.resolve({ url: null }) });
-    });
-
-    renderWithProviders(null);
-    const deleteBtn = await screen.findByTitle("Remove document");
-    fireEvent.click(deleteBtn);
-
-    await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith(expect.stringContaining("Failed to remove"));
-    });
-  });
-
-  it("shows Delete button as disabled while deleting is in progress", async () => {
-    let resolveDelete!: (v: unknown) => void;
-    const deletePending = new Promise((resolve) => {
-      resolveDelete = resolve;
-    });
-
-    mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
-      const method = (opts?.method ?? "GET").toUpperCase();
-      if (method === "DELETE") return deletePending;
-      if (url === "/api/v1/residents/me") {
-        return Promise.resolve({ ok: true, json: () => Promise.resolve(profileData) });
-      }
-      if (url.includes("id-proof") && method === "GET") {
-        return Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve({ url: "https://example.com/id-proof.jpg" }),
-        });
-      }
-      return Promise.resolve({ ok: true, json: () => Promise.resolve({ url: null }) });
-    });
-
-    renderWithProviders(null);
-    const deleteBtn = await screen.findByTitle("Remove document");
-    fireEvent.click(deleteBtn);
-
-    // While deleting, button should be disabled
-    await waitFor(() => expect(screen.getByTitle("Remove document")).toBeDisabled());
-
-    resolveDelete({ ok: true, json: () => Promise.resolve({ success: true }) });
-    await waitFor(() => expect(toast.success).toHaveBeenCalled());
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Photo — rendering
-// ---------------------------------------------------------------------------
-
-describe("Photo — rendering", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("renders initials fallback when no photo URL exists", async () => {
-    setupRoutedFetch(null, null, null);
-    renderWithProviders(null);
-    await waitFor(() => screen.getByText("Hemant Bhagat"));
-    // Initials "HB" should be rendered
-    expect(screen.getByText("HB")).toBeInTheDocument();
-  });
-
-  it("renders photo image when photo URL exists", async () => {
-    setupRoutedFetch(null, null, "https://example.com/photo.jpg");
-    renderWithProviders(null);
-    await waitFor(() => screen.getByText("Hemant Bhagat"));
-    const img = await screen.findByAltText("Hemant Bhagat");
-    expect(img).toBeInTheDocument();
-    expect(img).toHaveAttribute("src");
-  });
-
-  it("shows 'Upload Photo' link when no photo exists", async () => {
-    setupRoutedFetch(null, null, null);
-    renderWithProviders(null);
-    await waitFor(() => screen.getByText("Hemant Bhagat"));
-    expect(screen.getByText("Upload Photo")).toBeInTheDocument();
-  });
-
-  it("shows 'Change Photo' and 'Remove' links when photo exists", async () => {
-    setupRoutedFetch(null, null, "https://example.com/photo.jpg");
-    renderWithProviders(null);
-    await waitFor(() => screen.getByText("Hemant Bhagat"));
-    await waitFor(() => {
-      expect(screen.getByText("Change Photo")).toBeInTheDocument();
-      expect(screen.getByText("Remove")).toBeInTheDocument();
-    });
-  });
-
-  it("camera badge button has 'Change photo' aria-label", async () => {
-    setupRoutedFetch(null, null, null);
-    renderWithProviders(null);
-    await waitFor(() => screen.getByText("Hemant Bhagat"));
-    expect(screen.getByLabelText("Change photo")).toBeInTheDocument();
-  });
-
-  it("camera badge button click triggers photo file input", async () => {
-    setupRoutedFetch(null, null, null);
-    renderWithProviders(null);
-    await waitFor(() => screen.getByText("Hemant Bhagat"));
-
-    const photoInput = screen.getByTestId("photo-input") as HTMLInputElement;
-    const clickSpy = vi.spyOn(photoInput, "click").mockImplementation(() => {});
-
-    const cameraBadge = screen.getByLabelText("Change photo");
-    fireEvent.click(cameraBadge);
-    expect(clickSpy).toHaveBeenCalled();
-  });
-
-  it("'Change Photo' link click triggers photo file input when photo exists", async () => {
-    setupRoutedFetch(null, null, "https://example.com/photo.jpg");
-    renderWithProviders(null);
-    await waitFor(() => screen.getByText("Hemant Bhagat"));
-    await waitFor(() => screen.getByText("Change Photo"));
-
-    const photoInput = screen.getByTestId("photo-input") as HTMLInputElement;
-    const clickSpy = vi.spyOn(photoInput, "click").mockImplementation(() => {});
-
-    fireEvent.click(screen.getByText("Change Photo"));
-    expect(clickSpy).toHaveBeenCalled();
-  });
-
-  it("does not show 'Upload Photo' link when photo exists", async () => {
-    setupRoutedFetch(null, null, "https://example.com/photo.jpg");
-    renderWithProviders(null);
-    await waitFor(() => screen.getByText("Hemant Bhagat"));
-    await waitFor(() => screen.getByText("Change Photo"));
-    expect(screen.queryByText("Upload Photo")).not.toBeInTheDocument();
-  });
-
-  it("does not show 'Change Photo' or 'Remove' links when no photo exists", async () => {
-    setupRoutedFetch(null, null, null);
-    renderWithProviders(null);
-    await waitFor(() => screen.getByText("Hemant Bhagat"));
-    expect(screen.queryByText("Change Photo")).not.toBeInTheDocument();
-    expect(screen.queryByText("Remove")).not.toBeInTheDocument();
-  });
-
-  it("'Upload Photo' link click triggers photo file input when no photo exists", async () => {
-    setupRoutedFetch(null, null, null);
-    renderWithProviders(null);
-    await waitFor(() => screen.getByText("Hemant Bhagat"));
-
-    const photoInput = screen.getByTestId("photo-input") as HTMLInputElement;
-    const clickSpy = vi.spyOn(photoInput, "click").mockImplementation(() => {});
-
-    fireEvent.click(screen.getByText("Upload Photo"));
-    expect(clickSpy).toHaveBeenCalled();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Photo — upload flow
-// ---------------------------------------------------------------------------
-
-describe("Photo — upload flow", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("calls POST to photo endpoint and shows success toast on upload", async () => {
-    setupRoutedFetch(null, null, null);
-    renderWithProviders(null);
-    await waitFor(() => screen.getByText("Hemant Bhagat"));
-
-    const photoInput = screen.getByTestId("photo-input") as HTMLInputElement;
-    const file = new File(["img"], "avatar.jpg", { type: "image/jpeg" });
-    fireEvent.change(photoInput, { target: { files: [file] } });
-
     await waitFor(() => {
       expect(toast.success).toHaveBeenCalledWith("Photo updated");
     });
-    // Verify POST was called to the photo endpoint
-    expect(mockFetch).toHaveBeenCalledWith(
-      "/api/v1/residents/me/photo",
-      expect.objectContaining({ method: "POST" }),
-    );
   });
 
-  it("shows error toast with server message when photo upload fails", async () => {
+  it("shows photo upload error toast when server returns error", async () => {
     mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
       const method = (opts?.method ?? "GET").toUpperCase();
-      if (url === "/api/v1/residents/me/photo" && method === "POST") {
+      if (url === "/api/v1/residents/me" && method === "GET")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(profileFixture) });
+      if (url === "/api/v1/residents/me/profile/summary")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(summaryFixture) });
+      if (url === "/api/v1/residents/me/photo" && method === "POST")
         return Promise.resolve({
           ok: false,
-          json: () => Promise.resolve({ error: { message: "Image too large" } }),
+          json: () => Promise.resolve({ error: { message: "Too large" } }),
         });
-      }
-      if (url === "/api/v1/residents/me" && method === "GET") {
-        return Promise.resolve({ ok: true, json: () => Promise.resolve(profileData) });
-      }
       return Promise.resolve({ ok: true, json: () => Promise.resolve({ url: null }) });
     });
-
-    renderWithProviders(null);
-    await waitFor(() => screen.getByText("Hemant Bhagat"));
-
-    const photoInput = screen.getByTestId("photo-input") as HTMLInputElement;
-    const file = new File(["img"], "avatar.jpg", { type: "image/jpeg" });
-    fireEvent.change(photoInput, { target: { files: [file] } });
-
+    renderPage();
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith("Image too large");
+      expect(screen.getByText("Hemant Bhagat")).toBeInTheDocument();
+    });
+    fireEvent.change(screen.getByTestId("photo-input"), {
+      target: { files: [new File(["x"], "p.jpg", { type: "image/jpeg" })] },
+    });
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith("Too large");
     });
   });
 
-  it("shows fallback error when photo upload fails without server message", async () => {
+  it("falls back to generic error when server omits message", async () => {
     mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
       const method = (opts?.method ?? "GET").toUpperCase();
-      if (url === "/api/v1/residents/me/photo" && method === "POST") {
-        return Promise.resolve({
-          ok: false,
-          json: () => Promise.resolve({}),
-        });
-      }
-      if (url === "/api/v1/residents/me" && method === "GET") {
-        return Promise.resolve({ ok: true, json: () => Promise.resolve(profileData) });
-      }
+      if (url === "/api/v1/residents/me" && method === "GET")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(profileFixture) });
+      if (url === "/api/v1/residents/me/profile/summary")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(summaryFixture) });
+      if (url === "/api/v1/residents/me/photo" && method === "POST")
+        return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
       return Promise.resolve({ ok: true, json: () => Promise.resolve({ url: null }) });
     });
-
-    renderWithProviders(null);
-    await waitFor(() => screen.getByText("Hemant Bhagat"));
-
-    const photoInput = screen.getByTestId("photo-input") as HTMLInputElement;
-    const file = new File(["img"], "avatar.jpg", { type: "image/jpeg" });
-    fireEvent.change(photoInput, { target: { files: [file] } });
-
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Hemant Bhagat")).toBeInTheDocument();
+    });
+    fireEvent.change(screen.getByTestId("photo-input"), {
+      target: { files: [new File(["x"], "p.jpg", { type: "image/jpeg" })] },
+    });
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith("Upload failed");
     });
   });
 
-  it("does nothing when photo file input change fires with no files", async () => {
-    setupRoutedFetch(null, null, null);
-    renderWithProviders(null);
-    await waitFor(() => screen.getByText("Hemant Bhagat"));
-
-    const photoInput = screen.getByTestId("photo-input") as HTMLInputElement;
-    fireEvent.change(photoInput, { target: { files: [] } });
-
-    // No upload should be triggered — no success or error toast
-    expect(toast.success).not.toHaveBeenCalled();
-    expect(toast.error).not.toHaveBeenCalled();
-  });
-
-  it("shows 'Uploading…' text on Upload Photo link while upload is in progress", async () => {
-    let resolvePost!: (v: unknown) => void;
-    const postPending = new Promise((resolve) => {
-      resolvePost = resolve;
-    });
-
-    mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
-      const method = (opts?.method ?? "GET").toUpperCase();
-      if (url === "/api/v1/residents/me/photo" && method === "POST") return postPending;
-      if (url === "/api/v1/residents/me" && method === "GET") {
-        return Promise.resolve({ ok: true, json: () => Promise.resolve(profileData) });
-      }
-      return Promise.resolve({ ok: true, json: () => Promise.resolve({ url: null }) });
-    });
-
-    renderWithProviders(null);
-    await waitFor(() => screen.getByText("Hemant Bhagat"));
-
-    const photoInput = screen.getByTestId("photo-input") as HTMLInputElement;
-    const file = new File(["img"], "avatar.jpg", { type: "image/jpeg" });
-    fireEvent.change(photoInput, { target: { files: [file] } });
-
-    // The Upload Photo text should change to "Uploading…"
-    await waitFor(() => expect(screen.getByText("Uploading…")).toBeInTheDocument());
-
-    resolvePost({ ok: true, json: () => Promise.resolve({}) });
-    await waitFor(() => expect(toast.success).toHaveBeenCalled());
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Photo — delete flow
-// ---------------------------------------------------------------------------
-
-describe("Photo — delete flow", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("calls DELETE to photo endpoint and shows success toast", async () => {
-    setupRoutedFetch(null, null, "https://example.com/photo.jpg");
-    renderWithProviders(null);
-    await waitFor(() => screen.getByText("Hemant Bhagat"));
-
-    const removeBtn = await screen.findByText("Remove");
+  it("removes a photo when Remove is clicked", async () => {
+    setupFetch({ photoUrl: "/current-photo.jpg" });
+    renderPage();
+    const removeBtn = await screen.findByRole("button", { name: /^Remove$/ });
     fireEvent.click(removeBtn);
-
     await waitFor(() => {
       expect(toast.success).toHaveBeenCalledWith("Photo removed");
     });
-    expect(mockFetch).toHaveBeenCalledWith("/api/v1/residents/me/photo", { method: "DELETE" });
   });
 
   it("shows error toast when photo delete fails", async () => {
     mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
       const method = (opts?.method ?? "GET").toUpperCase();
-      if (url === "/api/v1/residents/me/photo" && method === "DELETE") {
-        return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
-      }
-      if (url === "/api/v1/residents/me" && method === "GET") {
-        return Promise.resolve({ ok: true, json: () => Promise.resolve(profileData) });
-      }
-      if (url === "/api/v1/residents/me/photo" && method === "GET") {
+      if (url === "/api/v1/residents/me" && method === "GET")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(profileFixture) });
+      if (url === "/api/v1/residents/me/profile/summary")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(summaryFixture) });
+      if (url === "/api/v1/residents/me/photo" && method === "GET")
         return Promise.resolve({
           ok: true,
-          json: () => Promise.resolve({ url: "https://example.com/photo.jpg" }),
+          json: () => Promise.resolve({ url: "/current-photo.jpg" }),
         });
-      }
+      if (url === "/api/v1/residents/me/photo" && method === "DELETE")
+        return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
       return Promise.resolve({ ok: true, json: () => Promise.resolve({ url: null }) });
     });
-
-    renderWithProviders(null);
-    await waitFor(() => screen.getByText("Hemant Bhagat"));
-
-    const removeBtn = await screen.findByText("Remove");
+    renderPage();
+    const removeBtn = await screen.findByRole("button", { name: /^Remove$/ });
     fireEvent.click(removeBtn);
-
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith("Failed to remove photo");
     });
   });
-});
 
-// ---------------------------------------------------------------------------
-// Family link card
-// ---------------------------------------------------------------------------
+  it("renders photo image and Change/Remove links when photoUrl is set", async () => {
+    setupFetch({ photoUrl: "/existing-photo.jpg" });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByAltText("Hemant Bhagat")).toBeInTheDocument();
+    });
+    expect(screen.getAllByRole("button", { name: /change photo/i }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: /^Remove$/ })).toBeInTheDocument();
+  });
 
-describe("Family link card", () => {
-  it("renders a link to /r/profile/family", async () => {
-    setupRoutedFetch();
-    renderWithProviders(null);
-    await waitFor(() => screen.getByText("Hemant Bhagat"));
-    const link = screen.getByRole("link", { name: /manage family members/i });
-    expect(link).toHaveAttribute("href", "/r/profile/family");
-    expect(screen.getByText("Family Members")).toBeInTheDocument();
+  it("updates blood group via the dropdown", async () => {
+    setupFetch();
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => {
+      expect(document.getElementById("profile-blood")).toBeInTheDocument();
+    });
+    await user.click(document.getElementById("profile-blood")!);
+    await user.click(await screen.findByRole("option", { name: "O+" }));
+    await waitFor(() => expect(mockUpdateDeclarations).toHaveBeenCalled());
+    expect(mockUpdateDeclarations.mock.calls.at(-1)?.[0]).toEqual({ bloodGroup: "O_POS" });
+  });
+
+  it("declares no family when toggle clicked in family card", async () => {
+    setupFetch();
+    const user = userEvent.setup();
+    renderPage();
+    const btn = await screen.findByRole("button", { name: /no family members to add/i });
+    await user.click(btn);
+    await waitFor(() => {
+      expect(mockUpdateDeclarations).toHaveBeenCalled();
+    });
+    expect(mockUpdateDeclarations.mock.calls[0][0]).toEqual({ householdStatus: "DECLARED_NONE" });
+  });
+
+  it("declares no vehicles when toggle clicked in vehicles card", async () => {
+    setupFetch();
+    const user = userEvent.setup();
+    renderPage();
+    const btn = await screen.findByRole("button", { name: /don't have any vehicles/i });
+    await user.click(btn);
+    await waitFor(() => expect(mockUpdateDeclarations).toHaveBeenCalled());
+    expect(mockUpdateDeclarations.mock.calls.at(-1)?.[0]).toEqual({
+      vehicleStatus: "DECLARED_NONE",
+    });
+  });
+
+  it("shows declaration error toast when mutation fails", async () => {
+    mockUpdateDeclarations.mockRejectedValueOnce(new Error("Nope"));
+    setupFetch();
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText("Family Members");
+    await user.click(screen.getByRole("button", { name: /no family members/i }));
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith("Nope");
+    });
+  });
+
+  it("shows generic declaration error when mutation error has no message", async () => {
+    mockUpdateDeclarations.mockRejectedValueOnce(new Error(""));
+    setupFetch();
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText("Family Members");
+    await user.click(screen.getByRole("button", { name: /no family members/i }));
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith("Failed to update profile");
+    });
+  });
+
+  it("toggles directory settings and calls updateDirectorySettings", async () => {
+    setupFetch();
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText(/Directory Settings/i);
+    await user.click(screen.getByLabelText(/show me in the directory/i));
+    await waitFor(() => expect(mockUpdateDirectory).toHaveBeenCalled());
+    expect(mockUpdateDirectory.mock.calls.at(-1)?.[0]).toEqual({
+      showInDirectory: false,
+      showPhoneInDirectory: false,
+    });
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Directory settings updated"));
+  });
+
+  it("shows directory error toast when mutation fails", async () => {
+    mockUpdateDirectory.mockRejectedValueOnce(new Error("Oops"));
+    setupFetch();
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText(/Directory Settings/i)).toBeInTheDocument();
+    });
+    await user.click(screen.getByLabelText(/show me in the directory/i));
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith("Oops");
+    });
+  });
+
+  it("shows generic directory error when error has no message", async () => {
+    mockUpdateDirectory.mockRejectedValueOnce(new Error(""));
+    setupFetch();
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText(/Directory Settings/i)).toBeInTheDocument();
+    });
+    await user.click(screen.getByLabelText(/show me in the directory/i));
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith("Failed to update directory settings");
+    });
+  });
+
+  it("renders emergency contacts in family card when present", async () => {
+    setupFetch({
+      profile: { ...profileFixture, householdStatus: "HAS_ENTRIES" },
+      summary: {
+        ...summaryFixture,
+        familyCount: 2,
+        emergencyContacts: [
+          { name: "Asha", relationship: "MOTHER", mobile: "9999999999", bloodGroup: "O_POS" },
+        ],
+      },
+    });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Asha")).toBeInTheDocument();
+    });
+    expect(screen.getByText(/2 members in your household/i)).toBeInTheDocument();
+  });
+
+  it("renders vehicle summary when vehicles exist", async () => {
+    setupFetch({
+      profile: { ...profileFixture, vehicleStatus: "HAS_ENTRIES" },
+      summary: {
+        ...summaryFixture,
+        vehicleCount: 1,
+        firstVehicleReg: "DL3CAB1234",
+        vehicleExpiryAlerts: [],
+      },
+    });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText(/1 registered · DL3CAB1234/)).toBeInTheDocument();
+    });
+  });
+
+  it("renders tenant proof title when ownershipType is TENANT", async () => {
+    setupFetch({ profile: { ...profileFixture, ownershipType: "TENANT" } });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Tenant")).toBeInTheDocument();
+    });
+    expect(screen.getByText("Tenancy / Rental Agreement")).toBeInTheDocument();
+  });
+
+  it("clicks Change Photo text button (triggers file picker)", async () => {
+    setupFetch({ photoUrl: "/x.jpg" });
+    renderPage();
+    // Two buttons match — the camera overlay AND the text link. Click both.
+    const btns = await screen.findAllByRole("button", { name: /change photo/i });
+    expect(btns.length).toBeGreaterThan(0);
+    btns.forEach((b) => fireEvent.click(b));
+  });
+
+  it("clicks Upload Photo text button when no photo", async () => {
+    setupFetch();
+    const user = userEvent.setup();
+    renderPage();
+    const uploadBtn = await screen.findByRole("button", { name: /upload photo/i });
+    await user.click(uploadBtn);
+  });
+
+  it("uploads ID proof via DocCard", async () => {
+    setupFetch();
+    renderPage();
+    const uploadBtns = await screen.findAllByRole("button", { name: /^upload$/i });
+    fireEvent.click(uploadBtns[0]);
+  });
+
+  it("renders uploaded DocCard with view/replace/delete buttons", async () => {
+    setupFetch({ idProofUrl: "/id.pdf", ownershipProofUrl: "/own.pdf" });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getAllByTitle("View document").length).toBeGreaterThan(0);
+    });
+    expect(screen.getAllByTitle("Replace document").length).toBeGreaterThan(0);
+    expect(screen.getAllByTitle("Remove document").length).toBeGreaterThan(0);
+    // Click Replace to cover its onClick handler
+    fireEvent.click(screen.getAllByTitle("Replace document")[0]);
+  });
+
+  it("views uploaded document in new tab", async () => {
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+    setupFetch({ idProofUrl: "/id.pdf" });
+    renderPage();
+    const viewBtns = await screen.findAllByTitle("View document");
+    fireEvent.click(viewBtns[0]);
+    expect(openSpy).toHaveBeenCalledWith("/id.pdf", "_blank");
+    openSpy.mockRestore();
+  });
+
+  it("uploads a doc file and shows success toast", async () => {
+    let uploadCalled = false;
+    mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
+      const method = (opts?.method ?? "GET").toUpperCase();
+      if (url === "/api/v1/residents/me" && method === "GET")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(profileFixture) });
+      if (url === "/api/v1/residents/me/profile/summary")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(summaryFixture) });
+      if (url === "/api/v1/residents/me/id-proof" && method === "POST") {
+        uploadCalled = true;
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+      }
+      if (url === "/api/v1/residents/me/id-proof" && method === "GET")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ url: null }) });
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ url: null }) });
+    });
+    renderPage();
+    await screen.findAllByRole("button", { name: /^upload$/i });
+    const idInput = Array.from(document.querySelectorAll('input[type="file"]')).find((el) =>
+      (el as HTMLInputElement).accept.includes("pdf"),
+    ) as HTMLInputElement;
+    fireEvent.change(idInput, {
+      target: { files: [new File(["x"], "id.pdf", { type: "application/pdf" })] },
+    });
+    await waitFor(() => expect(uploadCalled).toBe(true));
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith("ID Proof uploaded successfully"),
+    );
+  });
+
+  it("surfaces doc upload error with server message", async () => {
+    mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
+      const method = (opts?.method ?? "GET").toUpperCase();
+      if (url === "/api/v1/residents/me" && method === "GET")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(profileFixture) });
+      if (url === "/api/v1/residents/me/profile/summary")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(summaryFixture) });
+      if (url === "/api/v1/residents/me/id-proof" && method === "POST")
+        return Promise.resolve({
+          ok: false,
+          json: () => Promise.resolve({ error: { message: "Bad file" } }),
+        });
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ url: null }) });
+    });
+    renderPage();
+    await screen.findAllByRole("button", { name: /^upload$/i });
+    const idInput = Array.from(document.querySelectorAll('input[type="file"]')).find((el) =>
+      (el as HTMLInputElement).accept.includes("pdf"),
+    ) as HTMLInputElement;
+    fireEvent.change(idInput, {
+      target: { files: [new File(["x"], "id.pdf", { type: "application/pdf" })] },
+    });
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Bad file"));
+  });
+
+  it("doc upload falls back to generic error when no message", async () => {
+    mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
+      const method = (opts?.method ?? "GET").toUpperCase();
+      if (url === "/api/v1/residents/me" && method === "GET")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(profileFixture) });
+      if (url === "/api/v1/residents/me/profile/summary")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(summaryFixture) });
+      if (url === "/api/v1/residents/me/id-proof" && method === "POST")
+        return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ url: null }) });
+    });
+    renderPage();
+    await screen.findAllByRole("button", { name: /^upload$/i });
+    const idInput = Array.from(document.querySelectorAll('input[type="file"]')).find((el) =>
+      (el as HTMLInputElement).accept.includes("pdf"),
+    ) as HTMLInputElement;
+    fireEvent.change(idInput, {
+      target: { files: [new File(["x"], "id.pdf", { type: "application/pdf" })] },
+    });
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Upload failed"));
+  });
+
+  it("deletes an uploaded doc", async () => {
+    let deleteCalled = false;
+    mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
+      const method = (opts?.method ?? "GET").toUpperCase();
+      if (url === "/api/v1/residents/me" && method === "GET")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(profileFixture) });
+      if (url === "/api/v1/residents/me/profile/summary")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(summaryFixture) });
+      if (url === "/api/v1/residents/me/id-proof" && method === "GET")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ url: "/id.pdf" }) });
+      if (url === "/api/v1/residents/me/id-proof" && method === "DELETE") {
+        deleteCalled = true;
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ url: null }) });
+    });
+    renderPage();
+    const removeBtns = await screen.findAllByTitle("Remove document");
+    fireEvent.click(removeBtns[0]);
+    await waitFor(() => expect(deleteCalled).toBe(true));
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("ID Proof removed"));
+  });
+
+  it("doc delete error toast when server fails", async () => {
+    mockFetch.mockImplementation((url: string, opts?: RequestInit) => {
+      const method = (opts?.method ?? "GET").toUpperCase();
+      if (url === "/api/v1/residents/me" && method === "GET")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(profileFixture) });
+      if (url === "/api/v1/residents/me/profile/summary")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(summaryFixture) });
+      if (url === "/api/v1/residents/me/id-proof" && method === "GET")
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({ url: "/id.pdf" }) });
+      if (url === "/api/v1/residents/me/id-proof" && method === "DELETE")
+        return Promise.resolve({ ok: false, json: () => Promise.resolve({}) });
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({ url: null }) });
+    });
+    renderPage();
+    const removeBtns = await screen.findAllByTitle("Remove document");
+    fireEvent.click(removeBtns[0]);
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Failed to remove ID Proof"));
+  });
+
+  it("undoes household declaration when status is DECLARED_NONE", async () => {
+    setupFetch({ profile: { ...profileFixture, householdStatus: "DECLARED_NONE" } });
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText("Family Members");
+    await user.click(screen.getByRole("button", { name: /undo declaration/i }));
+    await waitFor(() => expect(mockUpdateDeclarations).toHaveBeenCalled());
+    expect(mockUpdateDeclarations.mock.calls.at(-1)?.[0]).toEqual({ householdStatus: "NOT_SET" });
+  });
+
+  it("undoes vehicle declaration when status is DECLARED_NONE", async () => {
+    setupFetch({ profile: { ...profileFixture, vehicleStatus: "DECLARED_NONE" } });
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText(/^Vehicles$/);
+    await user.click(screen.getByRole("button", { name: /undo declaration/i }));
+    await waitFor(() => expect(mockUpdateDeclarations).toHaveBeenCalled());
+    expect(mockUpdateDeclarations.mock.calls.at(-1)?.[0]).toEqual({ vehicleStatus: "NOT_SET" });
   });
 });

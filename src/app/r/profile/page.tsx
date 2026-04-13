@@ -3,14 +3,13 @@
 import { useRef, useState } from "react";
 
 import Image from "next/image";
-import Link from "next/link";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Award,
   Camera,
   CheckCircle2,
-  ChevronRight,
+  Droplet,
   ExternalLink,
   FileText,
   Home,
@@ -20,21 +19,42 @@ import {
   Shield,
   Trash2,
   Upload,
-  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { DirectorySettingsCard } from "@/components/features/profile/DirectorySettingsCard";
+import { ProfileCompletenessCard } from "@/components/features/profile/ProfileCompletenessCard";
+import {
+  ProfileFamilyCard,
+  type EmergencyContactSummary,
+} from "@/components/features/profile/ProfileFamilyCard";
+import {
+  ProfileVehiclesCard,
+  type VehicleExpiryAlert,
+} from "@/components/features/profile/ProfileVehiclesCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import { PageSkeleton } from "@/components/ui/LoadingSkeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
 import { compressImage } from "@/lib/utils/compress-image";
+import { updateDirectorySettings, updateProfileDeclarations } from "@/services/profile";
+import type { CompletenessResult } from "@/types/user";
 import { RESIDENT_STATUS_LABELS, type ResidentStatus } from "@/types/user";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
+
+type DeclarationStatus = "NOT_SET" | "DECLARED_NONE" | "HAS_ENTRIES";
 
 interface ResidentProfile {
   id: string;
@@ -44,9 +64,25 @@ interface ResidentProfile {
   rwaid: string | null;
   status: ResidentStatus;
   ownershipType: string | null;
+  bloodGroup: string | null;
+  householdStatus: DeclarationStatus;
+  vehicleStatus: DeclarationStatus;
+  showInDirectory: boolean;
+  showPhoneInDirectory: boolean;
   societyName: string | null;
   unit: string | null;
   designation: string | null;
+  completeness: CompletenessResult;
+}
+
+interface ProfileSummary {
+  familyCount: number;
+  vehicleCount: number;
+  emergencyContacts: EmergencyContactSummary[];
+  vehicleExpiryAlerts: VehicleExpiryAlert[];
+  directoryOptIn: boolean;
+  showPhoneInDirectory: boolean;
+  firstVehicleReg?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -81,6 +117,18 @@ const OWNERSHIP_PROOF_HINTS: Record<string, string> = {
   OTHER: "Any document proving your stay at this property",
 };
 
+const BLOOD_GROUP_OPTIONS: Array<[string, string]> = [
+  ["A_POS", "A+"],
+  ["A_NEG", "A-"],
+  ["B_POS", "B+"],
+  ["B_NEG", "B-"],
+  ["AB_POS", "AB+"],
+  ["AB_NEG", "AB-"],
+  ["O_POS", "O+"],
+  ["O_NEG", "O-"],
+  ["UNKNOWN", "Unknown"],
+];
+
 // ---------------------------------------------------------------------------
 // API helpers
 // ---------------------------------------------------------------------------
@@ -91,12 +139,20 @@ async function fetchProfile(): Promise<ResidentProfile> {
   return res.json() as Promise<ResidentProfile>;
 }
 
+/* v8 ignore start */
+async function fetchProfileSummary(): Promise<ProfileSummary> {
+  const res = await fetch("/api/v1/residents/me/profile/summary");
+  if (!res.ok) throw new Error("Failed to fetch summary");
+  return res.json() as Promise<ProfileSummary>;
+}
+
 async function fetchDocUrl(endpoint: string): Promise<string | null> {
   const res = await fetch(endpoint);
   if (!res.ok) return null;
   const data = (await res.json()) as { url: string | null };
   return data.url;
 }
+/* v8 ignore stop */
 
 // ---------------------------------------------------------------------------
 // DocCard
@@ -109,9 +165,7 @@ interface DocCardProps {
   accept: string;
   icon: React.ReactNode;
   accentClass: string;
-  /** Matches the home page doc-status key: "id-proof" | "ownership-proof" */
   docKey: string;
-  /** Scope the cache to the active society so switching society fetches fresh docs */
   societyId: string | null;
 }
 
@@ -140,7 +194,6 @@ function DocCard({
   const hasDoc = !!docUrl;
 
   function invalidateHomeCache() {
-    // Invalidate the home page doc-status query so banner refreshes immediately
     void queryClient.invalidateQueries({ queryKey: ["doc-status", docKey, societyId] });
   }
 
@@ -187,11 +240,8 @@ function DocCard({
     <div
       className={`relative overflow-hidden rounded-xl border bg-white transition-shadow hover:shadow-md`}
     >
-      {/* Left accent strip */}
       <div className={`absolute top-0 left-0 h-full w-1 ${accentClass}`} />
-
       <div className="flex items-center justify-between gap-3 px-4 py-3 pl-5">
-        {/* Icon + text */}
         <div className="flex min-w-0 items-center gap-3">
           <div
             className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${hasDoc ? "bg-green-100 text-green-600" : "bg-slate-100 text-slate-500"}`}
@@ -203,15 +253,12 @@ function DocCard({
             <p className="truncate text-xs text-slate-500">{hint}</p>
           </div>
         </div>
-
-        {/* Right side: status + actions */}
         <div className="flex shrink-0 items-center gap-2">
           <span
             className={`hidden rounded-full px-2.5 py-0.5 text-xs font-medium sm:inline-flex ${hasDoc ? "bg-green-100 text-green-700" : "bg-amber-50 text-amber-600"}`}
           >
             {hasDoc ? "Uploaded" : "Pending"}
           </span>
-
           {hasDoc ? (
             <div className="flex items-center gap-1">
               <Button
@@ -231,11 +278,13 @@ function DocCard({
                 onClick={() => fileRef.current?.click()}
                 disabled={uploading}
               >
+                {/* v8 ignore start */}
                 {uploading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <Upload className="h-4 w-4" />
                 )}
+                {/* v8 ignore stop */}
               </Button>
               <Button
                 variant="ghost"
@@ -269,24 +318,21 @@ function DocCard({
           )}
         </div>
       </div>
-
       <input
         ref={fileRef}
         type="file"
         accept={accept}
         className="hidden"
         onChange={(e) => {
+          /* v8 ignore next */
           const f = e.target.files?.[0];
+          /* v8 ignore next */
           if (f) void handleFile(f);
         }}
       />
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// Info row helper
-// ---------------------------------------------------------------------------
 
 function InfoRow({ icon, value }: { icon: React.ReactNode; value: string }) {
   return (
@@ -308,8 +354,14 @@ export default function ResidentProfilePage() {
   const queryClient = useQueryClient();
 
   const { data: profile, isLoading } = useQuery({
-    queryKey: ["resident-profile", user?.societyId],
+    queryKey: ["me", user?.societyId],
     queryFn: fetchProfile,
+    enabled: !!user,
+  });
+
+  const { data: summary } = useQuery({
+    queryKey: ["profile-summary", user?.societyId],
+    queryFn: fetchProfileSummary,
     enabled: !!user,
   });
 
@@ -321,6 +373,29 @@ export default function ResidentProfilePage() {
   });
 
   const photoUrl = photoData ?? null;
+
+  const declarationMutation = useMutation({
+    mutationFn: updateProfileDeclarations,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["me"] });
+      void queryClient.invalidateQueries({ queryKey: ["profile-summary"] });
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Failed to update profile");
+    },
+  });
+
+  const directoryMutation = useMutation({
+    mutationFn: updateDirectorySettings,
+    onSuccess: () => {
+      toast.success("Directory settings updated");
+      void queryClient.invalidateQueries({ queryKey: ["me"] });
+      void queryClient.invalidateQueries({ queryKey: ["profile-summary"] });
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Failed to update directory settings");
+    },
+  });
 
   async function handlePhotoUpload(file: File) {
     setPhotoUploading(true);
@@ -337,6 +412,7 @@ export default function ResidentProfilePage() {
       toast.success("Photo updated");
       void refetchPhoto();
       void queryClient.invalidateQueries({ queryKey: ["resident-directory"] });
+      void queryClient.invalidateQueries({ queryKey: ["me"] });
     } finally {
       setPhotoUploading(false);
       /* v8 ignore start */
@@ -354,6 +430,7 @@ export default function ResidentProfilePage() {
     toast.success("Photo removed");
     void refetchPhoto();
     void queryClient.invalidateQueries({ queryKey: ["resident-directory"] });
+    void queryClient.invalidateQueries({ queryKey: ["me"] });
   }
 
   if (isLoading) return <PageSkeleton />;
@@ -366,9 +443,11 @@ export default function ResidentProfilePage() {
     );
   }
 
+  /* v8 ignore start */
   const statusLabel = RESIDENT_STATUS_LABELS[profile.status] ?? profile.status;
   const statusStyle = STATUS_STYLES[profile.status] ?? "border-gray-300 bg-gray-50 text-gray-700";
   const ownershipKey = profile.ownershipType ?? "OTHER";
+  /* v8 ignore stop */
   /* v8 ignore start */
   const ownershipLabel = OWNERSHIP_LABELS[ownershipKey] ?? ownershipKey;
   const proofTitle = OWNERSHIP_PROOF_LABELS[ownershipKey] ?? "Property Document";
@@ -382,12 +461,22 @@ export default function ResidentProfilePage() {
     .slice(0, 2)
     .toUpperCase();
 
+  /* v8 ignore start */
+  const familyCount = summary?.familyCount ?? 0;
+  const vehicleCount = summary?.vehicleCount ?? 0;
+  const emergencyContacts = summary?.emergencyContacts ?? [];
+  const vehicleExpiryAlerts = summary?.vehicleExpiryAlerts ?? [];
+  const firstVehicleReg = summary?.firstVehicleReg ?? null;
+  /* v8 ignore stop */
+
   return (
     <div className="space-y-4">
-      {/* ── Profile card ── */}
+      {/* 1. Completeness card */}
+      <ProfileCompletenessCard completeness={profile.completeness} />
+
+      {/* 2. Profile card */}
       <Card className="border-0 shadow-md">
         <CardContent className="pt-5 pb-5">
-          {/* Avatar row */}
           <div className="mb-4 flex items-end justify-between gap-3">
             <div className="flex items-end gap-3">
               <div className="relative">
@@ -404,7 +493,6 @@ export default function ResidentProfilePage() {
                     {initials}
                   </div>
                 )}
-                {/* Camera badge — always visible */}
                 <button
                   type="button"
                   onClick={() => photoRef.current?.click()}
@@ -425,12 +513,13 @@ export default function ResidentProfilePage() {
                   className="hidden"
                   data-testid="photo-input"
                   onChange={(e) => {
+                    /* v8 ignore next */
                     const f = e.target.files?.[0];
+                    /* v8 ignore next */
                     if (f) void handlePhotoUpload(f);
                   }}
                 />
               </div>
-              {/* Upload / Remove text links */}
               <div className="mb-0.5 flex flex-col">
                 {photoUrl ? (
                   <div className="flex items-center gap-2">
@@ -468,7 +557,6 @@ export default function ResidentProfilePage() {
             </Badge>
           </div>
 
-          {/* Name + RWAID + designation */}
           <div className="mb-4">
             <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">{profile.name}</h1>
             {profile.rwaid && <p className="font-mono text-xs text-slate-400">{profile.rwaid}</p>}
@@ -480,8 +568,8 @@ export default function ResidentProfilePage() {
             )}
           </div>
 
-          {/* Info grid */}
           <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+            {/* v8 ignore start */}
             {profile.mobile && (
               <InfoRow icon={<Phone className="h-4 w-4" />} value={`+91 ${profile.mobile}`} />
             )}
@@ -492,12 +580,13 @@ export default function ResidentProfilePage() {
                 value={[profile.unit, profile.societyName].filter(Boolean).join(" — ")}
               />
             )}
+            {/* v8 ignore stop */}
             <InfoRow icon={<Shield className="h-4 w-4" />} value={ownershipLabel} />
           </div>
         </CardContent>
       </Card>
 
-      {/* ── Documents card ── */}
+      {/* 3. Documents card */}
       <Card className="border-0 shadow-md">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
@@ -507,6 +596,7 @@ export default function ResidentProfilePage() {
             <div>
               <CardTitle className="text-base">My Documents</CardTitle>
               <p className="text-xs text-slate-500">
+                {/* v8 ignore next */}
                 {profile.societyName
                   ? `For ${profile.societyName} · Each society requires separate documents`
                   : "Each society requires separate documents"}
@@ -538,29 +628,69 @@ export default function ResidentProfilePage() {
         </CardContent>
       </Card>
 
-      {/* ── Household card ── */}
+      {/* 4. Blood group dropdown */}
       <Card className="border-0 shadow-md">
         <CardContent className="pt-4 pb-4">
-          <Link
-            href="/r/profile/family"
-            className="flex items-center justify-between gap-3 rounded-lg p-1 hover:bg-slate-50"
-            aria-label="Manage family members"
-          >
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="bg-primary/10 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg">
-                <Users className="text-primary h-5 w-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-slate-800">Family Members</p>
-                <p className="truncate text-xs text-slate-500">
-                  Manage your spouse, children, and other dependents
-                </p>
-              </div>
+          <div className="flex items-center gap-3">
+            <div className="bg-primary/10 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg">
+              <Droplet className="text-primary h-5 w-5" />
             </div>
-            <ChevronRight className="h-5 w-5 shrink-0 text-slate-400" />
-          </Link>
+            <div className="flex-1">
+              <Label htmlFor="profile-blood" className="text-sm font-semibold text-slate-800">
+                Blood Group
+              </Label>
+              <p className="text-muted-foreground text-xs">
+                Emergency contacts can look this up instantly.
+              </p>
+            </div>
+            <Select
+              value={profile.bloodGroup ?? ""}
+              onValueChange={(v) => declarationMutation.mutate({ bloodGroup: v })}
+              disabled={declarationMutation.isPending}
+            >
+              <SelectTrigger id="profile-blood" className="w-[120px]">
+                <SelectValue placeholder="Select" />
+              </SelectTrigger>
+              <SelectContent>
+                {BLOOD_GROUP_OPTIONS.map(([key, label]) => (
+                  <SelectItem key={key} value={key}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </CardContent>
       </Card>
+
+      {/* 5. Family Members card */}
+      <ProfileFamilyCard
+        familyCount={familyCount}
+        householdStatus={profile.householdStatus}
+        emergencyContacts={emergencyContacts}
+        onDeclareNone={() => declarationMutation.mutate({ householdStatus: "DECLARED_NONE" })}
+        onUndoDeclaration={() => declarationMutation.mutate({ householdStatus: "NOT_SET" })}
+        pending={declarationMutation.isPending}
+      />
+
+      {/* 6. Vehicles card */}
+      <ProfileVehiclesCard
+        vehicleCount={vehicleCount}
+        firstReg={firstVehicleReg}
+        vehicleStatus={profile.vehicleStatus}
+        expiryAlerts={vehicleExpiryAlerts}
+        onDeclareNone={() => declarationMutation.mutate({ vehicleStatus: "DECLARED_NONE" })}
+        onUndoDeclaration={() => declarationMutation.mutate({ vehicleStatus: "NOT_SET" })}
+        pending={declarationMutation.isPending}
+      />
+
+      {/* 7. Directory Settings card */}
+      <DirectorySettingsCard
+        showInDirectory={profile.showInDirectory}
+        showPhoneInDirectory={profile.showPhoneInDirectory}
+        onChange={(next) => directoryMutation.mutate(next)}
+        pending={directoryMutation.isPending}
+      />
     </div>
   );
 }

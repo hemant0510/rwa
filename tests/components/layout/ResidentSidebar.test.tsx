@@ -61,6 +61,40 @@ describe("ResidentSidebar", () => {
     expect(screen.getByText("Support")).toBeInTheDocument();
     expect(screen.getByText("Directory")).toBeInTheDocument();
     expect(screen.getByText("Profile")).toBeInTheDocument();
+    expect(screen.getByText("Family")).toBeInTheDocument();
+    expect(screen.getByText("Vehicles")).toBeInTheDocument();
+  });
+
+  it("highlights Family when on /r/profile/family and not Profile", () => {
+    mockUsePathname.mockReturnValue("/r/profile/family");
+    renderWithQC(<ResidentSidebar societyName="Test" />);
+    const familyLink = screen.getByText("Family").closest("a");
+    const profileLink = screen.getByText("Profile").closest("a");
+    expect(familyLink?.className).toContain("bg-primary");
+    expect(profileLink?.className).not.toContain("bg-primary");
+  });
+
+  it("highlights Vehicles when on /r/profile/vehicles and not Profile", () => {
+    mockUsePathname.mockReturnValue("/r/profile/vehicles");
+    renderWithQC(<ResidentSidebar societyName="Test" />);
+    const vehiclesLink = screen.getByText("Vehicles").closest("a");
+    const profileLink = screen.getByText("Profile").closest("a");
+    expect(vehiclesLink?.className).toContain("bg-primary");
+    expect(profileLink?.className).not.toContain("bg-primary");
+  });
+
+  it("highlights Profile when on /r/profile exactly", () => {
+    mockUsePathname.mockReturnValue("/r/profile");
+    renderWithQC(<ResidentSidebar societyName="Test" />);
+    const profileLink = screen.getByText("Profile").closest("a");
+    expect(profileLink?.className).toContain("bg-primary");
+  });
+
+  it("highlights nothing when pathname does not match any nav item", () => {
+    mockUsePathname.mockReturnValue("/r/unknown");
+    renderWithQC(<ResidentSidebar societyName="Test" />);
+    const homeLink = screen.getByText("Home").closest("a");
+    expect(homeLink?.className).not.toContain("bg-primary");
   });
 
   it("highlights active link based on pathname", () => {
@@ -89,6 +123,10 @@ describe("ResidentSidebar", () => {
     expect(screen.getByText("Home").closest("a")?.getAttribute("href")).toBe("/r/home");
     expect(screen.getByText("Support").closest("a")?.getAttribute("href")).toBe("/r/support");
     expect(screen.getByText("Profile").closest("a")?.getAttribute("href")).toBe("/r/profile");
+    expect(screen.getByText("Family").closest("a")?.getAttribute("href")).toBe("/r/profile/family");
+    expect(screen.getByText("Vehicles").closest("a")?.getAttribute("href")).toBe(
+      "/r/profile/vehicles",
+    );
   });
 
   it("shows unread badge on Support when count > 0", async () => {

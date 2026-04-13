@@ -96,6 +96,9 @@ export async function GET() {
       householdStatus: user.householdStatus,
       vehicleStatus: user.vehicleStatus,
       showInDirectory: user.showInDirectory,
+      showPhoneInDirectory: user.showPhoneInDirectory,
+      consentWhatsapp: user.consentWhatsapp,
+      photoUrl: user.photoUrl,
       societyName: user.society?.name ?? null,
       unit: user.userUnits[0]?.unit?.displayLabel ?? null,
       units: user.userUnits

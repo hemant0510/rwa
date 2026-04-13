@@ -75,6 +75,7 @@ describe("GET /api/v1/residents/me/profile/summary", () => {
     expect(body).toEqual({
       familyCount: 0,
       vehicleCount: 0,
+      firstVehicleReg: null,
       emergencyContacts: [],
       vehicleExpiryAlerts: [],
       directoryOptIn: true,

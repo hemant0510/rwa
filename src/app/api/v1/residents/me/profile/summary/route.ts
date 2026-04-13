@@ -83,6 +83,7 @@ export async function GET() {
     return NextResponse.json({
       familyCount,
       vehicleCount,
+      firstVehicleReg: vehicles[0]?.registrationNumber ?? null,
       emergencyContacts: emergencyDependents,
       vehicleExpiryAlerts,
       directoryOptIn: resident.showInDirectory,

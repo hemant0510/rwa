@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-import { updateProfileDeclarations } from "@/services/profile";
+import { updateDirectorySettings, updateProfileDeclarations } from "@/services/profile";
 
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
@@ -74,6 +74,39 @@ describe("profile service", () => {
       await expect(updateProfileDeclarations({ bloodGroup: "X" })).rejects.toThrow(
         "Failed to update profile",
       );
+    });
+  });
+
+  describe("updateDirectorySettings", () => {
+    it("sends PATCH with directory settings", async () => {
+      mockFetch.mockResolvedValue(okJson({ showInDirectory: true, showPhoneInDirectory: false }));
+      const result = await updateDirectorySettings({
+        showInDirectory: true,
+        showPhoneInDirectory: false,
+      });
+      expect(mockFetch).toHaveBeenCalledWith(
+        "/api/v1/residents/me/settings/directory",
+        expect.objectContaining({
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ showInDirectory: true, showPhoneInDirectory: false }),
+        }),
+      );
+      expect(result.showInDirectory).toBe(true);
+    });
+
+    it("throws API error message when response not ok", async () => {
+      mockFetch.mockResolvedValue(errJson({ error: { message: "Invalid" } }));
+      await expect(
+        updateDirectorySettings({ showInDirectory: true, showPhoneInDirectory: true }),
+      ).rejects.toThrow("Invalid");
+    });
+
+    it("throws default message when error body lacks message", async () => {
+      mockFetch.mockResolvedValue(errJson({}));
+      await expect(
+        updateDirectorySettings({ showInDirectory: true, showPhoneInDirectory: true }),
+      ).rejects.toThrow("Failed to update directory settings");
     });
   });
 });

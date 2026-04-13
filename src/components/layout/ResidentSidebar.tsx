@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
   CalendarDays,
+  Car,
   CreditCard,
   FileSignature,
   Home,
@@ -31,6 +32,8 @@ const navItems = [
   { href: "/r/support", label: "Support", icon: LifeBuoy },
   { href: "/r/directory", label: "Directory", icon: Users },
   { href: "/r/profile", label: "Profile", icon: User },
+  { href: "/r/profile/family", label: "Family", icon: Users },
+  { href: "/r/profile/vehicles", label: "Vehicles", icon: Car },
 ];
 
 function SidebarContent({ societyName }: { societyName?: string }) {
@@ -46,6 +49,12 @@ function SidebarContent({ societyName }: { societyName?: string }) {
 
   const supportUnread = unreadData?.count ?? 0;
 
+  // Pick the most specific matching nav href (longest prefix wins) so
+  // /r/profile/family activates Family, not Profile.
+  const activeHref = [...navItems]
+    .sort((a, b) => b.href.length - a.href.length)
+    .find((i) => pathname === i.href || pathname?.startsWith(`${i.href}/`))?.href;
+
   return (
     <div className="flex h-full flex-col">
       <div className="border-b px-6 py-4">
@@ -54,7 +63,7 @@ function SidebarContent({ societyName }: { societyName?: string }) {
       </div>
       <nav className="flex-1 space-y-1 p-3">
         {navItems.map((item) => {
-          const isActive = pathname?.includes(item.href);
+          const isActive = activeHref === item.href;
           const isSupport = item.href === "/r/support";
           return (
             <Link

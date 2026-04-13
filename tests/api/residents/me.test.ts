@@ -34,6 +34,7 @@ const userFixture = {
   vehicleStatus: "NOT_SET",
   consentWhatsapp: false,
   showInDirectory: false,
+  showPhoneInDirectory: false,
   society: { name: "Eden Estate", societyCode: "EDEN" },
   userUnits: [{ unit: { id: "unit-1", displayLabel: "A-101" } }],
   governingBodyMembership: null,
@@ -94,6 +95,7 @@ describe("GET /api/v1/residents/me", () => {
     expect(body.societyName).toBe("Eden Estate");
     expect(body.unit).toBe("A-101");
     expect(body.units).toEqual([{ id: "unit-1", displayLabel: "A-101" }]);
+    expect(body.showPhoneInDirectory).toBe(false);
     expect(body.designation).toBeNull();
     expect(body.completeness).toBeDefined();
     expect(body.completeness.percentage).toBe(10); // mobile only → A2 (10/100)

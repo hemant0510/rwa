@@ -10,12 +10,17 @@ import { AuthContext } from "@/hooks/useAuth";
 
 // ── Hoisted mocks ──
 
-const { mockFetchResidentDirectory } = vi.hoisted(() => ({
+const { mockFetchResidentDirectory, mockSearchVehicles } = vi.hoisted(() => ({
   mockFetchResidentDirectory: vi.fn(),
+  mockSearchVehicles: vi.fn(),
 }));
 
 vi.mock("@/services/resident-directory", () => ({
   fetchResidentDirectory: (...args: unknown[]) => mockFetchResidentDirectory(...args),
+}));
+
+vi.mock("@/services/vehicles", () => ({
+  searchVehicles: mockSearchVehicles,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -365,5 +370,37 @@ describe("ResidentDirectoryPage", () => {
     await waitFor(() => {
       expect(screen.getByText("Other")).toBeInTheDocument();
     });
+  });
+
+  it("renders opt-in banner explaining directory privacy", () => {
+    mockFetchResidentDirectory.mockReturnValue(new Promise(() => {}));
+    renderPage();
+    expect(
+      screen.getByText(/only residents who have opted in to the directory/i),
+    ).toBeInTheDocument();
+  });
+
+  it("renders both People and Vehicles tabs", () => {
+    mockFetchResidentDirectory.mockReturnValue(new Promise(() => {}));
+    renderPage();
+    expect(screen.getByRole("tab", { name: "People" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Vehicles" })).toBeInTheDocument();
+  });
+
+  it("switches to Vehicles tab and renders search input", async () => {
+    mockFetchResidentDirectory.mockResolvedValue(EMPTY_RESPONSE);
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole("tab", { name: "Vehicles" }));
+    await waitFor(() => {
+      expect(screen.getByLabelText(/search vehicles/i)).toBeInTheDocument();
+    });
+  });
+
+  it("people tab is active by default", () => {
+    mockFetchResidentDirectory.mockReturnValue(new Promise(() => {}));
+    renderPage();
+    const peopleTab = screen.getByRole("tab", { name: "People" });
+    expect(peopleTab).toHaveAttribute("data-state", "active");
   });
 });
