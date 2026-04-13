@@ -35,7 +35,7 @@ const userFixture = {
   consentWhatsapp: false,
   showInDirectory: false,
   society: { name: "Eden Estate", societyCode: "EDEN" },
-  userUnits: [{ unit: { displayLabel: "A-101" } }],
+  userUnits: [{ unit: { id: "unit-1", displayLabel: "A-101" } }],
   governingBodyMembership: null,
 };
 
@@ -93,6 +93,7 @@ describe("GET /api/v1/residents/me", () => {
     expect(body.showInDirectory).toBe(false);
     expect(body.societyName).toBe("Eden Estate");
     expect(body.unit).toBe("A-101");
+    expect(body.units).toEqual([{ id: "unit-1", displayLabel: "A-101" }]);
     expect(body.designation).toBeNull();
     expect(body.completeness).toBeDefined();
     expect(body.completeness.percentage).toBe(10); // mobile only → A2 (10/100)
@@ -113,6 +114,7 @@ describe("GET /api/v1/residents/me", () => {
     const body = await res.json();
     expect(body.designation).toBe("President");
     expect(body.unit).toBeNull();
+    expect(body.units).toEqual([]);
   });
 
   it("returns current fee data when fee record exists", async () => {

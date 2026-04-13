@@ -32,10 +32,9 @@ export async function GET() {
         userUnits: {
           include: {
             unit: {
-              select: { displayLabel: true },
+              select: { id: true, displayLabel: true },
             },
           },
-          take: 1,
         },
         governingBodyMembership: {
           select: {
@@ -99,6 +98,9 @@ export async function GET() {
       showInDirectory: user.showInDirectory,
       societyName: user.society?.name ?? null,
       unit: user.userUnits[0]?.unit?.displayLabel ?? null,
+      units: user.userUnits
+        .filter((uu) => uu.unit)
+        .map((uu) => ({ id: uu.unit!.id, displayLabel: uu.unit!.displayLabel })),
       designation: user.governingBodyMembership?.designation?.name ?? null,
       currentFee: currentFee
         ? {
