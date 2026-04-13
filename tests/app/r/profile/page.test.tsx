@@ -928,3 +928,18 @@ describe("Photo — delete flow", () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Family link card
+// ---------------------------------------------------------------------------
+
+describe("Family link card", () => {
+  it("renders a link to /r/profile/family", async () => {
+    setupRoutedFetch();
+    renderWithProviders(null);
+    await waitFor(() => screen.getByText("Hemant Bhagat"));
+    const link = screen.getByRole("link", { name: /manage family members/i });
+    expect(link).toHaveAttribute("href", "/r/profile/family");
+    expect(screen.getByText("Family Members")).toBeInTheDocument();
+  });
+});

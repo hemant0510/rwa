@@ -3,12 +3,14 @@
 import { useRef, useState } from "react";
 
 import Image from "next/image";
+import Link from "next/link";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Award,
   Camera,
   CheckCircle2,
+  ChevronRight,
   ExternalLink,
   FileText,
   Home,
@@ -18,6 +20,7 @@ import {
   Shield,
   Trash2,
   Upload,
+  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -532,6 +535,30 @@ export default function ResidentProfilePage() {
             docKey="ownership-proof"
             societyId={/* v8 ignore next */ user?.societyId ?? null}
           />
+        </CardContent>
+      </Card>
+
+      {/* ── Household card ── */}
+      <Card className="border-0 shadow-md">
+        <CardContent className="pt-4 pb-4">
+          <Link
+            href="/r/profile/family"
+            className="flex items-center justify-between gap-3 rounded-lg p-1 hover:bg-slate-50"
+            aria-label="Manage family members"
+          >
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="bg-primary/10 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg">
+                <Users className="text-primary h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-slate-800">Family Members</p>
+                <p className="truncate text-xs text-slate-500">
+                  Manage your spouse, children, and other dependents
+                </p>
+              </div>
+            </div>
+            <ChevronRight className="h-5 w-5 shrink-0 text-slate-400" />
+          </Link>
         </CardContent>
       </Card>
     </div>
