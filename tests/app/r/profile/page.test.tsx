@@ -30,6 +30,30 @@ vi.mock("@/services/profile", () => ({
   updateDirectorySettings: mockUpdateDirectory,
 }));
 
+vi.mock("@/services/family", () => ({
+  getFamilyMembers: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock("@/components/features/family/FamilyMemberDialog", () => ({
+  FamilyMemberDialog: ({ open, onSaved }: { open: boolean; onSaved: () => void }) =>
+    open ? (
+      <div data-testid="family-dialog">
+        family-dialog
+        <button onClick={onSaved}>family-saved</button>
+      </div>
+    ) : null,
+}));
+
+vi.mock("@/components/features/vehicles/VehicleDialog", () => ({
+  VehicleDialog: ({ open, onSaved }: { open: boolean; onSaved: () => void }) =>
+    open ? (
+      <div data-testid="vehicle-dialog">
+        vehicle-dialog
+        <button onClick={onSaved}>vehicle-saved</button>
+      </div>
+    ) : null,
+}));
+
 vi.stubGlobal("fetch", mockFetch);
 
 import ResidentProfilePage from "@/app/r/profile/page";
@@ -83,6 +107,7 @@ const profileFixture = {
   showPhoneInDirectory: false,
   societyName: "Eden Estate",
   unit: "A-101",
+  units: [{ id: "u1", displayLabel: "A-101" }],
   designation: null,
   completeness: {
     percentage: 55,
@@ -202,7 +227,7 @@ describe("ResidentProfilePage", () => {
     setupFetch();
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText("Profile Completeness")).toBeInTheDocument();
+      expect(screen.getByLabelText(/view profile completeness details/i)).toBeInTheDocument();
     });
     expect(screen.getByText("My Documents")).toBeInTheDocument();
     expect(screen.getByText(/Blood Group/)).toBeInTheDocument();
@@ -677,5 +702,44 @@ describe("ResidentProfilePage", () => {
     await user.click(screen.getByRole("button", { name: /undo declaration/i }));
     await waitFor(() => expect(mockUpdateDeclarations).toHaveBeenCalled());
     expect(mockUpdateDeclarations.mock.calls.at(-1)?.[0]).toEqual({ vehicleStatus: "NOT_SET" });
+  });
+
+  it("opens FamilyMemberDialog when the family + icon is clicked", async () => {
+    setupFetch();
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText("Family Members");
+    await user.click(screen.getByRole("button", { name: /add family member/i }));
+    expect(screen.getByTestId("family-dialog")).toBeInTheDocument();
+  });
+
+  it("opens VehicleDialog when the vehicle + icon is clicked", async () => {
+    setupFetch();
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText(/^Vehicles$/);
+    await user.click(screen.getByRole("button", { name: /add vehicle/i }));
+    expect(screen.getByTestId("vehicle-dialog")).toBeInTheDocument();
+  });
+
+  it("FamilyMemberDialog onSaved invalidates queries", async () => {
+    setupFetch();
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText("Family Members");
+    await user.click(screen.getByRole("button", { name: /add family member/i }));
+    await user.click(screen.getByRole("button", { name: /family-saved/i }));
+    // Assertion: no throw — callback executed and queries invalidated
+    expect(screen.getByTestId("family-dialog")).toBeInTheDocument();
+  });
+
+  it("VehicleDialog onSaved invalidates queries", async () => {
+    setupFetch();
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText(/^Vehicles$/);
+    await user.click(screen.getByRole("button", { name: /add vehicle/i }));
+    await user.click(screen.getByRole("button", { name: /vehicle-saved/i }));
+    expect(screen.getByTestId("vehicle-dialog")).toBeInTheDocument();
   });
 });

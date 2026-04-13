@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 
-import { AlertTriangle, Car, ChevronRight } from "lucide-react";
+import { AlertTriangle, Car, ChevronRight, Plus } from "lucide-react";
 
 import {
   DeclarationToggle,
   type DeclarationStatus,
 } from "@/components/features/profile/DeclarationToggle";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
 export interface VehicleExpiryAlert {
@@ -25,6 +26,7 @@ interface ProfileVehiclesCardProps {
   expiryAlerts: VehicleExpiryAlert[];
   onDeclareNone: () => void;
   onUndoDeclaration: () => void;
+  onAdd?: () => void;
   pending?: boolean;
 }
 
@@ -46,6 +48,7 @@ export function ProfileVehiclesCard({
   expiryAlerts,
   onDeclareNone,
   onUndoDeclaration,
+  onAdd,
   pending = false,
 }: ProfileVehiclesCardProps) {
   const hasVehicles = vehicleCount > 0;
@@ -69,16 +72,30 @@ export function ProfileVehiclesCard({
               </p>
             </div>
           </div>
-          {hasVehicles && (
-            <Link
-              href="/r/profile/vehicles"
-              className="text-primary inline-flex shrink-0 items-center gap-1 text-xs font-medium hover:underline"
-              aria-label="View vehicles"
-            >
-              View vehicles
-              <ChevronRight className="h-3.5 w-3.5" />
-            </Link>
-          )}
+          <div className="flex shrink-0 items-center gap-2">
+            {onAdd && (
+              <Button
+                type="button"
+                size="icon"
+                variant="outline"
+                className="h-8 w-8"
+                onClick={onAdd}
+                aria-label="Add vehicle"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            )}
+            {hasVehicles && (
+              <Link
+                href="/r/profile/vehicles"
+                className="text-primary inline-flex items-center gap-1 text-xs font-medium hover:underline"
+                aria-label="View vehicles"
+              >
+                View vehicles
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Link>
+            )}
+          </div>
         </div>
 
         {hasVehicles && expiryAlerts.length > 0 && (

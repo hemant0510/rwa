@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
   CalendarDays,
-  Car,
   CreditCard,
   FileSignature,
   Home,
@@ -32,8 +31,6 @@ const navItems = [
   { href: "/r/support", label: "Support", icon: LifeBuoy },
   { href: "/r/directory", label: "Directory", icon: Users },
   { href: "/r/profile", label: "Profile", icon: User },
-  { href: "/r/profile/family", label: "Family", icon: Users },
-  { href: "/r/profile/vehicles", label: "Vehicles", icon: Car },
 ];
 
 function SidebarContent({ societyName }: { societyName?: string }) {

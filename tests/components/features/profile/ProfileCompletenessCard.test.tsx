@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import { ProfileCompletenessCard } from "@/components/features/profile/ProfileCompletenessCard";
@@ -32,17 +33,32 @@ function makeCompleteness(overrides: Partial<CompletenessResult> = {}): Complete
 }
 
 describe("ProfileCompletenessCard", () => {
-  it("renders percentage, tier label, next-step CTA, items checklist, Extras section", () => {
+  it("renders compact trigger with ring + tier badge", () => {
     render(<ProfileCompletenessCard completeness={makeCompleteness()} />);
+    expect(screen.getByLabelText(/view profile completeness details/i)).toBeInTheDocument();
+    // Ring shows percentage
     expect(screen.getByLabelText(/55% complete/i)).toBeInTheDocument();
     expect(screen.getByText("Standard")).toBeInTheDocument();
-    expect(screen.getByText(/Next: Email verified/)).toBeInTheDocument();
+  });
+
+  it("opens dialog with items + extras when trigger clicked", async () => {
+    const user = userEvent.setup();
+    render(<ProfileCompletenessCard completeness={makeCompleteness()} />);
+    await user.click(screen.getByLabelText(/view profile completeness details/i));
+    expect(screen.getByText("Profile Completeness")).toBeInTheDocument();
     expect(screen.getByText("Profile photo")).toBeInTheDocument();
     expect(screen.getByText("Extras")).toBeInTheDocument();
     expect(screen.getByText("WhatsApp notifications")).toBeInTheDocument();
   });
 
-  it("BASIC tier renders gray styling", () => {
+  it("shows Next CTA link in the dialog", async () => {
+    const user = userEvent.setup();
+    render(<ProfileCompletenessCard completeness={makeCompleteness()} />);
+    await user.click(screen.getByLabelText(/view profile completeness details/i));
+    expect(screen.getByText(/Next: Email verified/)).toBeInTheDocument();
+  });
+
+  it("BASIC tier renders gray styling in trigger", () => {
     render(
       <ProfileCompletenessCard
         completeness={makeCompleteness({ percentage: 20, tier: "BASIC" })}
@@ -51,7 +67,7 @@ describe("ProfileCompletenessCard", () => {
     expect(screen.getByText("Basic")).toBeInTheDocument();
   });
 
-  it("COMPLETE tier renders blue styling", () => {
+  it("COMPLETE tier renders blue styling in trigger", () => {
     render(
       <ProfileCompletenessCard
         completeness={makeCompleteness({ percentage: 80, tier: "COMPLETE" })}
@@ -60,7 +76,8 @@ describe("ProfileCompletenessCard", () => {
     expect(screen.getByText("Complete")).toBeInTheDocument();
   });
 
-  it("VERIFIED tier renders green styling and hides next CTA when all done", () => {
+  it("VERIFIED tier dialog hides next CTA when all done", async () => {
+    const user = userEvent.setup();
     render(
       <ProfileCompletenessCard
         completeness={makeCompleteness({
@@ -70,11 +87,12 @@ describe("ProfileCompletenessCard", () => {
         })}
       />,
     );
-    expect(screen.getByText("Verified")).toBeInTheDocument();
+    await user.click(screen.getByLabelText(/view profile completeness details/i));
     expect(screen.getByText(/all core items complete/i)).toBeInTheDocument();
   });
 
-  it("next CTA links to /r/profile/family when nextIncompleteItem is C1 (emergency)", () => {
+  it("next CTA in dialog links to /r/profile/family when nextIncompleteItem is C1", async () => {
+    const user = userEvent.setup();
     render(
       <ProfileCompletenessCard
         completeness={makeCompleteness({
@@ -87,13 +105,15 @@ describe("ProfileCompletenessCard", () => {
         })}
       />,
     );
+    await user.click(screen.getByLabelText(/view profile completeness details/i));
     expect(screen.getByRole("link", { name: /next: emergency/i })).toHaveAttribute(
       "href",
       "/r/profile/family",
     );
   });
 
-  it("next CTA links to /r/profile/vehicles when nextIncompleteItem is E1", () => {
+  it("next CTA in dialog links to /r/profile/vehicles when nextIncompleteItem is E1", async () => {
+    const user = userEvent.setup();
     render(
       <ProfileCompletenessCard
         completeness={makeCompleteness({
@@ -106,13 +126,24 @@ describe("ProfileCompletenessCard", () => {
         })}
       />,
     );
+    await user.click(screen.getByLabelText(/view profile completeness details/i));
     expect(screen.getByRole("link", { name: /next: vehicle/i })).toHaveAttribute(
       "href",
       "/r/profile/vehicles",
     );
   });
 
-  it("falls back to /r/profile when nextIncompleteItem key not in map", () => {
+  it("clicking a next CTA link closes the dialog", async () => {
+    const user = userEvent.setup();
+    render(<ProfileCompletenessCard completeness={makeCompleteness()} />);
+    await user.click(screen.getByLabelText(/view profile completeness details/i));
+    await user.click(screen.getByRole("link", { name: /next: email verified/i }));
+    // After click, dialog closes — title not visible anymore
+    expect(screen.queryByText("Profile Completeness")).not.toBeInTheDocument();
+  });
+
+  it("falls back to /r/profile when nextIncompleteItem key not in map", async () => {
+    const user = userEvent.setup();
     render(
       <ProfileCompletenessCard
         completeness={makeCompleteness({
@@ -125,14 +156,43 @@ describe("ProfileCompletenessCard", () => {
         })}
       />,
     );
+    await user.click(screen.getByLabelText(/view profile completeness details/i));
     expect(screen.getByRole("link", { name: /next: unknown item/i })).toHaveAttribute(
       "href",
       "/r/profile",
     );
   });
 
-  it("renders items with strike-through when completed and highlights incomplete items", () => {
-    const { container } = render(<ProfileCompletenessCard completeness={makeCompleteness()} />);
-    expect(container.querySelectorAll(".line-through").length).toBeGreaterThan(0);
+  it("dialog shows strike-through for completed items", async () => {
+    const user = userEvent.setup();
+    render(<ProfileCompletenessCard completeness={makeCompleteness()} />);
+    await user.click(screen.getByLabelText(/view profile completeness details/i));
+    // Dialog is portaled — query document.body
+    expect(document.body.querySelectorAll(".line-through").length).toBeGreaterThan(0);
+  });
+
+  it("closes dialog when Close button is clicked", async () => {
+    const user = userEvent.setup();
+    render(<ProfileCompletenessCard completeness={makeCompleteness()} />);
+    await user.click(screen.getByLabelText(/view profile completeness details/i));
+    // Multiple close buttons (Radix's X icon + our Close button). Click the text one.
+    const closeButtons = screen.getAllByRole("button", { name: /^close$/i });
+    await user.click(closeButtons[closeButtons.length - 1]);
+    expect(screen.queryByText("Profile Completeness")).not.toBeInTheDocument();
+  });
+
+  it("accepts a custom trigger element", async () => {
+    const user = userEvent.setup();
+    render(
+      <ProfileCompletenessCard
+        completeness={makeCompleteness()}
+        trigger={<button type="button">Custom trigger</button>}
+      />,
+    );
+    expect(screen.queryByLabelText(/view profile completeness details/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /custom trigger/i })).toBeInTheDocument();
+    // Custom trigger doesn't open dialog (no onClick wired)
+    await user.click(screen.getByRole("button", { name: /custom trigger/i }));
+    expect(screen.queryByText("Profile Completeness")).not.toBeInTheDocument();
   });
 });

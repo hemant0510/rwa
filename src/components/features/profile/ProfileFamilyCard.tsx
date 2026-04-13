@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 
-import { ChevronRight, Star, Users } from "lucide-react";
+import { ChevronRight, Plus, Star, Users } from "lucide-react";
 
 import {
   DeclarationToggle,
   type DeclarationStatus,
 } from "@/components/features/profile/DeclarationToggle";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
 export interface EmergencyContactSummary {
@@ -23,6 +24,7 @@ interface ProfileFamilyCardProps {
   emergencyContacts: EmergencyContactSummary[];
   onDeclareNone: () => void;
   onUndoDeclaration: () => void;
+  onAdd?: () => void;
   pending?: boolean;
 }
 
@@ -32,6 +34,7 @@ export function ProfileFamilyCard({
   emergencyContacts,
   onDeclareNone,
   onUndoDeclaration,
+  onAdd,
   pending = false,
 }: ProfileFamilyCardProps) {
   const hasMembers = familyCount > 0;
@@ -53,16 +56,30 @@ export function ProfileFamilyCard({
               </p>
             </div>
           </div>
-          {hasMembers && (
-            <Link
-              href="/r/profile/family"
-              className="text-primary inline-flex shrink-0 items-center gap-1 text-xs font-medium hover:underline"
-              aria-label="View family"
-            >
-              View family
-              <ChevronRight className="h-3.5 w-3.5" />
-            </Link>
-          )}
+          <div className="flex shrink-0 items-center gap-2">
+            {onAdd && (
+              <Button
+                type="button"
+                size="icon"
+                variant="outline"
+                className="h-8 w-8"
+                onClick={onAdd}
+                aria-label="Add family member"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            )}
+            {hasMembers && (
+              <Link
+                href="/r/profile/family"
+                className="text-primary inline-flex items-center gap-1 text-xs font-medium hover:underline"
+                aria-label="View family"
+              >
+                View family
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Link>
+            )}
+          </div>
         </div>
 
         {hasMembers && emergencyContacts.length > 0 && (

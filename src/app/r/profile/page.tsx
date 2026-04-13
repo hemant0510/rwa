@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { FamilyMemberDialog } from "@/components/features/family/FamilyMemberDialog";
 import { DirectorySettingsCard } from "@/components/features/profile/DirectorySettingsCard";
 import { ProfileCompletenessCard } from "@/components/features/profile/ProfileCompletenessCard";
 import {
@@ -32,6 +33,7 @@ import {
   ProfileVehiclesCard,
   type VehicleExpiryAlert,
 } from "@/components/features/profile/ProfileVehiclesCard";
+import { VehicleDialog } from "@/components/features/vehicles/VehicleDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,6 +48,7 @@ import {
 } from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
 import { compressImage } from "@/lib/utils/compress-image";
+import { getFamilyMembers } from "@/services/family";
 import { updateDirectorySettings, updateProfileDeclarations } from "@/services/profile";
 import type { CompletenessResult } from "@/types/user";
 import { RESIDENT_STATUS_LABELS, type ResidentStatus } from "@/types/user";
@@ -71,6 +74,7 @@ interface ResidentProfile {
   showPhoneInDirectory: boolean;
   societyName: string | null;
   unit: string | null;
+  units: Array<{ id: string; displayLabel: string }>;
   designation: string | null;
   completeness: CompletenessResult;
 }
@@ -351,6 +355,8 @@ export default function ResidentProfilePage() {
   const { user } = useAuth();
   const photoRef = useRef<HTMLInputElement>(null);
   const [photoUploading, setPhotoUploading] = useState(false);
+  const [familyDialogOpen, setFamilyDialogOpen] = useState(false);
+  const [vehicleDialogOpen, setVehicleDialogOpen] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: profile, isLoading } = useQuery({
@@ -363,6 +369,13 @@ export default function ResidentProfilePage() {
     queryKey: ["profile-summary", user?.societyId],
     queryFn: fetchProfileSummary,
     enabled: !!user,
+  });
+
+  // Needed by the VehicleDialog (unit + dependent owner selectors)
+  const { data: familyMembers } = useQuery({
+    queryKey: ["family"],
+    queryFn: getFamilyMembers,
+    enabled: !!user && vehicleDialogOpen,
   });
 
   const { data: photoData, refetch: refetchPhoto } = useQuery({
@@ -471,10 +484,7 @@ export default function ResidentProfilePage() {
 
   return (
     <div className="space-y-4">
-      {/* 1. Completeness card */}
-      <ProfileCompletenessCard completeness={profile.completeness} />
-
-      {/* 2. Profile card */}
+      {/* 1. Profile card (with compact completeness ring) */}
       <Card className="border-0 shadow-md">
         <CardContent className="pt-5 pb-5">
           <div className="mb-4 flex items-end justify-between gap-3">
@@ -552,9 +562,12 @@ export default function ResidentProfilePage() {
                 )}
               </div>
             </div>
-            <Badge variant="outline" className={`mb-1 ${statusStyle} font-medium`}>
-              {statusLabel}
-            </Badge>
+            <div className="flex flex-col items-end gap-2">
+              <Badge variant="outline" className={`${statusStyle} font-medium`}>
+                {statusLabel}
+              </Badge>
+              <ProfileCompletenessCard completeness={profile.completeness} />
+            </div>
           </div>
 
           <div className="mb-4">
@@ -670,6 +683,7 @@ export default function ResidentProfilePage() {
         emergencyContacts={emergencyContacts}
         onDeclareNone={() => declarationMutation.mutate({ householdStatus: "DECLARED_NONE" })}
         onUndoDeclaration={() => declarationMutation.mutate({ householdStatus: "NOT_SET" })}
+        onAdd={() => setFamilyDialogOpen(true)}
         pending={declarationMutation.isPending}
       />
 
@@ -681,6 +695,7 @@ export default function ResidentProfilePage() {
         expiryAlerts={vehicleExpiryAlerts}
         onDeclareNone={() => declarationMutation.mutate({ vehicleStatus: "DECLARED_NONE" })}
         onUndoDeclaration={() => declarationMutation.mutate({ vehicleStatus: "NOT_SET" })}
+        onAdd={() => setVehicleDialogOpen(true)}
         pending={declarationMutation.isPending}
       />
 
@@ -690,6 +705,33 @@ export default function ResidentProfilePage() {
         showPhoneInDirectory={profile.showPhoneInDirectory}
         onChange={(next) => directoryMutation.mutate(next)}
         pending={directoryMutation.isPending}
+      />
+
+      <FamilyMemberDialog
+        open={familyDialogOpen}
+        onOpenChange={setFamilyDialogOpen}
+        member={null}
+        onSaved={() => {
+          void queryClient.invalidateQueries({ queryKey: ["family"] });
+          void queryClient.invalidateQueries({ queryKey: ["profile-summary"] });
+          void queryClient.invalidateQueries({ queryKey: ["me"] });
+        }}
+      />
+
+      <VehicleDialog
+        open={vehicleDialogOpen}
+        onOpenChange={setVehicleDialogOpen}
+        vehicle={null}
+        units={/* v8 ignore next */ profile.units ?? []}
+        dependents={
+          /* v8 ignore next */
+          (familyMembers ?? []).map((m) => ({ id: m.id, name: m.name }))
+        }
+        onSaved={() => {
+          void queryClient.invalidateQueries({ queryKey: ["vehicles"] });
+          void queryClient.invalidateQueries({ queryKey: ["profile-summary"] });
+          void queryClient.invalidateQueries({ queryKey: ["me"] });
+        }}
       />
     </div>
   );
