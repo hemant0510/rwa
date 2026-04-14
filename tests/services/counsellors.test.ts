@@ -7,6 +7,12 @@ import {
   updateCounsellor,
   deleteCounsellor,
   resendCounsellorInvite,
+  listCounsellorAssignments,
+  listAvailableSocieties,
+  assignSocieties,
+  revokeAssignment,
+  transferPortfolio,
+  getMyCounsellor,
 } from "@/services/counsellors";
 
 const mockFetch = vi.fn();
@@ -106,5 +112,78 @@ describe("resendCounsellorInvite", () => {
       "/api/v1/super-admin/counsellors/c-1/resend-invite",
       expect.objectContaining({ method: "POST" }),
     );
+  });
+});
+
+describe("listCounsellorAssignments", () => {
+  it("GETs assignments for a counsellor", async () => {
+    mockFetch.mockResolvedValue(ok({ assignments: [] }));
+    await listCounsellorAssignments("c-1");
+    expect(mockFetch).toHaveBeenCalledWith("/api/v1/super-admin/counsellors/c-1/assignments");
+  });
+});
+
+describe("listAvailableSocieties", () => {
+  it("GETs available societies without search", async () => {
+    mockFetch.mockResolvedValue(ok({ societies: [] }));
+    await listAvailableSocieties("c-1");
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/v1/super-admin/counsellors/c-1/available-societies",
+    );
+  });
+
+  it("appends search query when provided", async () => {
+    mockFetch.mockResolvedValue(ok({ societies: [] }));
+    await listAvailableSocieties("c-1", "delhi");
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/v1/super-admin/counsellors/c-1/available-societies?search=delhi",
+    );
+  });
+});
+
+describe("assignSocieties", () => {
+  it("POSTs body and returns counts", async () => {
+    mockFetch.mockResolvedValue(
+      ok({ assigned: 2, reactivated: 0, alreadyActive: 0, societyIds: ["s1", "s2"] }),
+    );
+    const res = await assignSocieties("c-1", { societyIds: ["s1", "s2"] });
+    expect(res.assigned).toBe(2);
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/v1/super-admin/counsellors/c-1/assignments",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+});
+
+describe("revokeAssignment", () => {
+  it("DELETEs", async () => {
+    mockFetch.mockResolvedValue(ok({ id: "a-1", revoked: true }));
+    const res = await revokeAssignment("c-1", "soc-1");
+    expect(res.revoked).toBe(true);
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/v1/super-admin/counsellors/c-1/assignments/soc-1",
+      expect.objectContaining({ method: "DELETE" }),
+    );
+  });
+});
+
+describe("transferPortfolio", () => {
+  it("POSTs body", async () => {
+    mockFetch.mockResolvedValue(ok({ transferred: 3, skipped: 0 }));
+    const res = await transferPortfolio("src", { targetCounsellorId: "tgt" });
+    expect(res.transferred).toBe(3);
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/v1/super-admin/counsellors/src/transfer-portfolio",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+});
+
+describe("getMyCounsellor", () => {
+  it("GETs the admin's counsellor", async () => {
+    mockFetch.mockResolvedValue(ok({ counsellor: null }));
+    const res = await getMyCounsellor();
+    expect(res.counsellor).toBeNull();
+    expect(mockFetch).toHaveBeenCalledWith("/api/v1/admin/counsellor");
   });
 });

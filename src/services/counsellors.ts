@@ -1,5 +1,14 @@
-import type { CreateCounsellorInput, UpdateCounsellorInput } from "@/lib/validations/counsellor";
-import type { CounsellorDetail, PaginatedCounsellors } from "@/types/counsellor";
+import type {
+  AssignSocietiesInput,
+  CreateCounsellorInput,
+  TransferPortfolioInput,
+  UpdateCounsellorInput,
+} from "@/lib/validations/counsellor";
+import type {
+  CounsellorDetail,
+  CounsellorSocietyAssignmentItem,
+  PaginatedCounsellors,
+} from "@/types/counsellor";
 
 const BASE = "/api/v1/super-admin/counsellors";
 
@@ -66,5 +75,90 @@ export async function deleteCounsellor(id: string): Promise<{ id: string; delete
 
 export async function resendCounsellorInvite(id: string): Promise<{ id: string; sent: boolean }> {
   const res = await fetch(`${BASE}/${id}/resend-invite`, { method: "POST" });
+  return parseOk(res);
+}
+
+// ─── Assignments ───────────────────────────────────────────────────
+
+export async function listCounsellorAssignments(
+  counsellorId: string,
+): Promise<{ assignments: CounsellorSocietyAssignmentItem[] }> {
+  const res = await fetch(`${BASE}/${counsellorId}/assignments`);
+  return parseOk(res);
+}
+
+export async function listAvailableSocieties(
+  counsellorId: string,
+  search?: string,
+): Promise<{
+  societies: Array<{
+    id: string;
+    name: string;
+    societyCode: string;
+    city: string;
+    state: string;
+    totalUnits: number;
+    plan: string;
+  }>;
+}> {
+  const params = new URLSearchParams();
+  if (search) params.set("search", search);
+  const qs = params.toString();
+  const res = await fetch(`${BASE}/${counsellorId}/available-societies${qs ? `?${qs}` : ""}`);
+  return parseOk(res);
+}
+
+export async function assignSocieties(
+  counsellorId: string,
+  data: AssignSocietiesInput,
+): Promise<{
+  assigned: number;
+  reactivated: number;
+  alreadyActive: number;
+  societyIds: string[];
+}> {
+  const res = await fetch(`${BASE}/${counsellorId}/assignments`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return parseOk(res);
+}
+
+export async function revokeAssignment(
+  counsellorId: string,
+  societyId: string,
+): Promise<{ id: string; revoked: boolean }> {
+  const res = await fetch(`${BASE}/${counsellorId}/assignments/${societyId}`, {
+    method: "DELETE",
+  });
+  return parseOk(res);
+}
+
+export async function transferPortfolio(
+  sourceCounsellorId: string,
+  data: TransferPortfolioInput,
+): Promise<{ transferred: number; skipped: number }> {
+  const res = await fetch(`${BASE}/${sourceCounsellorId}/transfer-portfolio`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return parseOk(res);
+}
+
+// ─── Admin-facing (RWA admin sees their society's counsellor) ─────
+
+export async function getMyCounsellor(): Promise<{
+  counsellor: {
+    id: string;
+    name: string;
+    email: string;
+    publicBlurb: string | null;
+    photoUrl: string | null;
+    assignedAt: string;
+  } | null;
+}> {
+  const res = await fetch(`/api/v1/admin/counsellor`);
   return parseOk(res);
 }

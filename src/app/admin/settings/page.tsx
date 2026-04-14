@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { YourCounsellorCard } from "@/components/features/sa-counsellors/YourCounsellorCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -146,6 +147,9 @@ export default function AdminSettingsPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Settings" description="Manage your society settings" />
+
+      {/* Your Counsellor Card */}
+      <YourCounsellorCard />
 
       {/* Subscription Payment Card */}
       <Link href="/admin/settings/subscription">

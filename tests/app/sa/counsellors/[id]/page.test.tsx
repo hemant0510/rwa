@@ -4,6 +4,8 @@ const mockGetCounsellor = vi.hoisted(() => vi.fn());
 const mockUpdateCounsellor = vi.hoisted(() => vi.fn());
 const mockResendInvite = vi.hoisted(() => vi.fn());
 const mockDeleteCounsellor = vi.hoisted(() => vi.fn());
+const mockListAssignments = vi.hoisted(() => vi.fn());
+const mockRevokeAssignment = vi.hoisted(() => vi.fn());
 const mockToastSuccess = vi.hoisted(() => vi.fn());
 const mockToastError = vi.hoisted(() => vi.fn());
 const mockUseParams = vi.hoisted(() => vi.fn(() => ({ id: "c-1" })));
@@ -16,6 +18,8 @@ vi.mock("@/services/counsellors", () => ({
   updateCounsellor: mockUpdateCounsellor,
   resendCounsellorInvite: mockResendInvite,
   deleteCounsellor: mockDeleteCounsellor,
+  listCounsellorAssignments: mockListAssignments,
+  revokeAssignment: mockRevokeAssignment,
 }));
 
 vi.mock("sonner", () => ({
@@ -57,6 +61,7 @@ const suspended = { ...activeOnboarded, isActive: false };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockListAssignments.mockResolvedValue({ assignments: [] });
 });
 
 describe("CounsellorDetailPage", () => {
@@ -226,5 +231,186 @@ describe("CounsellorDetailPage", () => {
     await waitFor(() => {
       expect(mockToastError).toHaveBeenCalledWith("del failed");
     });
+  });
+
+  // ─── Societies tab ──────────────────────────────────────────────
+
+  it("renders Societies tab with assigned societies count", async () => {
+    mockGetCounsellor.mockResolvedValue(activeOnboarded);
+    mockListAssignments.mockResolvedValue({
+      assignments: [
+        {
+          id: "a-1",
+          counsellorId: "c-1",
+          societyId: "s-1",
+          isPrimary: true,
+          society: {
+            id: "s-1",
+            name: "Eden Park",
+            societyCode: "EDEN",
+            city: "Delhi",
+            state: "DL",
+            totalUnits: 200,
+          },
+        },
+      ],
+    });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByRole("tab", { name: /Societies \(1\)/ })).toBeInTheDocument();
+    });
+  });
+
+  it("shows assigned society details when Societies tab is active", async () => {
+    mockGetCounsellor.mockResolvedValue(activeOnboarded);
+    mockListAssignments.mockResolvedValue({
+      assignments: [
+        {
+          id: "a-1",
+          counsellorId: "c-1",
+          societyId: "s-1",
+          isPrimary: true,
+          society: {
+            id: "s-1",
+            name: "Eden Park",
+            societyCode: "EDEN",
+            city: "Delhi",
+            state: "DL",
+            totalUnits: 200,
+          },
+        },
+      ],
+    });
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => expect(screen.getByRole("tab", { name: /Societies/ })).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: /Societies/ }));
+    await waitFor(() => {
+      expect(screen.getByText("Eden Park")).toBeInTheDocument();
+      expect(screen.getByText(/EDEN.*Delhi.*DL.*200 units/)).toBeInTheDocument();
+      expect(screen.getByText("PRIMARY")).toBeInTheDocument();
+    });
+  });
+
+  it("shows empty state on Societies tab when no assignments", async () => {
+    mockGetCounsellor.mockResolvedValue(activeOnboarded);
+    mockListAssignments.mockResolvedValue({ assignments: [] });
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => expect(screen.getByRole("tab", { name: /Societies/ })).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: /Societies/ }));
+    await waitFor(() => {
+      expect(screen.getByText("No societies assigned yet")).toBeInTheDocument();
+    });
+  });
+
+  it("opens revoke confirmation dialog when Revoke clicked", async () => {
+    mockGetCounsellor.mockResolvedValue(activeOnboarded);
+    mockListAssignments.mockResolvedValue({
+      assignments: [
+        {
+          id: "a-1",
+          counsellorId: "c-1",
+          societyId: "s-1",
+          isPrimary: false,
+          society: {
+            id: "s-1",
+            name: "Eden Park",
+            societyCode: "EDEN",
+            city: "Delhi",
+            state: "DL",
+            totalUnits: 200,
+          },
+        },
+      ],
+    });
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => expect(screen.getByRole("tab", { name: /Societies/ })).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: /Societies/ }));
+    await waitFor(() => expect(screen.getByText("Eden Park")).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: /Revoke/ }));
+    await waitFor(() => {
+      expect(screen.getByText(/Revoke Eden Park\?/)).toBeInTheDocument();
+    });
+  });
+
+  it("calls revokeAssignment when Yes, revoke confirmed", async () => {
+    mockGetCounsellor.mockResolvedValue(activeOnboarded);
+    mockListAssignments.mockResolvedValue({
+      assignments: [
+        {
+          id: "a-1",
+          counsellorId: "c-1",
+          societyId: "s-1",
+          isPrimary: false,
+          society: {
+            id: "s-1",
+            name: "Eden Park",
+            societyCode: "EDEN",
+            city: "Delhi",
+            state: "DL",
+            totalUnits: 200,
+          },
+        },
+      ],
+    });
+    mockRevokeAssignment.mockResolvedValue({ id: "a-1", revoked: true });
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => expect(screen.getByRole("tab", { name: /Societies/ })).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: /Societies/ }));
+    await waitFor(() => expect(screen.getByText("Eden Park")).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: /Revoke/ }));
+    await waitFor(() => expect(screen.getByText("Yes, revoke")).toBeInTheDocument());
+    await user.click(screen.getByText("Yes, revoke"));
+    await waitFor(() => {
+      expect(mockRevokeAssignment).toHaveBeenCalledWith("c-1", "s-1");
+      expect(mockToastSuccess).toHaveBeenCalledWith("Society revoked");
+    });
+  });
+
+  it("shows toast.error when revoke fails", async () => {
+    mockGetCounsellor.mockResolvedValue(activeOnboarded);
+    mockListAssignments.mockResolvedValue({
+      assignments: [
+        {
+          id: "a-1",
+          counsellorId: "c-1",
+          societyId: "s-1",
+          isPrimary: false,
+          society: {
+            id: "s-1",
+            name: "Eden Park",
+            societyCode: "EDEN",
+            city: "Delhi",
+            state: "DL",
+            totalUnits: 200,
+          },
+        },
+      ],
+    });
+    mockRevokeAssignment.mockRejectedValue(new Error("revoke failed"));
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => expect(screen.getByRole("tab", { name: /Societies/ })).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: /Societies/ }));
+    await waitFor(() => expect(screen.getByText("Eden Park")).toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: /Revoke/ }));
+    await waitFor(() => expect(screen.getByText("Yes, revoke")).toBeInTheDocument());
+    await user.click(screen.getByText("Yes, revoke"));
+    await waitFor(() => {
+      expect(mockToastError).toHaveBeenCalledWith("revoke failed");
+    });
+  });
+
+  it("renders skeleton on Societies tab while assignments load", async () => {
+    mockGetCounsellor.mockResolvedValue(activeOnboarded);
+    mockListAssignments.mockImplementation(() => new Promise(() => {}));
+    const user = userEvent.setup();
+    const { container } = renderPage();
+    await waitFor(() => expect(screen.getByRole("tab", { name: /Societies/ })).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: /Societies/ }));
+    expect(container.querySelector('[class*="animate-pulse"]')).toBeTruthy();
   });
 });

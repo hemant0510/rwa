@@ -105,6 +105,7 @@ export default defineConfig({
         "src/services/profile.ts",
         "src/app/api/v1/super-admin/counsellors/**",
         "src/app/sa/counsellors/**",
+        "src/app/api/v1/admin/counsellor/**",
         "src/services/counsellors.ts",
       ],
       exclude: [

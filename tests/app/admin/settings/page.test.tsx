@@ -18,6 +18,12 @@ vi.mock("sonner", () => ({
   },
 }));
 
+// Stub YourCounsellorCard so it doesn't issue its own fetch and interfere with
+// sequential fetch mocks used by these tests.
+vi.mock("@/components/features/sa-counsellors/YourCounsellorCard", () => ({
+  YourCounsellorCard: () => <div data-testid="your-counsellor-card" />,
+}));
+
 import AdminSettingsPage from "@/app/admin/settings/page";
 
 // ---------------------------------------------------------------------------
@@ -101,6 +107,13 @@ describe("AdminSettingsPage", () => {
     renderPage();
     await waitFor(() => {
       expect(screen.getByText("Settings")).toBeInTheDocument();
+    });
+  });
+
+  it("renders YourCounsellorCard at the top of the settings page", async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByTestId("your-counsellor-card")).toBeInTheDocument();
     });
   });
 
