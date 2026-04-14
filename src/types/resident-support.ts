@@ -60,6 +60,22 @@ export interface ResidentTicketDetail {
   } | null;
   messages: ResidentTicketMessageItem[];
   assignees: AssigneeItem[];
+  escalations?: EscalationItem[];
+}
+
+// ─── Escalation ───────────────────────────────────────────────────
+
+export type EscalationSource =
+  | "ADMIN_ASSIGN"
+  | "ADMIN_NOTIFY"
+  | "RESIDENT_VOTE"
+  | "SUPER_ADMIN_FORCE";
+
+export interface EscalationItem {
+  id: string;
+  source: EscalationSource;
+  status: string;
+  createdAt: string;
 }
 
 // ─── Ticket Message ───────────────────────────────────────────────

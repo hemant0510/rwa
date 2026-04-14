@@ -9,6 +9,7 @@ import { format } from "date-fns";
 import { ArrowLeft, Send } from "lucide-react";
 import { toast } from "sonner";
 
+import { EscalationActions } from "@/components/features/resident-support/EscalationActions";
 import { ResidentConversationThread } from "@/components/features/resident-support/ResidentConversationThread";
 import { ResidentTicketStatusBadge } from "@/components/features/resident-support/ResidentTicketStatusBadge";
 import { ResidentTicketTypeBadge } from "@/components/features/resident-support/ResidentTicketTypeBadge";
@@ -378,6 +379,14 @@ export default function AdminResidentTicketDetailPage({
 
         {/* Sidebar */}
         <div className="space-y-4">
+          {/* Counsellor escalation */}
+          {isFullAccess && !isClosed && (
+            <EscalationActions
+              ticketId={ticketId}
+              activeEscalation={ticket.escalations?.[0] ?? null}
+            />
+          )}
+
           {/* Actions */}
           {isFullAccess && !isClosed && validNextStatuses.length > 0 && (
             <Card>

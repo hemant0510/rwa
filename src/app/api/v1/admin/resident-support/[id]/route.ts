@@ -43,6 +43,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
             },
           },
         },
+        escalations: {
+          where: { status: { not: "WITHDRAWN" } },
+          select: { id: true, source: true, status: true, createdAt: true },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
       },
     });
 

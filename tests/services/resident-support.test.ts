@@ -25,6 +25,12 @@ import {
   getAdminResidentAttachments,
   addTicketAssignee,
   removeTicketAssignee,
+  getResidentEscalationStatus,
+  castEscalationVote,
+  withdrawEscalationVote,
+  adminEscalateTicket,
+  adminNotifyCounsellor,
+  adminWithdrawEscalation,
 } from "@/services/resident-support";
 
 function mockOkResponse(data: unknown) {
@@ -555,6 +561,148 @@ describe("resident-support service", () => {
         mockFetch.mockResolvedValue(mockErrorNoMessage());
         await expect(removeTicketAssignee("t-1", "u-2")).rejects.toThrow(
           "Failed to remove assignee",
+        );
+      });
+    });
+  });
+
+  describe("Escalation API", () => {
+    const statusData = {
+      ticketId: "t-1",
+      threshold: 10,
+      voteCount: 3,
+      hasVoted: false,
+      escalationCreated: false,
+    };
+
+    describe("getResidentEscalationStatus", () => {
+      it("fetches status", async () => {
+        mockFetch.mockResolvedValue(mockOkResponse(statusData));
+        const result = await getResidentEscalationStatus("t-1");
+        expect(result).toEqual(statusData);
+        expect(mockFetch).toHaveBeenCalledWith(
+          "/api/v1/residents/me/support/t-1/escalation-status",
+        );
+      });
+
+      it("throws on error", async () => {
+        mockFetch.mockResolvedValue(mockErrorResponse());
+        await expect(getResidentEscalationStatus("t-1")).rejects.toThrow(
+          "Failed to fetch escalation status",
+        );
+      });
+    });
+
+    describe("castEscalationVote", () => {
+      it("posts and returns status", async () => {
+        mockFetch.mockResolvedValue(mockOkResponse(statusData));
+        const result = await castEscalationVote("t-1");
+        expect(result).toEqual(statusData);
+        expect(mockFetch).toHaveBeenCalledWith("/api/v1/residents/me/support/t-1/escalation-vote", {
+          method: "POST",
+        });
+      });
+
+      it("throws with server message on error", async () => {
+        mockFetch.mockResolvedValue(mockErrorResponse("already voted"));
+        await expect(castEscalationVote("t-1")).rejects.toThrow("already voted");
+      });
+
+      it("throws default message when server omits message", async () => {
+        mockFetch.mockResolvedValue(mockErrorNoMessage());
+        await expect(castEscalationVote("t-1")).rejects.toThrow("Failed to cast vote");
+      });
+    });
+
+    describe("withdrawEscalationVote", () => {
+      it("deletes and returns status", async () => {
+        mockFetch.mockResolvedValue(mockOkResponse(statusData));
+        await withdrawEscalationVote("t-1");
+        expect(mockFetch).toHaveBeenCalledWith("/api/v1/residents/me/support/t-1/escalation-vote", {
+          method: "DELETE",
+        });
+      });
+
+      it("throws with server message on error", async () => {
+        mockFetch.mockResolvedValue(mockErrorResponse("no vote"));
+        await expect(withdrawEscalationVote("t-1")).rejects.toThrow("no vote");
+      });
+
+      it("throws default when no message", async () => {
+        mockFetch.mockResolvedValue(mockErrorNoMessage());
+        await expect(withdrawEscalationVote("t-1")).rejects.toThrow("Failed to withdraw vote");
+      });
+    });
+
+    describe("adminEscalateTicket", () => {
+      it("posts reason", async () => {
+        mockFetch.mockResolvedValue(mockOkResponse({ id: "e-1" }));
+        await adminEscalateTicket("t-1", "reason text");
+        const [url, opts] = mockFetch.mock.calls[0] as [string, RequestInit];
+        expect(url).toBe("/api/v1/admin/resident-support/t-1/escalate");
+        expect(opts.method).toBe("POST");
+        expect(JSON.parse(String(opts.body))).toEqual({ reason: "reason text" });
+      });
+
+      it("throws with server message", async () => {
+        mockFetch.mockResolvedValue(mockErrorResponse("already escalated"));
+        await expect(adminEscalateTicket("t-1", "r")).rejects.toThrow("already escalated");
+      });
+
+      it("throws default when no message", async () => {
+        mockFetch.mockResolvedValue(mockErrorNoMessage());
+        await expect(adminEscalateTicket("t-1", "r")).rejects.toThrow("Failed to escalate ticket");
+      });
+    });
+
+    describe("adminNotifyCounsellor", () => {
+      it("posts reason", async () => {
+        mockFetch.mockResolvedValue(mockOkResponse({ id: "e-1" }));
+        await adminNotifyCounsellor("t-1", "reason text");
+        const [url, opts] = mockFetch.mock.calls[0] as [string, RequestInit];
+        expect(url).toBe("/api/v1/admin/resident-support/t-1/notify-counsellor");
+        expect(JSON.parse(String(opts.body))).toEqual({ reason: "reason text" });
+      });
+
+      it("throws with server message", async () => {
+        mockFetch.mockResolvedValue(mockErrorResponse("no counsellor"));
+        await expect(adminNotifyCounsellor("t-1", "r")).rejects.toThrow("no counsellor");
+      });
+
+      it("throws default when no message", async () => {
+        mockFetch.mockResolvedValue(mockErrorNoMessage());
+        await expect(adminNotifyCounsellor("t-1", "r")).rejects.toThrow(
+          "Failed to notify counsellor",
+        );
+      });
+    });
+
+    describe("adminWithdrawEscalation", () => {
+      it("sends DELETE with reason", async () => {
+        mockFetch.mockResolvedValue(mockOkResponse({ id: "e-1" }));
+        await adminWithdrawEscalation("t-1", "done");
+        const [url, opts] = mockFetch.mock.calls[0] as [string, RequestInit];
+        expect(url).toBe("/api/v1/admin/resident-support/t-1/escalation");
+        expect(opts.method).toBe("DELETE");
+        expect(JSON.parse(String(opts.body))).toEqual({ reason: "done" });
+      });
+
+      it("sends null reason when omitted", async () => {
+        mockFetch.mockResolvedValue(mockOkResponse({ id: "e-1" }));
+        await adminWithdrawEscalation("t-1");
+        const body = JSON.parse(String(mockFetch.mock.calls[0][1].body));
+        expect(body).toEqual({ reason: null });
+      });
+
+      it("throws with server message", async () => {
+        mockFetch.mockResolvedValue(mockErrorResponse("cannot withdraw"));
+        await expect(adminWithdrawEscalation("t-1")).rejects.toThrow("cannot withdraw");
+      });
+
+      it("throws default when no message", async () => {
+        mockFetch.mockResolvedValue(mockErrorNoMessage());
+        await expect(adminWithdrawEscalation("t-1")).rejects.toThrow(
+          "Failed to withdraw escalation",
         );
       });
     });

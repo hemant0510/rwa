@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { EscalationVoteWidget } from "@/components/features/resident-support/EscalationVoteWidget";
 import { ResidentConversationThread } from "@/components/features/resident-support/ResidentConversationThread";
 import { ResidentTicketStatusBadge } from "@/components/features/resident-support/ResidentTicketStatusBadge";
 import { ResidentTicketTypeBadge } from "@/components/features/resident-support/ResidentTicketTypeBadge";
@@ -547,6 +548,9 @@ export default function ResidentTicketDetailPage() {
             isCreator={isCreator}
             isClosed={isClosed}
           />
+
+          {/* Counsellor escalation widget */}
+          {!isClosed && <EscalationVoteWidget ticketId={ticketId} canVote={!isCreator} />}
         </div>
       </div>
     </div>

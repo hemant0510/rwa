@@ -261,3 +261,85 @@ export async function removeTicketAssignee(ticketId: string, userId: string): Pr
     throw new Error(err.error?.message ?? "Failed to remove assignee");
   }
 }
+
+// ─── Escalation API ───────────────────────────────────────────────
+
+export interface EscalationStatus {
+  ticketId: string;
+  threshold: number;
+  voteCount: number;
+  hasVoted: boolean;
+  escalationCreated: boolean;
+}
+
+export async function getResidentEscalationStatus(ticketId: string): Promise<EscalationStatus> {
+  const res = await fetch(`${RESIDENT_BASE}/${ticketId}/escalation-status`);
+  if (!res.ok) throw new Error("Failed to fetch escalation status");
+  return res.json();
+}
+
+export async function castEscalationVote(ticketId: string): Promise<EscalationStatus> {
+  const res = await fetch(`${RESIDENT_BASE}/${ticketId}/escalation-vote`, { method: "POST" });
+  if (!res.ok) {
+    const err = (await res.json()) as { error?: { message?: string } };
+    throw new Error(err.error?.message ?? "Failed to cast vote");
+  }
+  return res.json();
+}
+
+export async function withdrawEscalationVote(ticketId: string): Promise<EscalationStatus> {
+  const res = await fetch(`${RESIDENT_BASE}/${ticketId}/escalation-vote`, { method: "DELETE" });
+  if (!res.ok) {
+    const err = (await res.json()) as { error?: { message?: string } };
+    throw new Error(err.error?.message ?? "Failed to withdraw vote");
+  }
+  return res.json();
+}
+
+export async function adminEscalateTicket(
+  ticketId: string,
+  reason: string,
+): Promise<{ id: string }> {
+  const res = await fetch(`${ADMIN_BASE}/${ticketId}/escalate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ reason }),
+  });
+  if (!res.ok) {
+    const err = (await res.json()) as { error?: { message?: string } };
+    throw new Error(err.error?.message ?? "Failed to escalate ticket");
+  }
+  return res.json();
+}
+
+export async function adminNotifyCounsellor(
+  ticketId: string,
+  reason: string,
+): Promise<{ id: string }> {
+  const res = await fetch(`${ADMIN_BASE}/${ticketId}/notify-counsellor`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ reason }),
+  });
+  if (!res.ok) {
+    const err = (await res.json()) as { error?: { message?: string } };
+    throw new Error(err.error?.message ?? "Failed to notify counsellor");
+  }
+  return res.json();
+}
+
+export async function adminWithdrawEscalation(
+  ticketId: string,
+  reason?: string,
+): Promise<{ id: string }> {
+  const res = await fetch(`${ADMIN_BASE}/${ticketId}/escalation`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ reason: reason ?? null }),
+  });
+  if (!res.ok) {
+    const err = (await res.json()) as { error?: { message?: string } };
+    throw new Error(err.error?.message ?? "Failed to withdraw escalation");
+  }
+  return res.json();
+}
