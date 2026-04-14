@@ -11,7 +11,7 @@ export default defineConfig({
     },
   },
   test: {
-    testTimeout: 15000, // UI integration tests with form navigation need extra time under coverage instrumentation
+    testTimeout: 45000, // UI integration tests need headroom under coverage instrumentation + large hook runs (≥150 tests)
     environment: "jsdom",
     include: ["tests/**/*.test.{ts,tsx}"],
     setupFiles: ["tests/setup.ts"],
