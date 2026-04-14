@@ -377,6 +377,27 @@ enum VehicleStatus {
   HAS_ENTRIES
 }
 
+enum EscalationSource {
+  ADMIN_ASSIGN
+  ADMIN_NOTIFY
+  RESIDENT_VOTE
+  SUPER_ADMIN_FORCE
+}
+
+enum EscalationStatus {
+  PENDING
+  ACKNOWLEDGED
+  REVIEWING
+  RESOLVED_BY_COUNSELLOR
+  DEFERRED_TO_ADMIN
+  WITHDRAWN
+}
+
+enum CounsellorMessageKind {
+  ADVISORY_TO_ADMIN
+  PRIVATE_NOTE
+}
+
 // ═══════════════════════════════════════════════════
 // CORE MVP MODELS (1–14)
 // ═══════════════════════════════════════════════════
@@ -457,6 +478,10 @@ model Society {
   // Household registry settings
   allowResidentVehicleSearch Boolean @default(true) @map("allow_resident_vehicle_search")
   maxVehiclesPerUnit         Int     @default(5)    @map("max_vehicles_per_unit")
+
+  // Counsellor escalation settings
+  counsellorEscalationThreshold Int @default(10) @map("counsellor_escalation_threshold")
+  counsellorAssignments         CounsellorSocietyAssignment[]
 
   @@map("societies")
 }
@@ -565,6 +590,9 @@ model User {
   pets            Pet[]
   petsApproved    Pet[]            @relation("PetApprovedBy")
   domesticHelpers DomesticHelper[]
+
+  // Counsellor escalation votes
+  ticketEscalationVotes ResidentTicketEscalationVote[] @relation("TicketEscalationVoter")
 
   @@unique([societyId, email])
   @@map("users")
@@ -1850,6 +1878,8 @@ model ResidentTicket {
   messages      ResidentTicketMessage[]
   attachments   ResidentTicketAttachment[]
   assignees     ResidentTicketAssignee[]
+  escalations   ResidentTicketEscalation[]
+  escalationVotes ResidentTicketEscalationVote[]
 
   @@index([societyId])
   @@index([status])
@@ -1860,16 +1890,19 @@ model ResidentTicket {
 
 /// ResidentTicketMessage — conversation messages on a resident ticket.
 model ResidentTicketMessage {
-  id          String   @id @default(uuid()) @db.Uuid
-  ticketId    String   @map("ticket_id") @db.Uuid
-  authorId    String   @map("author_id") @db.Uuid
-  authorRole  String   @map("author_role") @db.VarChar(20)
-  content     String   @db.Text
-  isInternal  Boolean  @default(false) @map("is_internal")
-  createdAt   DateTime @default(now()) @map("created_at")
+  id           String                 @id @default(uuid()) @db.Uuid
+  ticketId     String                 @map("ticket_id") @db.Uuid
+  authorId     String?                @map("author_id") @db.Uuid
+  authorRole   String                 @map("author_role") @db.VarChar(20)
+  content      String                 @db.Text
+  isInternal   Boolean                @default(false) @map("is_internal")
+  kind         CounsellorMessageKind? @map("kind")
+  counsellorId String?                @map("counsellor_id") @db.Uuid
+  createdAt    DateTime               @default(now()) @map("created_at")
 
   ticket      ResidentTicket              @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  author      User                        @relation("ResidentTicketMessageAuthor", fields: [authorId], references: [id])
+  author      User?                       @relation("ResidentTicketMessageAuthor", fields: [authorId], references: [id])
+  counsellor  Counsellor?                 @relation("CounsellorMessages", fields: [counsellorId], references: [id])
   attachments ResidentTicketAttachment[]
 
   @@index([ticketId, createdAt])
@@ -1911,4 +1944,99 @@ model ResidentTicketAssignee {
   @@unique([ticketId, userId])
   @@index([ticketId])
   @@map("resident_ticket_assignees")
+}
+
+// ═══════════════════════════════════════════════════
+// COUNSELLOR ROLE (Group 1)
+// ═══════════════════════════════════════════════════
+
+/// Counsellor — platform ombudsperson overseeing a portfolio of societies.
+model Counsellor {
+  id            String    @id @default(uuid()) @db.Uuid
+  authUserId    String    @unique @map("auth_user_id") @db.Uuid
+  email         String    @unique @db.VarChar(100)
+  mobile        String?   @db.VarChar(15)
+  name          String    @db.VarChar(100)
+  nationalId    String?   @map("national_id") @db.VarChar(30)
+  photoUrl      String?   @map("photo_url") @db.VarChar(500)
+  bio           String?   @db.Text
+  publicBlurb   String?   @map("public_blurb") @db.VarChar(500)
+  isActive      Boolean   @default(true) @map("is_active")
+  mfaRequired   Boolean   @default(true) @map("mfa_required")
+  mfaEnrolledAt DateTime? @map("mfa_enrolled_at")
+  lastLoginAt   DateTime? @map("last_login_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  assignments CounsellorSocietyAssignment[]
+  escalations ResidentTicketEscalation[]   @relation("EscalationCounsellor")
+  messages    ResidentTicketMessage[]      @relation("CounsellorMessages")
+
+  @@map("counsellors")
+}
+
+/// CounsellorSocietyAssignment — many-to-many between Counsellors and Societies.
+model CounsellorSocietyAssignment {
+  id           String    @id @default(uuid()) @db.Uuid
+  counsellorId String    @map("counsellor_id") @db.Uuid
+  societyId    String    @map("society_id") @db.Uuid
+  assignedById String    @map("assigned_by_id") @db.Uuid
+  assignedAt   DateTime  @default(now()) @map("assigned_at")
+  isPrimary    Boolean   @default(false) @map("is_primary")
+  isActive     Boolean   @default(true) @map("is_active")
+  revokedAt    DateTime? @map("revoked_at")
+  revokedById  String?   @map("revoked_by_id") @db.Uuid
+  notes        String?   @db.Text
+
+  counsellor Counsellor @relation(fields: [counsellorId], references: [id], onDelete: Cascade)
+  society    Society    @relation(fields: [societyId], references: [id], onDelete: Cascade)
+
+  @@unique([counsellorId, societyId])
+  @@index([societyId])
+  @@index([counsellorId])
+  @@map("counsellor_society_assignments")
+}
+
+/// ResidentTicketEscalation — records when & why a ticket became visible to a Counsellor.
+model ResidentTicketEscalation {
+  id              String           @id @default(uuid()) @db.Uuid
+  ticketId        String           @map("ticket_id") @db.Uuid
+  counsellorId    String           @map("counsellor_id") @db.Uuid
+  source          EscalationSource
+  status          EscalationStatus @default(PENDING)
+  reason          String?          @db.Text
+  createdById     String?          @map("created_by_id") @db.Uuid
+  acknowledgedAt  DateTime?        @map("acknowledged_at")
+  resolvedAt      DateTime?        @map("resolved_at")
+  withdrawnAt     DateTime?        @map("withdrawn_at")
+  withdrawnReason String?          @map("withdrawn_reason") @db.Text
+  slaDeadline     DateTime?        @map("sla_deadline")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  ticket     ResidentTicket                 @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  counsellor Counsellor                     @relation("EscalationCounsellor", fields: [counsellorId], references: [id])
+  votes      ResidentTicketEscalationVote[]
+
+  @@unique([ticketId, counsellorId])
+  @@index([counsellorId, status])
+  @@index([ticketId])
+  @@map("resident_ticket_escalations")
+}
+
+/// ResidentTicketEscalationVote — resident vote to escalate a ticket.
+model ResidentTicketEscalationVote {
+  id           String   @id @default(uuid()) @db.Uuid
+  ticketId     String   @map("ticket_id") @db.Uuid
+  voterId      String   @map("voter_id") @db.Uuid
+  escalationId String?  @map("escalation_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  ticket     ResidentTicket            @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  voter      User                      @relation("TicketEscalationVoter", fields: [voterId], references: [id])
+  escalation ResidentTicketEscalation? @relation(fields: [escalationId], references: [id], onDelete: SetNull)
+
+  @@unique([ticketId, voterId])
+  @@index([ticketId])
+  @@map("resident_ticket_escalation_votes")
 }

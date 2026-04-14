@@ -23,25 +23,22 @@ const mockVehicle = {
 
 const makeContext = (id = "veh-1") => ({ params: Promise.resolve({ id }) });
 
-function makeMultipartRequest(file: File) {
-  const formData = new FormData();
-  formData.append("file", file);
-  return new Request("http://localhost/api/v1/residents/me/vehicles/veh-1/insurance", {
-    method: "POST",
-    body: formData,
-  }) as never;
+type FakeFile = { type: string; size: number };
+
+function makeMultipartRequest(file: FakeFile) {
+  return {
+    formData: vi.fn().mockResolvedValue({ get: vi.fn().mockReturnValue(file) }),
+  } as never;
 }
 
 function makeEmptyRequest() {
-  const formData = new FormData();
-  return new Request("http://localhost/api/v1/residents/me/vehicles/veh-1/insurance", {
-    method: "POST",
-    body: formData,
-  }) as never;
+  return {
+    formData: vi.fn().mockResolvedValue({ get: vi.fn().mockReturnValue(null) }),
+  } as never;
 }
 
 describe("POST /api/v1/residents/me/vehicles/[id]/insurance", () => {
-  const pdfFile = new File(["insurance-content"], "insurance.pdf", { type: "application/pdf" });
+  const pdfFile: FakeFile = { type: "application/pdf", size: 256 };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -88,7 +85,7 @@ describe("POST /api/v1/residents/me/vehicles/[id]/insurance", () => {
   });
 
   it("returns 400 for disallowed file type", async () => {
-    const textFile = new File(["text"], "doc.txt", { type: "text/plain" });
+    const textFile: FakeFile = { type: "text/plain", size: 256 };
     const res = await POST(makeMultipartRequest(textFile), makeContext());
     expect(res.status).toBe(400);
     const body = await res.json();
@@ -96,12 +93,8 @@ describe("POST /api/v1/residents/me/vehicles/[id]/insurance", () => {
   });
 
   it("returns 400 when file exceeds 10 MB", async () => {
-    // FormData serialization doesn't preserve size overrides in JSDOM — use fake request
-    const largeFile = { type: "application/pdf", size: 11 * 1024 * 1024 };
-    const fakeReq = {
-      formData: vi.fn().mockResolvedValue({ get: vi.fn().mockReturnValue(largeFile) }),
-    };
-    const res = await POST(fakeReq as never, makeContext());
+    const largeFile: FakeFile = { type: "application/pdf", size: 11 * 1024 * 1024 };
+    const res = await POST(makeMultipartRequest(largeFile), makeContext());
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error.code).toBe("FILE_TOO_LARGE");
@@ -134,7 +127,7 @@ describe("POST /api/v1/residents/me/vehicles/[id]/insurance", () => {
   });
 
   it("accepts image files (jpeg, png, webp)", async () => {
-    const pngFile = new File(["img"], "insurance.png", { type: "image/png" });
+    const pngFile: FakeFile = { type: "image/png", size: 512 };
     const res = await POST(makeMultipartRequest(pngFile), makeContext());
     expect(res.status).toBe(200);
   });

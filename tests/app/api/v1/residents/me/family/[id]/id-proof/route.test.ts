@@ -16,18 +16,15 @@ import { POST } from "@/app/api/v1/residents/me/family/[id]/id-proof/route";
 const mockResident = { id: "user-1", societyId: "society-1" };
 const mockDependent = { id: "dep-1", userId: "user-1", societyId: "society-1", isActive: true };
 
-const makeFormRequest = (file?: File) => {
-  const formData = new FormData();
-  if (file) formData.append("file", file);
-  return new Request("http://localhost/api/v1/residents/me/family/dep-1/id-proof", {
-    method: "POST",
-    body: formData,
-  });
-};
+type FakeFile = { type: string; size: number };
+
+const makeFormRequest = (file?: FakeFile | null) => ({
+  formData: vi.fn().mockResolvedValue({ get: vi.fn().mockReturnValue(file ?? null) }),
+});
 
 const makeParams = (id = "dep-1") => ({ params: Promise.resolve({ id }) });
 
-const makePdfFile = () => new File(["%PDF-1.4 test"], "id.pdf", { type: "application/pdf" });
+const makePdfFile = (): FakeFile => ({ type: "application/pdf", size: 256 });
 
 describe("POST /api/v1/residents/me/family/[id]/id-proof", () => {
   beforeEach(() => {
@@ -69,7 +66,7 @@ describe("POST /api/v1/residents/me/family/[id]/id-proof", () => {
   });
 
   it("returns 400 for disallowed file type", async () => {
-    const file = new File(["data"], "doc.txt", { type: "text/plain" });
+    const file: FakeFile = { type: "text/plain", size: 256 };
     const res = await POST(makeFormRequest(file) as never, makeParams());
     expect(res.status).toBe(400);
     const body = await res.json();
@@ -77,11 +74,8 @@ describe("POST /api/v1/residents/me/family/[id]/id-proof", () => {
   });
 
   it("returns 400 when file exceeds 10 MB", async () => {
-    const largeFile = { type: "application/pdf", size: 11 * 1024 * 1024 };
-    const fakeReq = {
-      formData: vi.fn().mockResolvedValue({ get: vi.fn().mockReturnValue(largeFile) }),
-    };
-    const res = await POST(fakeReq as never, makeParams());
+    const largeFile: FakeFile = { type: "application/pdf", size: 11 * 1024 * 1024 };
+    const res = await POST(makeFormRequest(largeFile) as never, makeParams());
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error.code).toBe("FILE_TOO_LARGE");
@@ -107,7 +101,7 @@ describe("POST /api/v1/residents/me/family/[id]/id-proof", () => {
       mockStorageBucket.upload.mockResolvedValue({ error: null });
       mockPrisma.dependent.update.mockResolvedValue({});
 
-      const file = new File([new Uint8Array(512)], `id.${type.split("/")[1]}`, { type });
+      const file: FakeFile = { type, size: 512 };
       const res = await POST(makeFormRequest(file) as never, makeParams());
       expect(res.status).toBe(200);
     }

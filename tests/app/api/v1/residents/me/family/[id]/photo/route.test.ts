@@ -16,19 +16,15 @@ import { POST } from "@/app/api/v1/residents/me/family/[id]/photo/route";
 const mockResident = { id: "user-1", societyId: "society-1" };
 const mockDependent = { id: "dep-1", userId: "user-1", societyId: "society-1", isActive: true };
 
-const makeFormRequest = (file?: File) => {
-  const formData = new FormData();
-  if (file) formData.append("file", file);
-  return new Request("http://localhost/api/v1/residents/me/family/dep-1/photo", {
-    method: "POST",
-    body: formData,
-  });
-};
+type FakeFile = { type: string; size: number };
+
+const makeFormRequest = (file?: FakeFile | null) => ({
+  formData: vi.fn().mockResolvedValue({ get: vi.fn().mockReturnValue(file ?? null) }),
+});
 
 const makeParams = (id = "dep-1") => ({ params: Promise.resolve({ id }) });
 
-const makeImageFile = (size = 1024, type = "image/jpeg") =>
-  new File([new Uint8Array(size)], "photo.jpg", { type });
+const makeImageFile = (size = 1024, type = "image/jpeg"): FakeFile => ({ type, size });
 
 describe("POST /api/v1/residents/me/family/[id]/photo", () => {
   beforeEach(() => {
@@ -73,7 +69,7 @@ describe("POST /api/v1/residents/me/family/[id]/photo", () => {
   });
 
   it("returns 400 for non-image file", async () => {
-    const file = new File(["data"], "doc.pdf", { type: "application/pdf" });
+    const file: FakeFile = { type: "application/pdf", size: 256 };
     const res = await POST(makeFormRequest(file) as never, makeParams());
     expect(res.status).toBe(400);
     const body = await res.json();
@@ -81,12 +77,8 @@ describe("POST /api/v1/residents/me/family/[id]/photo", () => {
   });
 
   it("returns 400 when file exceeds 5 MB", async () => {
-    // Use a mock request to bypass FormData serialization which doesn't preserve size overrides
-    const largeFile = { type: "image/jpeg", size: 6 * 1024 * 1024 };
-    const fakeReq = {
-      formData: vi.fn().mockResolvedValue({ get: vi.fn().mockReturnValue(largeFile) }),
-    };
-    const res = await POST(fakeReq as never, makeParams());
+    const largeFile: FakeFile = { type: "image/jpeg", size: 6 * 1024 * 1024 };
+    const res = await POST(makeFormRequest(largeFile) as never, makeParams());
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error.code).toBe("FILE_TOO_LARGE");
