@@ -15,6 +15,7 @@ import {
   ReceiptIndianRupee,
   ScrollText,
   Settings,
+  Shield,
   Tag,
   Users,
 } from "lucide-react";
@@ -31,6 +32,7 @@ const navItems = [
   { href: "/sa/plans", label: "Plans", icon: Layers },
   { href: "/sa/discounts", label: "Discounts", icon: Tag },
   { href: "/sa/residents", label: "Residents", icon: Users },
+  { href: "/sa/counsellors", label: "Counsellors", icon: Shield },
   { href: "/sa/operations", label: "Operations", icon: Activity },
   { href: "/sa/announcements", label: "Announcements", icon: Megaphone },
   { href: "/sa/support", label: "Support", icon: LifeBuoy },

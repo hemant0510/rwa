@@ -103,6 +103,9 @@ export default defineConfig({
         "src/app/api/v1/residents/me/profile/**",
         "src/lib/utils/profile-completeness.ts",
         "src/services/profile.ts",
+        "src/app/api/v1/super-admin/counsellors/**",
+        "src/app/sa/counsellors/**",
+        "src/services/counsellors.ts",
       ],
       exclude: [
         "src/lib/prisma.ts",
