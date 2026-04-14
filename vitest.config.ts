@@ -106,7 +106,10 @@ export default defineConfig({
         "src/app/api/v1/super-admin/counsellors/**",
         "src/app/sa/counsellors/**",
         "src/app/api/v1/admin/counsellor/**",
+        "src/app/api/v1/counsellor/**",
+        "src/app/counsellor/**",
         "src/services/counsellors.ts",
+        "src/services/counsellor-self.ts",
       ],
       exclude: [
         "src/lib/prisma.ts",

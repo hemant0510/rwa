@@ -91,13 +91,18 @@ console.log();
 const args = ["vitest", "related", ...staged, "--run", "--reporter=verbose"];
 
 if (coverableFiles.length > 0) {
+  // Vitest coverage.include uses minimatch, where `(` and `)` are special.
+  // Next.js route groups like `(authed)` would otherwise silently fail to
+  // match the staged source file, skipping the per-file threshold check.
+  const escapeGlob = (p) => p.replace(/[()[\]{}!?*+@]/g, "\\$&");
+
   args.push(
     "--coverage",
     "--coverage.provider=v8",
     "--coverage.reporter=text",
     // Instrument ONLY the staged source files — everything else is invisible
     // to coverage. This is the key to making per-file thresholds meaningful.
-    ...coverableFiles.flatMap((f) => ["--coverage.include", f]),
+    ...coverableFiles.flatMap((f) => ["--coverage.include", escapeGlob(f)]),
     // Each staged file must individually reach 95%. A new file with zero tests
     // will fail here, forcing the developer to write tests before committing.
     "--coverage.thresholds.perFile=true",
