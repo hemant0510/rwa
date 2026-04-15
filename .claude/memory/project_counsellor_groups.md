@@ -15,10 +15,15 @@ Branch: `feature/counsellor-role`.
 - **Group 2 — SA Counsellor Management (API + UI)**: ✅ Shipped 2026-04-14. Commit: `68eaaa7`. Endpoints under `src/app/api/v1/super-admin/counsellors/` (list/create/detail/patch/delete/resend-invite) + `src/app/api/v1/admin/counsellor/route.ts`. Pages: `/sa/counsellors`, `/sa/counsellors/new`, `/sa/counsellors/[id]`. Components: `CounsellorCreateForm`, `CounsellorRow`, `CounsellorProfileCard`.
 - **Group 3 — Society Assignment**: ✅ Shipped 2026-04-14. Commit: `6a8386b`. Endpoints: `[id]/assignments`, `[id]/assignments/[societyId]`, `[id]/transfer-portfolio`, `[id]/available-societies`. Pages: `/sa/counsellors/[id]/assign`, `/sa/counsellors/[id]/transfer`. RWA Admin read-only `YourCounsellorCard` component.
 - **Group 4 — Counsellor Login, MFA, Onboarding**: ✅ Shipped 2026-04-14. Commit: `05e070a`. Pages: `/counsellor/login`, `/counsellor/set-password`, `/counsellor/(authed)/onboarding`, `/counsellor/(authed)/profile`, `/counsellor/(authed)/settings`, plus `(authed)/layout.tsx` guard. Endpoint: `/api/v1/counsellor/me`.
-- **Group 5 — Counsellor Read-Only Portfolio Views**: ❌ Not started. Needs `/counsellor` (dashboard), `/counsellor/societies`, `/counsellor/societies/[id]`, residents + governing-body tabs, plus `dashboard`/`societies`/`residents`/`governing-body` endpoints.
-- **Group 6 — Escalation Mechanisms**: ❌ Not started.
-- **Group 7 — Counsellor Ticket Handling**: ❌ Not started.
-- **Group 8 — Analytics, Audit, Feature Flag**: ❌ Not started.
+- **Group 5 — Counsellor Read-Only Portfolio Views**: ✅ Shipped (commit `99a5608`).
+- **Group 6 — Escalation Mechanisms**: ✅ Shipped (commit `5cfc929`).
+- **Group 7 — Counsellor Ticket Handling**: ✅ Shipped (commits `b29412e` + `b0a7f07` for 7B).
+- **Group 8 — Analytics, Audit, Feature Flag**: ✅ Shipped 2026-04-15. Commit: `9c10136`. Verified 2026-04-15 via `/verify-group 8`: 100% per-file coverage on all 17 Phase 8 source files, 1063 tests passing, lint clean, `tsc --noEmit` clean (required `prisma generate` first — `CounsellorAuditLog` model needs regeneration after pulling). Analytics at `/counsellor/analytics` + `PortfolioAnalyticsView`; SA audit tab via `CounsellorAuditPanel`; `isCounsellorRoleEnabled()` gates `requireCounsellor()` via `platform_configs.counsellor_role_enabled`; `logCounsellorAudit()` called from acknowledge/defer/resolve/messages/analytics routes.
+
+### Phase 8 known gaps (not blocking commit, flagged for follow-up)
+
+1. Feature flag not page-gated: `src/app/counsellor/(authed)/layout.tsx`, `src/app/sa/layout.tsx` nav, and resident/admin ticket pages (`EscalationActions`, `EscalationVoteWidget` render unconditionally). Plan §10 says "/counsellor/\* returns 404" + "hidden from SA nav" + "Resident/Admin UIs don't render escalation buttons" when flag is off. API is correctly gated via `requireCounsellor()`, but UI surfaces aren't.
+2. `logCounsellorAudit` is only called from 5 action routes (acknowledge, defer, resolve, messages, analytics view). Plan §11 says "every counsellor action (view, message, escalation ack / resolve / defer)" — VIEW-action audit writes (dashboard, society, resident, ticket detail GETs) are defined in `CounsellorAuditAction` type but never wired. Low-risk since escalation writes are the legally-material actions, but a strict reading of the plan requires all views logged too.
 
 ## Schema decisions made in Group 1
 
