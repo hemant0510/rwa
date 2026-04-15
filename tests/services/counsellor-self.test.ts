@@ -7,6 +7,7 @@ import {
   getCounsellorTickets,
   getDashboard,
   getMe,
+  getPortfolioAnalytics,
   getSocieties,
   getSociety,
   getSocietyGoverningBody,
@@ -216,6 +217,20 @@ describe("deferEscalation", () => {
         body: JSON.stringify({ reason: "Needs admin action" }),
       }),
     );
+  });
+});
+
+describe("getPortfolioAnalytics", () => {
+  it("GETs /analytics/portfolio without query when no params", async () => {
+    mockFetch.mockResolvedValue(ok({ totals: {}, byType: [], bySociety: [], byStatus: [] }));
+    await getPortfolioAnalytics();
+    expect(mockFetch).toHaveBeenCalledWith("/api/v1/counsellor/analytics/portfolio");
+  });
+
+  it("appends windowDays query param when provided", async () => {
+    mockFetch.mockResolvedValue(ok({ totals: {}, byType: [], bySociety: [], byStatus: [] }));
+    await getPortfolioAnalytics({ windowDays: 7 });
+    expect(mockFetch).toHaveBeenCalledWith("/api/v1/counsellor/analytics/portfolio?windowDays=7");
   });
 });
 

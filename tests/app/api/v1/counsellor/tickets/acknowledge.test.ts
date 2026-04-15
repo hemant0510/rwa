@@ -5,10 +5,12 @@ const mockPrisma = vi.hoisted(() => ({
   residentTicketEscalation: { findFirst: vi.fn(), update: vi.fn() },
 }));
 const mockLogAudit = vi.hoisted(() => vi.fn());
+const mockLogCounsellorAudit = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/auth-guard", () => ({ requireCounsellor: mockRequireCounsellor }));
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 vi.mock("@/lib/audit", () => ({ logAudit: mockLogAudit }));
+vi.mock("@/lib/counsellor/audit", () => ({ logCounsellorAudit: mockLogCounsellorAudit }));
 
 import { POST } from "@/app/api/v1/counsellor/tickets/[id]/acknowledge/route";
 
@@ -76,6 +78,14 @@ describe("POST /api/v1/counsellor/tickets/[id]/acknowledge", () => {
     );
     expect(mockLogAudit).toHaveBeenCalledWith(
       expect.objectContaining({ actionType: "TICKET_ESCALATION_ACKNOWLEDGED", societyId: "soc-1" }),
+    );
+    expect(mockLogCounsellorAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        counsellorId: "c-1",
+        actionType: "COUNSELLOR_ACKNOWLEDGE_ESCALATION",
+        entityId: "e-1",
+        societyId: "soc-1",
+      }),
     );
   });
 

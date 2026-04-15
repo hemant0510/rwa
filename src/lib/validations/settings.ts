@@ -24,7 +24,8 @@ export type ConfigKey =
   | "session_timeout_hours"
   | "default_fee_grace_days"
   | "support_email"
-  | "support_phone";
+  | "support_phone"
+  | "counsellor_role_enabled";
 
 export const updatePlatformConfigSchema = z
   .object({
@@ -34,6 +35,7 @@ export const updatePlatformConfigSchema = z
     default_fee_grace_days: z.number().int().min(0).optional(),
     support_email: z.string().email().or(z.literal("")).optional(),
     support_phone: z.string().max(20).optional(),
+    counsellor_role_enabled: z.boolean().optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {
     message: "At least one config key must be provided",

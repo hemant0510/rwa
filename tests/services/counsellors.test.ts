@@ -13,6 +13,7 @@ import {
   revokeAssignment,
   transferPortfolio,
   getMyCounsellor,
+  getCounsellorAuditLog,
 } from "@/services/counsellors";
 
 const mockFetch = vi.fn();
@@ -176,6 +177,28 @@ describe("transferPortfolio", () => {
       "/api/v1/super-admin/counsellors/src/transfer-portfolio",
       expect.objectContaining({ method: "POST" }),
     );
+  });
+});
+
+describe("getCounsellorAuditLog", () => {
+  it("GETs audit endpoint without query when no params", async () => {
+    mockFetch.mockResolvedValue(ok({ logs: [], total: 0, page: 1, pageSize: 25 }));
+    await getCounsellorAuditLog("c-1");
+    expect(mockFetch).toHaveBeenCalledWith("/api/v1/super-admin/counsellors/c-1/audit");
+  });
+
+  it("includes page and pageSize query params when provided", async () => {
+    mockFetch.mockResolvedValue(ok({ logs: [], total: 0, page: 2, pageSize: 50 }));
+    await getCounsellorAuditLog("c-1", { page: 2, pageSize: 50 });
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/v1/super-admin/counsellors/c-1/audit?page=2&pageSize=50",
+    );
+  });
+
+  it("serializes page=0 (explicit zero) into query", async () => {
+    mockFetch.mockResolvedValue(ok({ logs: [], total: 0, page: 0, pageSize: 25 }));
+    await getCounsellorAuditLog("c-1", { page: 0 });
+    expect(mockFetch).toHaveBeenCalledWith("/api/v1/super-admin/counsellors/c-1/audit?page=0");
   });
 });
 

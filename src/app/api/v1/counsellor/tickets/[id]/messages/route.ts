@@ -9,6 +9,7 @@ import {
 } from "@/lib/api-helpers";
 import { logAudit } from "@/lib/audit";
 import { requireCounsellor } from "@/lib/auth-guard";
+import { logCounsellorAudit } from "@/lib/counsellor/audit";
 import { prisma } from "@/lib/prisma";
 import { createCounsellorMessageSchema } from "@/lib/validations/escalation";
 
@@ -76,6 +77,17 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       societyId: escalation.ticket.societyId,
       entityType: "ResidentTicketMessage",
       entityId: message.id,
+    });
+
+    void logCounsellorAudit({
+      counsellorId,
+      actionType:
+        parsed.data.kind === "ADVISORY_TO_ADMIN"
+          ? "COUNSELLOR_POST_ADVISORY"
+          : "COUNSELLOR_POST_PRIVATE_NOTE",
+      entityType: "ResidentTicketMessage",
+      entityId: message.id,
+      societyId: escalation.ticket.societyId,
     });
 
     return successResponse(message, 201);

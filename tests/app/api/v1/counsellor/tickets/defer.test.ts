@@ -6,10 +6,12 @@ const mockPrisma = vi.hoisted(() => ({
   $transaction: vi.fn(),
 }));
 const mockLogAudit = vi.hoisted(() => vi.fn());
+const mockLogCounsellorAudit = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/auth-guard", () => ({ requireCounsellor: mockRequireCounsellor }));
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 vi.mock("@/lib/audit", () => ({ logAudit: mockLogAudit }));
+vi.mock("@/lib/counsellor/audit", () => ({ logCounsellorAudit: mockLogCounsellorAudit }));
 
 import { POST } from "@/app/api/v1/counsellor/tickets/[id]/defer/route";
 
@@ -103,6 +105,13 @@ describe("POST /api/v1/counsellor/tickets/[id]/defer", () => {
       expect.objectContaining({
         actionType: "TICKET_ESCALATION_DEFERRED",
         newValue: expect.objectContaining({ advisoryMessageId: "m-1" }),
+      }),
+    );
+    expect(mockLogCounsellorAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        counsellorId: "c-1",
+        actionType: "COUNSELLOR_DEFER_ESCALATION",
+        entityId: "e-1",
       }),
     );
   });

@@ -6,10 +6,12 @@ const mockPrisma = vi.hoisted(() => ({
   residentTicketMessage: { create: vi.fn() },
 }));
 const mockLogAudit = vi.hoisted(() => vi.fn());
+const mockLogCounsellorAudit = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/auth-guard", () => ({ requireCounsellor: mockRequireCounsellor }));
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 vi.mock("@/lib/audit", () => ({ logAudit: mockLogAudit }));
+vi.mock("@/lib/counsellor/audit", () => ({ logCounsellorAudit: mockLogCounsellorAudit }));
 
 import { POST } from "@/app/api/v1/counsellor/tickets/[id]/messages/route";
 
@@ -118,6 +120,13 @@ describe("POST /api/v1/counsellor/tickets/[id]/messages", () => {
     expect(mockLogAudit).toHaveBeenCalledWith(
       expect.objectContaining({ actionType: "TICKET_COUNSELLOR_NOTE_POSTED" }),
     );
+    expect(mockLogCounsellorAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        counsellorId: "c-1",
+        actionType: "COUNSELLOR_POST_PRIVATE_NOTE",
+        entityType: "ResidentTicketMessage",
+      }),
+    );
   });
 
   it("creates ADVISORY_TO_ADMIN message (isInternal=false) and logs advisory audit", async () => {
@@ -146,6 +155,13 @@ describe("POST /api/v1/counsellor/tickets/[id]/messages", () => {
     );
     expect(mockLogAudit).toHaveBeenCalledWith(
       expect.objectContaining({ actionType: "TICKET_ADVISORY_POSTED" }),
+    );
+    expect(mockLogCounsellorAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        counsellorId: "c-1",
+        actionType: "COUNSELLOR_POST_ADVISORY",
+        entityType: "ResidentTicketMessage",
+      }),
     );
   });
 

@@ -243,3 +243,55 @@ export interface CounsellorEscalationDetail {
     messages: ResidentTicketMessageItem[];
   };
 }
+
+// ─── Portfolio Analytics ──────────────────────────────────────────
+
+export interface CounsellorPortfolioAnalytics {
+  generatedAt: string;
+  windowDays: number;
+  totals: {
+    societies: number;
+    escalationsAllTime: number;
+    escalationsInWindow: number;
+    openEscalations: number;
+    pendingAck: number;
+    acknowledged: number;
+    resolved: number;
+    deferred: number;
+    withdrawn: number;
+    slaBreachedOpen: number;
+    avgResolutionHours: number | null;
+  };
+  byType: Array<{ type: string; count: number }>;
+  bySociety: Array<{
+    societyId: string;
+    societyName: string;
+    societyCode: string;
+    open: number;
+    resolved: number;
+    total: number;
+  }>;
+  byStatus: Array<{ status: CounsellorEscalationStatus; count: number }>;
+}
+
+// ─── Counsellor Audit Log (SA-side) ───────────────────────────────
+
+export interface CounsellorAuditLogItem {
+  id: string;
+  counsellorId: string;
+  actionType: string;
+  entityType: string;
+  entityId: string;
+  societyId: string | null;
+  metadata: unknown;
+  ipAddress: string | null;
+  userAgent: string | null;
+  createdAt: string;
+}
+
+export interface PaginatedCounsellorAuditLogs {
+  logs: CounsellorAuditLogItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+}

@@ -7,6 +7,7 @@ const mockCreateClient = vi.hoisted(() =>
 );
 const mockSuperAdminFindUnique = vi.hoisted(() => vi.fn());
 const mockCounsellorFindUnique = vi.hoisted(() => vi.fn());
+const mockIsCounsellorRoleEnabled = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/supabase/server", () => ({ createClient: mockCreateClient }));
 vi.mock("@/lib/prisma", () => ({
@@ -14,6 +15,9 @@ vi.mock("@/lib/prisma", () => ({
     superAdmin: { findUnique: mockSuperAdminFindUnique },
     counsellor: { findUnique: mockCounsellorFindUnique },
   },
+}));
+vi.mock("@/lib/counsellor/feature-flag", () => ({
+  isCounsellorRoleEnabled: mockIsCounsellorRoleEnabled,
 }));
 
 // --- Import after mocks ---
@@ -114,6 +118,19 @@ describe("requireCounsellor", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockCreateClient.mockResolvedValue({ auth: { getUser: mockGetUser } });
+    mockIsCounsellorRoleEnabled.mockResolvedValue(true);
+  });
+
+  it("returns 403 when feature flag is disabled", async () => {
+    mockIsCounsellorRoleEnabled.mockResolvedValue(false);
+
+    const result = await requireCounsellor();
+
+    expect(result.data).toBeNull();
+    const body = await (result.error as Response).json();
+    expect(body.error.code).toBe("FORBIDDEN");
+    expect(body.error.message).toBe("Counsellor role is disabled");
+    expect(mockGetUser).not.toHaveBeenCalled();
   });
 
   it("returns 401 when no Supabase user (not logged in)", async () => {

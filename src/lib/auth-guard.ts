@@ -1,4 +1,5 @@
 import { forbiddenError, unauthorizedError } from "@/lib/api-helpers";
+import { isCounsellorRoleEnabled } from "@/lib/counsellor/feature-flag";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 
@@ -51,6 +52,11 @@ export async function requireSuperAdmin(): Promise<AuthResult> {
 }
 
 export async function requireCounsellor(): Promise<CounsellorAuthResult> {
+  const enabled = await isCounsellorRoleEnabled();
+  if (!enabled) {
+    return { data: null, error: forbiddenError("Counsellor role is disabled") };
+  }
+
   const supabase = await createClient();
   const {
     data: { user },

@@ -10,6 +10,7 @@ import type {
   CounsellorEscalationDetail,
   CounsellorEscalationListItem,
   CounsellorGoverningBodyMember,
+  CounsellorPortfolioAnalytics,
   CounsellorResidentDetail,
   CounsellorSocietyDetail,
   CounsellorSocietySummary,
@@ -140,6 +141,17 @@ export async function deferEscalation(
     body: JSON.stringify(data),
   });
   return parseOk(res);
+}
+
+export async function getPortfolioAnalytics(
+  params: { windowDays?: number } = {},
+): Promise<CounsellorPortfolioAnalytics> {
+  const qs = new URLSearchParams();
+  if (params.windowDays) qs.set("windowDays", String(params.windowDays));
+  const query = qs.toString();
+  const url = `${BASE}/analytics/portfolio${query ? `?${query}` : ""}`;
+  const res = await fetch(url);
+  return parseOk<CounsellorPortfolioAnalytics>(res);
 }
 
 export async function postCounsellorMessage(

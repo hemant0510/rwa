@@ -5,4 +5,9 @@ export const CONFIG_DEFAULTS: Record<string, { value: string; type: string; labe
   default_fee_grace_days: { value: "15", type: "number", label: "Fee Grace Period (days)" },
   support_email: { value: "", type: "string", label: "Support Email" },
   support_phone: { value: "", type: "string", label: "Support Phone" },
+  counsellor_role_enabled: {
+    value: "false",
+    type: "boolean",
+    label: "Counsellor Role Enabled",
+  },
 };

@@ -7,6 +7,7 @@ import type {
 import type {
   CounsellorDetail,
   CounsellorSocietyAssignmentItem,
+  PaginatedCounsellorAuditLogs,
   PaginatedCounsellors,
 } from "@/types/counsellor";
 
@@ -145,6 +146,20 @@ export async function transferPortfolio(
     body: JSON.stringify(data),
   });
   return parseOk(res);
+}
+
+// ─── Audit log (SA views per-counsellor audit trail) ─────────────
+
+export async function getCounsellorAuditLog(
+  counsellorId: string,
+  params: { page?: number; pageSize?: number } = {},
+): Promise<PaginatedCounsellorAuditLogs> {
+  const qs = new URLSearchParams();
+  if (params.page !== undefined) qs.set("page", String(params.page));
+  if (params.pageSize !== undefined) qs.set("pageSize", String(params.pageSize));
+  const query = qs.toString();
+  const res = await fetch(`${BASE}/${counsellorId}/audit${query ? `?${query}` : ""}`);
+  return parseOk<PaginatedCounsellorAuditLogs>(res);
 }
 
 // ─── Admin-facing (RWA admin sees their society's counsellor) ─────

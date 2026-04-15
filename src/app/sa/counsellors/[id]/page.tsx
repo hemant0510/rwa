@@ -9,6 +9,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, Mail, PauseCircle, PlayCircle, Plus, Repeat, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { CounsellorAuditPanel } from "@/components/features/sa-counsellors/CounsellorAuditPanel";
 import { CounsellorProfileCard } from "@/components/features/sa-counsellors/CounsellorProfileCard";
 import {
   AlertDialog,
@@ -127,6 +128,7 @@ export default function CounsellorDetailPage() {
           <TabsList>
             <TabsTrigger value="profile">Profile</TabsTrigger>
             <TabsTrigger value="societies">Societies ({assignments.length})</TabsTrigger>
+            <TabsTrigger value="audit">Audit</TabsTrigger>
           </TabsList>
 
           <TabsContent value="profile" className="space-y-4 pt-4">
@@ -239,6 +241,10 @@ export default function CounsellorDetailPage() {
                 ))}
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="audit" className="space-y-4 pt-4">
+            <CounsellorAuditPanel counsellorId={id} />
           </TabsContent>
         </Tabs>
       )}

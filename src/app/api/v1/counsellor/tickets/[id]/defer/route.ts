@@ -9,6 +9,7 @@ import {
 } from "@/lib/api-helpers";
 import { logAudit } from "@/lib/audit";
 import { requireCounsellor } from "@/lib/auth-guard";
+import { logCounsellorAudit } from "@/lib/counsellor/audit";
 import { prisma } from "@/lib/prisma";
 import { deferEscalationSchema, isValidEscalationTransition } from "@/lib/validations/escalation";
 
@@ -71,6 +72,15 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       entityType: "ResidentTicketEscalation",
       entityId: escalationId,
       newValue: { advisoryMessageId: result.messageId, reason: parsed.data.reason },
+    });
+
+    void logCounsellorAudit({
+      counsellorId,
+      actionType: "COUNSELLOR_DEFER_ESCALATION",
+      entityType: "ResidentTicketEscalation",
+      entityId: escalationId,
+      societyId: escalation.ticket.societyId,
+      metadata: { advisoryMessageId: result.messageId, reason: parsed.data.reason },
     });
 
     return successResponse(result.updated);

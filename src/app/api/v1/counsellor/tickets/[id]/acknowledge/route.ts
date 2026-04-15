@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { errorResponse, internalError, notFoundError, successResponse } from "@/lib/api-helpers";
 import { logAudit } from "@/lib/audit";
 import { requireCounsellor } from "@/lib/auth-guard";
+import { logCounsellorAudit } from "@/lib/counsellor/audit";
 import { prisma } from "@/lib/prisma";
 import { isValidEscalationTransition } from "@/lib/validations/escalation";
 
@@ -43,6 +44,14 @@ export async function POST(_request: NextRequest, { params }: RouteContext) {
       societyId: escalation.ticket.societyId,
       entityType: "ResidentTicketEscalation",
       entityId: escalationId,
+    });
+
+    void logCounsellorAudit({
+      counsellorId,
+      actionType: "COUNSELLOR_ACKNOWLEDGE_ESCALATION",
+      entityType: "ResidentTicketEscalation",
+      entityId: escalationId,
+      societyId: escalation.ticket.societyId,
     });
 
     return successResponse(updated);

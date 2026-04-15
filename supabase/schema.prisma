@@ -2040,3 +2040,22 @@ model ResidentTicketEscalationVote {
   @@index([ticketId])
   @@map("resident_ticket_escalation_votes")
 }
+
+/// CounsellorAuditLog — per-counsellor activity trail. Mirrors AuditLog shape
+/// but keyed by counsellor_id so SA can audit a counsellor's actions in isolation.
+model CounsellorAuditLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  counsellorId String   @map("counsellor_id") @db.Uuid
+  actionType   String   @map("action_type") @db.VarChar(60)
+  entityType   String   @map("entity_type") @db.VarChar(40)
+  entityId     String   @map("entity_id") @db.Uuid
+  societyId    String?  @map("society_id") @db.Uuid
+  metadata     Json?
+  ipAddress    String?  @map("ip_address")
+  userAgent    String?  @map("user_agent")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([counsellorId, createdAt])
+  @@index([societyId])
+  @@map("counsellor_audit_logs")
+}

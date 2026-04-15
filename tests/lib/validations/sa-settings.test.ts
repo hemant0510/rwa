@@ -37,4 +37,19 @@ describe("sa-settings validation re-exports", () => {
   it("updatePlatformConfigSchema rejects empty object", () => {
     expect(updatePlatformConfigSchema.safeParse({}).success).toBe(false);
   });
+
+  it("updatePlatformConfigSchema accepts counsellor_role_enabled boolean", () => {
+    expect(updatePlatformConfigSchema.safeParse({ counsellor_role_enabled: true }).success).toBe(
+      true,
+    );
+    expect(updatePlatformConfigSchema.safeParse({ counsellor_role_enabled: false }).success).toBe(
+      true,
+    );
+  });
+
+  it("updatePlatformConfigSchema rejects non-boolean counsellor_role_enabled", () => {
+    expect(updatePlatformConfigSchema.safeParse({ counsellor_role_enabled: "yes" }).success).toBe(
+      false,
+    );
+  });
 });

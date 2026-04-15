@@ -32,6 +32,12 @@ vi.mock("@/components/features/sa-counsellors/CounsellorProfileCard", () => ({
   ),
 }));
 
+vi.mock("@/components/features/sa-counsellors/CounsellorAuditPanel", () => ({
+  CounsellorAuditPanel: ({ counsellorId }: { counsellorId: string }) => (
+    <div data-testid="audit-panel">audit:{counsellorId}</div>
+  ),
+}));
+
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -401,6 +407,17 @@ describe("CounsellorDetailPage", () => {
     await user.click(screen.getByText("Yes, revoke"));
     await waitFor(() => {
       expect(mockToastError).toHaveBeenCalledWith("revoke failed");
+    });
+  });
+
+  it("renders CounsellorAuditPanel when Audit tab is active", async () => {
+    mockGetCounsellor.mockResolvedValue(activeOnboarded);
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => expect(screen.getByRole("tab", { name: /Audit/ })).toBeInTheDocument());
+    await user.click(screen.getByRole("tab", { name: /Audit/ }));
+    await waitFor(() => {
+      expect(screen.getByTestId("audit-panel")).toHaveTextContent("audit:c-1");
     });
   });
 
