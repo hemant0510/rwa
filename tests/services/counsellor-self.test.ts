@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 import {
+  acknowledgeEscalation,
+  deferEscalation,
+  getCounsellorTicket,
+  getCounsellorTickets,
   getDashboard,
   getMe,
   getSocieties,
@@ -8,6 +12,8 @@ import {
   getSocietyGoverningBody,
   getSocietyResident,
   getSocietyResidents,
+  postCounsellorMessage,
+  resolveEscalation,
   updateMe,
 } from "@/services/counsellor-self";
 
@@ -143,5 +149,96 @@ describe("getSocietyGoverningBody", () => {
     const result = await getSocietyGoverningBody("s-1");
     expect(result.members).toEqual([]);
     expect(mockFetch).toHaveBeenCalledWith("/api/v1/counsellor/societies/s-1/governing-body");
+  });
+});
+
+describe("getCounsellorTickets", () => {
+  it("GETs /counsellor/tickets with no params", async () => {
+    mockFetch.mockResolvedValue(ok({ escalations: [] }));
+    await getCounsellorTickets();
+    expect(mockFetch).toHaveBeenCalledWith("/api/v1/counsellor/tickets");
+  });
+
+  it("encodes status and societyId when provided", async () => {
+    mockFetch.mockResolvedValue(ok({ escalations: [] }));
+    await getCounsellorTickets({ status: "all", societyId: "s-1" });
+    expect(mockFetch).toHaveBeenCalledWith("/api/v1/counsellor/tickets?status=all&societyId=s-1");
+  });
+});
+
+describe("getCounsellorTicket", () => {
+  it("GETs /counsellor/tickets/:id", async () => {
+    mockFetch.mockResolvedValue(ok({ id: "e-1" }));
+    const result = await getCounsellorTicket("e-1");
+    expect(result.id).toBe("e-1");
+    expect(mockFetch).toHaveBeenCalledWith("/api/v1/counsellor/tickets/e-1");
+  });
+});
+
+describe("acknowledgeEscalation", () => {
+  it("POSTs /counsellor/tickets/:id/acknowledge", async () => {
+    mockFetch.mockResolvedValue(
+      ok({ id: "e-1", status: "ACKNOWLEDGED", acknowledgedAt: "2026-01-01" }),
+    );
+    const r = await acknowledgeEscalation("e-1");
+    expect(r.status).toBe("ACKNOWLEDGED");
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/v1/counsellor/tickets/e-1/acknowledge",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+});
+
+describe("resolveEscalation", () => {
+  it("POSTs with summary body", async () => {
+    mockFetch.mockResolvedValue(
+      ok({ id: "e-1", status: "RESOLVED_BY_COUNSELLOR", resolvedAt: "2026-01-01" }),
+    );
+    await resolveEscalation("e-1", { summary: "Resolved advisory" });
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/v1/counsellor/tickets/e-1/resolve",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ summary: "Resolved advisory" }),
+      }),
+    );
+  });
+});
+
+describe("deferEscalation", () => {
+  it("POSTs with reason body", async () => {
+    mockFetch.mockResolvedValue(ok({ id: "e-1", status: "DEFERRED_TO_ADMIN" }));
+    await deferEscalation("e-1", { reason: "Needs admin action" });
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/v1/counsellor/tickets/e-1/defer",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ reason: "Needs admin action" }),
+      }),
+    );
+  });
+});
+
+describe("postCounsellorMessage", () => {
+  it("POSTs with content + kind body", async () => {
+    mockFetch.mockResolvedValue(
+      ok({
+        id: "m-1",
+        authorRole: "COUNSELLOR",
+        content: "note",
+        kind: "PRIVATE_NOTE",
+        isInternal: true,
+        createdAt: "2026-01-01",
+      }),
+    );
+    const r = await postCounsellorMessage("e-1", {
+      content: "note",
+      kind: "PRIVATE_NOTE",
+    });
+    expect(r.id).toBe("m-1");
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/v1/counsellor/tickets/e-1/messages",
+      expect.objectContaining({ method: "POST" }),
+    );
   });
 });

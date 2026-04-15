@@ -182,3 +182,73 @@ export interface CounsellorGoverningBodyMember {
   photoUrl: string | null;
   assignedAt: string;
 }
+
+// ─── Counsellor Ticket Escalations ────────────────────────────────
+
+export type CounsellorEscalationStatus =
+  | "PENDING"
+  | "ACKNOWLEDGED"
+  | "REVIEWING"
+  | "RESOLVED_BY_COUNSELLOR"
+  | "DEFERRED_TO_ADMIN"
+  | "WITHDRAWN";
+
+export type CounsellorEscalationSource = "RESIDENT_VOTE" | "ADMIN_REQUEST";
+
+export type CounsellorMessageKind = "ADVISORY_TO_ADMIN" | "PRIVATE_NOTE";
+
+export interface CounsellorEscalationListItem {
+  id: string;
+  status: CounsellorEscalationStatus;
+  source: CounsellorEscalationSource;
+  slaDeadline: string | null;
+  acknowledgedAt: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+  ticket: {
+    id: string;
+    ticketNumber: number;
+    subject: string;
+    type: string;
+    priority: string;
+    status: string;
+    societyId: string;
+    society: { name: string; societyCode: string };
+  };
+}
+
+export interface CounsellorEscalationDetail {
+  id: string;
+  status: CounsellorEscalationStatus;
+  source: CounsellorEscalationSource;
+  reason: string | null;
+  slaDeadline: string | null;
+  acknowledgedAt: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+  ticket: {
+    id: string;
+    ticketNumber: number;
+    subject: string;
+    description: string;
+    type: string;
+    priority: string;
+    status: string;
+    societyId: string;
+    createdAt: string;
+    society: { name: string; societyCode: string };
+    createdByUser: { id: string; name: string; email: string };
+    messages: Array<{
+      id: string;
+      authorId: string | null;
+      authorRole: string;
+      content: string;
+      isInternal: boolean;
+      kind: string | null;
+      counsellorId: string | null;
+      createdAt: string;
+      author: { name: string } | null;
+      counsellor: { name: string } | null;
+    }>;
+  };
+}

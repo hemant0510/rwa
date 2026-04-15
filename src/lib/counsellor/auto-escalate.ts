@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 
+import { computeSlaDeadline } from "@/lib/counsellor/sla";
 import { prisma } from "@/lib/prisma";
 
 export type AutoEscalationOutcome =
@@ -40,12 +41,14 @@ export async function maybeAutoEscalate(ticketId: string): Promise<AutoEscalatio
 
   try {
     const escalation = await prisma.$transaction(async (tx) => {
+      const now = new Date();
       const created = await tx.residentTicketEscalation.create({
         data: {
           ticketId,
           counsellorId: assignment.counsellorId,
           source: "RESIDENT_VOTE",
           status: "PENDING",
+          slaDeadline: computeSlaDeadline(now),
         },
         select: { id: true },
       });

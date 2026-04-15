@@ -86,12 +86,13 @@ describe("maybeAutoEscalate", () => {
     const outcome = await maybeAutoEscalate("t-1");
     expect(outcome).toEqual({ created: true, escalationId: "e-42", counsellorId: "c-1" });
     expect(tx.residentTicketEscalation.create).toHaveBeenCalledWith({
-      data: {
+      data: expect.objectContaining({
         ticketId: "t-1",
         counsellorId: "c-1",
         source: "RESIDENT_VOTE",
         status: "PENDING",
-      },
+        slaDeadline: expect.any(Date),
+      }),
       select: { id: true },
     });
     expect(tx.residentTicketEscalationVote.updateMany).toHaveBeenCalledWith({

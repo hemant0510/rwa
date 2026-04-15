@@ -1,7 +1,14 @@
 import type { UpdateCounsellorSelfInput } from "@/lib/validations/counsellor";
 import type {
+  CreateCounsellorMessageInput,
+  DeferEscalationInput,
+  ResolveEscalationInput,
+} from "@/lib/validations/escalation";
+import type {
   CounsellorDashboard,
   CounsellorDetail,
+  CounsellorEscalationDetail,
+  CounsellorEscalationListItem,
   CounsellorGoverningBodyMember,
   CounsellorResidentDetail,
   CounsellorSocietyDetail,
@@ -83,4 +90,73 @@ export async function getSocietyGoverningBody(
 ): Promise<{ members: CounsellorGoverningBodyMember[] }> {
   const res = await fetch(`${BASE}/societies/${societyId}/governing-body`);
   return parseOk<{ members: CounsellorGoverningBodyMember[] }>(res);
+}
+
+export async function getCounsellorTickets(
+  params: { status?: string; societyId?: string } = {},
+): Promise<{ escalations: CounsellorEscalationListItem[] }> {
+  const qs = new URLSearchParams();
+  if (params.status) qs.set("status", params.status);
+  if (params.societyId) qs.set("societyId", params.societyId);
+  const query = qs.toString();
+  const url = `${BASE}/tickets${query ? `?${query}` : ""}`;
+  const res = await fetch(url);
+  return parseOk<{ escalations: CounsellorEscalationListItem[] }>(res);
+}
+
+export async function getCounsellorTicket(
+  escalationId: string,
+): Promise<CounsellorEscalationDetail> {
+  const res = await fetch(`${BASE}/tickets/${escalationId}`);
+  return parseOk<CounsellorEscalationDetail>(res);
+}
+
+export async function acknowledgeEscalation(
+  escalationId: string,
+): Promise<{ id: string; status: string; acknowledgedAt: string }> {
+  const res = await fetch(`${BASE}/tickets/${escalationId}/acknowledge`, { method: "POST" });
+  return parseOk(res);
+}
+
+export async function resolveEscalation(
+  escalationId: string,
+  data: ResolveEscalationInput,
+): Promise<{ id: string; status: string; resolvedAt: string }> {
+  const res = await fetch(`${BASE}/tickets/${escalationId}/resolve`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return parseOk(res);
+}
+
+export async function deferEscalation(
+  escalationId: string,
+  data: DeferEscalationInput,
+): Promise<{ id: string; status: string }> {
+  const res = await fetch(`${BASE}/tickets/${escalationId}/defer`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return parseOk(res);
+}
+
+export async function postCounsellorMessage(
+  escalationId: string,
+  data: CreateCounsellorMessageInput,
+): Promise<{
+  id: string;
+  authorRole: string;
+  content: string;
+  kind: string;
+  isInternal: boolean;
+  createdAt: string;
+}> {
+  const res = await fetch(`${BASE}/tickets/${escalationId}/messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return parseOk(res);
 }

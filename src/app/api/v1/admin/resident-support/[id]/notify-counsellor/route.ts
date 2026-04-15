@@ -7,6 +7,7 @@ import {
   validationError,
 } from "@/lib/api-helpers";
 import { logAudit } from "@/lib/audit";
+import { computeSlaDeadline } from "@/lib/counsellor/sla";
 import { getCurrentUser } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
 import { escalateTicketSchema } from "@/lib/validations/escalation";
@@ -65,6 +66,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         status: "PENDING",
         reason: parsed.data.reason,
         createdById: admin.userId,
+        slaDeadline: computeSlaDeadline(new Date()),
       },
     });
 
