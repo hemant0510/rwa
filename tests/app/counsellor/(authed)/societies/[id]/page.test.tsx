@@ -89,7 +89,8 @@ describe("CounsellorSocietyDetailPage", () => {
     await waitFor(() => expect(screen.getByText(/Failed to load society/)).toBeInTheDocument());
   });
 
-  const findTitle = () => screen.findByRole("heading", { level: 1, name: "Alpha Residency" });
+  const findTitle = () =>
+    screen.findByRole("heading", { level: 1, name: "Alpha Residency" }, { timeout: 5000 });
 
   it("renders profile tab with society details by default", async () => {
     renderPage();

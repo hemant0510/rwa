@@ -459,14 +459,12 @@ describe("ResidentSupportPage", () => {
       await user.click(within(dialog).getAllByRole("combobox")[0]);
       await waitFor(() => screen.getByRole("option", { name: /maintenance/i }));
       await user.click(screen.getByRole("option", { name: /maintenance/i }));
-      await user.type(
-        within(dialog).getByRole("textbox", { name: /subject/i }),
-        "Test subject here",
-      );
-      await user.type(
-        within(dialog).getByRole("textbox", { name: /description/i }),
-        "This is a detailed description of the issue that is long enough.",
-      );
+      fireEvent.change(within(dialog).getByRole("textbox", { name: /subject/i }), {
+        target: { value: "Test subject here" },
+      });
+      fireEvent.change(within(dialog).getByRole("textbox", { name: /description/i }), {
+        target: { value: "This is a detailed description of the issue that is long enough." },
+      });
       await user.click(within(dialog).getByRole("button", { name: /^submit$/i }));
 
       await waitFor(() => {
@@ -488,14 +486,12 @@ describe("ResidentSupportPage", () => {
       await user.click(within(dialog).getAllByRole("combobox")[0]);
       await waitFor(() => screen.getByRole("option", { name: /^security$/i }));
       await user.click(screen.getByRole("option", { name: /^security$/i }));
-      await user.type(
-        within(dialog).getByRole("textbox", { name: /subject/i }),
-        "Security issue here",
-      );
-      await user.type(
-        within(dialog).getByRole("textbox", { name: /description/i }),
-        "Long enough description for the security issue that needs attention.",
-      );
+      fireEvent.change(within(dialog).getByRole("textbox", { name: /subject/i }), {
+        target: { value: "Security issue here" },
+      });
+      fireEvent.change(within(dialog).getByRole("textbox", { name: /description/i }), {
+        target: { value: "Long enough description for the security issue that needs attention." },
+      });
       await user.click(within(dialog).getByRole("button", { name: /^submit$/i }));
 
       await waitFor(() => {

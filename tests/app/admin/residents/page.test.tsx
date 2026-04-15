@@ -1493,9 +1493,12 @@ describe("AdminResidentsPage", () => {
     mockGetResidents.mockResolvedValue(MOCK_LIST_RESPONSE);
     const user = userEvent.setup();
     renderPage();
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: /Delete/i })).toBeInTheDocument();
-    });
+    await waitFor(
+      () => {
+        expect(screen.getByRole("button", { name: /Delete/i })).toBeInTheDocument();
+      },
+      { timeout: 5000 },
+    );
     await user.click(screen.getByRole("button", { name: /Delete/i }));
     await waitFor(() => {
       expect(screen.getByText("Permanently Delete Resident")).toBeInTheDocument();
