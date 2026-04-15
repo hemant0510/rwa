@@ -1,11 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockGetCurrentUser = vi.hoisted(() => vi.fn());
+const mockGetAdminContext = vi.hoisted(() => vi.fn());
 const mockPrisma = vi.hoisted(() => ({
   serviceRequest: { findMany: vi.fn(), count: vi.fn(), create: vi.fn() },
 }));
 
-vi.mock("@/lib/get-current-user", () => ({ getCurrentUser: mockGetCurrentUser }));
+vi.mock("@/lib/get-current-user", () => ({
+  getCurrentUser: mockGetCurrentUser,
+  getAdminContext: mockGetAdminContext,
+}));
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 
 import { GET, POST } from "@/app/api/v1/admin/support/route";
@@ -16,6 +20,8 @@ const mockAdmin = {
   societyId: "soc-1",
   role: "RWA_ADMIN",
   adminPermission: "FULL_ACCESS",
+  name: "Admin",
+  isSuperAdmin: false,
 };
 
 function makeGetReq(params = "") {
@@ -33,14 +39,30 @@ describe("Admin Support API", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetCurrentUser.mockResolvedValue(mockAdmin);
+    mockGetAdminContext.mockResolvedValue(mockAdmin);
     mockPrisma.serviceRequest.findMany.mockResolvedValue([]);
     mockPrisma.serviceRequest.count.mockResolvedValue(0);
   });
 
   it("GET returns 403 when not admin", async () => {
-    mockGetCurrentUser.mockResolvedValue(null);
+    mockGetAdminContext.mockResolvedValue(null);
     const res = await GET(makeGetReq() as never);
     expect(res.status).toBe(403);
+  });
+
+  it("GET scopes to ?societyId param (Super Admin)", async () => {
+    mockGetAdminContext.mockResolvedValue({
+      ...mockAdmin,
+      userId: null,
+      isSuperAdmin: true,
+      role: "SUPER_ADMIN",
+      societyId: "soc-other",
+    });
+    await GET(makeGetReq("?societyId=soc-other") as never);
+    expect(mockGetAdminContext).toHaveBeenCalledWith("soc-other");
+    expect(mockPrisma.serviceRequest.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ societyId: "soc-other" }) }),
+    );
   });
 
   it("GET lists society-scoped requests", async () => {

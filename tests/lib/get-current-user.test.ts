@@ -11,7 +11,7 @@ vi.mock("@/lib/active-society-server", () => ({
   getActiveSocietyId: mockGetActiveSocietyId,
 }));
 
-import { getCurrentUser, getFullAccessAdmin } from "@/lib/get-current-user";
+import { getAdminContext, getCurrentUser, getFullAccessAdmin } from "@/lib/get-current-user";
 
 const baseUser = {
   id: "u1",
@@ -144,6 +144,109 @@ describe("getFullAccessAdmin", () => {
   it("returns null when adminPermission is null", async () => {
     mockPrisma.user.findFirst.mockResolvedValue({ ...baseUser, role: "RWA_ADMIN" });
     const result = await getFullAccessAdmin();
+    expect(result).toBeNull();
+  });
+});
+
+describe("getAdminContext", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockSupabaseClient.auth.getUser.mockResolvedValue({
+      data: { user: { id: "auth-1" } },
+      error: null,
+    });
+  });
+
+  it("returns null when not authenticated", async () => {
+    mockSupabaseClient.auth.getUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: null,
+    });
+    const result = await getAdminContext("soc-1");
+    expect(result).toBeNull();
+  });
+
+  it("returns RWA_ADMIN context for their own society", async () => {
+    mockPrisma.user.findFirst.mockResolvedValue({
+      ...baseUser,
+      role: "RWA_ADMIN",
+      adminPermission: "FULL_ACCESS",
+    });
+    const result = await getAdminContext("soc-1");
+    expect(result).not.toBeNull();
+    expect(result?.role).toBe("RWA_ADMIN");
+    expect(result?.societyId).toBe("soc-1");
+    expect(result?.isSuperAdmin).toBe(false);
+    expect(result?.adminPermission).toBe("FULL_ACCESS");
+  });
+
+  it("returns null when RWA_ADMIN is asked for a different society", async () => {
+    mockPrisma.user.findFirst.mockResolvedValue({
+      ...baseUser,
+      role: "RWA_ADMIN",
+      adminPermission: "FULL_ACCESS",
+    });
+    const result = await getAdminContext("soc-other");
+    expect(result).toBeNull();
+  });
+
+  it("returns RWA_ADMIN context when targetSocietyId is null", async () => {
+    mockPrisma.user.findFirst.mockResolvedValue({
+      ...baseUser,
+      role: "RWA_ADMIN",
+      adminPermission: "FULL_ACCESS",
+    });
+    const result = await getAdminContext(null);
+    expect(result).not.toBeNull();
+    expect(result?.societyId).toBe("soc-1");
+    expect(result?.isSuperAdmin).toBe(false);
+  });
+
+  it("returns Super Admin context with synthesized FULL_ACCESS when target society supplied", async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(null);
+    mockPrisma.superAdmin.findUnique.mockResolvedValue({
+      id: "sa-1",
+      email: "sa@example.com",
+      name: "Super Admin",
+      isActive: true,
+    });
+    const result = await getAdminContext("soc-other");
+    expect(result).not.toBeNull();
+    expect(result?.role).toBe("SUPER_ADMIN");
+    expect(result?.isSuperAdmin).toBe(true);
+    expect(result?.societyId).toBe("soc-other");
+    expect(result?.adminPermission).toBe("FULL_ACCESS");
+    expect(result?.userId).toBeNull();
+  });
+
+  it("returns null for Super Admin when no target society supplied", async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(null);
+    mockPrisma.superAdmin.findUnique.mockResolvedValue({
+      id: "sa-1",
+      email: "sa@example.com",
+      name: "Super Admin",
+      isActive: true,
+    });
+    const result = await getAdminContext(null);
+    expect(result).toBeNull();
+  });
+
+  it("returns null for inactive Super Admin", async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(null);
+    mockPrisma.superAdmin.findUnique.mockResolvedValue({
+      id: "sa-1",
+      email: "sa@example.com",
+      name: "Super Admin",
+      isActive: false,
+    });
+    const result = await getAdminContext("soc-1");
+    expect(result).toBeNull();
+  });
+
+  it("returns null when caller is neither admin nor super admin", async () => {
+    mockPrisma.user.findFirst.mockResolvedValue(null);
+    mockPrisma.superAdmin.findUnique.mockResolvedValue(null);
+    const result = await getAdminContext("soc-1");
     expect(result).toBeNull();
   });
 });

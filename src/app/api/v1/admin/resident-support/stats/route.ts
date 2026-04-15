@@ -1,10 +1,14 @@
+import { type NextRequest } from "next/server";
+
 import { forbiddenError, internalError, successResponse } from "@/lib/api-helpers";
-import { getCurrentUser } from "@/lib/get-current-user";
+import { getAdminContext } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const admin = await getCurrentUser("RWA_ADMIN");
+    const { searchParams } = new URL(req.url);
+    const targetSocietyId = searchParams.get("societyId");
+    const admin = await getAdminContext(targetSocietyId);
     if (!admin) return forbiddenError("Admin access required");
 
     const societyId = admin.societyId;

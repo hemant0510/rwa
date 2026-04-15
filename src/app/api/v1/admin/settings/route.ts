@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { forbiddenError, internalError } from "@/lib/api-helpers";
-import { getFullAccessAdmin } from "@/lib/get-current-user";
+import { getAdminContext, getFullAccessAdmin } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
 
 const updateSettingsSchema = z.object({
@@ -14,10 +14,14 @@ const updateSettingsSchema = z.object({
   feeSessionStartMonth: z.number().int().min(1).max(12).optional(),
 });
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const admin = await getFullAccessAdmin();
-    if (!admin) return forbiddenError("Only admins with full access can view settings");
+    const { searchParams } = new URL(request.url);
+    const targetSocietyId = searchParams.get("societyId");
+    const admin = await getAdminContext(targetSocietyId);
+    if (!admin || (!admin.isSuperAdmin && admin.adminPermission !== "FULL_ACCESS")) {
+      return forbiddenError("Only admins with full access can view settings");
+    }
     const societyId = admin.societyId;
 
     const society = await prisma.society.findUnique({

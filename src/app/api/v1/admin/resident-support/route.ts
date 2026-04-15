@@ -1,22 +1,23 @@
 import { type NextRequest } from "next/server";
 
 import { forbiddenError, internalError, successResponse } from "@/lib/api-helpers";
-import { getCurrentUser } from "@/lib/get-current-user";
+import { getAdminContext } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
   try {
-    const admin = await getCurrentUser("RWA_ADMIN");
-    if (!admin) return forbiddenError("Admin access required");
-
     const { searchParams } = new URL(req.url);
+    const targetSocietyId = searchParams.get("societyId");
+    const ctx = await getAdminContext(targetSocietyId);
+    if (!ctx) return forbiddenError("Admin access required");
+
     const status = searchParams.get("status");
     const type = searchParams.get("type");
     const priority = searchParams.get("priority");
     const page = Math.max(1, Number(searchParams.get("page") ?? "1"));
     const limit = Math.min(Number(searchParams.get("limit") ?? "20"), 50);
 
-    const where: Record<string, unknown> = { societyId: admin.societyId };
+    const where: Record<string, unknown> = { societyId: ctx.societyId };
     if (status) where.status = status;
     if (type) where.type = type;
     if (priority) where.priority = priority;

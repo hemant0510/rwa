@@ -132,6 +132,38 @@ There is no third option. Trusting a plan claim without empirically running the 
 2. Entity WITHOUT photoUrl → null returned, `createSignedUrl` NOT called
 3. Signed URL generation fails → falls back to null
 
+## Super Admin = GOD — global visibility rule
+
+SUPER_ADMIN is the platform root and MUST be able to view / read / search every
+feature and every dataset in the system, across every society, unless the feature's
+plan explicitly says "SUPER_ADMIN excluded". Treat "SA cannot see X" as a bug
+unless the spec says otherwise.
+
+- **Reads**: every admin GET endpoint must accept a SUPER_ADMIN caller scoped by
+  `?societyId=` (the dashboard impersonation flow at
+  `/admin/dashboard?sid=<id>` passes this through [useSocietyId](src/hooks/useSocietyId.ts)).
+  Use [`getAdminContext(targetSocietyId)`](src/lib/get-current-user.ts) on the
+  server — it returns the RWA admin's own context OR a synthetic `FULL_ACCESS`
+  context for an active SUPER_ADMIN scoped to the target society. Do NOT use
+  `getCurrentUser("RWA_ADMIN")` or `getFullAccessAdmin()` for read endpoints
+  that are also reachable via "View Dashboard As".
+- **Writes**: mutating endpoints (POST/PATCH/DELETE) stay on
+  `getCurrentUser("RWA_ADMIN")` / `getFullAccessAdmin()` so audit logs keep a
+  real `User.id` author. If SA needs to mutate, add it under `/api/v1/super-admin/…`
+  with `requireSuperAdmin()`.
+- **Search**: every admin/society search endpoint must include SUPER_ADMIN's
+  result set. When adding search, verify an active SA sees the same records an
+  RWA admin of that society would.
+- **New admin pages**: if you add a page under `src/app/admin/**`, you MUST
+  (a) use `useSocietyId()` for scoping, (b) thread `societyId` into any service
+  call that the server needs to scope by society, and (c) wire the backing GET
+  route through `getAdminContext`. Missing this re-breaks the "View Dashboard
+  As" flow.
+- **Exception carve-outs**: only acceptable when the feature spec (or the PR
+  description) explicitly calls out "SA excluded" with a reason — e.g.
+  resident-private data, legally restricted PII. Record the exception in the
+  route file as a comment linking to the spec line.
+
 ## Core Coding Rules
 
 All standards: [.claude/core_rules.md](.claude/core_rules.md) — read before writing any code.

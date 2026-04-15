@@ -5,10 +5,24 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const mockUseSocietyIdState = vi.hoisted(() => ({
+  current: {
+    societyId: "",
+    societyName: null as string | null,
+    societyCode: null as string | null,
+    isSuperAdminViewing: false,
+    saQueryString: "",
+  },
+}));
+
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
   useSearchParams: () => new URLSearchParams(),
   usePathname: () => "/admin/settings",
+}));
+
+vi.mock("@/hooks/useSocietyId", () => ({
+  useSocietyId: () => mockUseSocietyIdState.current,
 }));
 
 vi.mock("sonner", () => ({
@@ -92,6 +106,13 @@ function mockFetchWithSettings(settings = mockSettings) {
 describe("AdminSettingsPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseSocietyIdState.current = {
+      societyId: "",
+      societyName: null,
+      societyCode: null,
+      isSuperAdminViewing: false,
+      saQueryString: "",
+    };
   });
 
   // --- Loading state ---
@@ -619,6 +640,42 @@ describe("AdminSettingsPage", () => {
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith("Session already exists");
+    });
+  });
+
+  it("passes societyId query param when Super Admin is viewing", async () => {
+    mockUseSocietyIdState.current = {
+      societyId: "soc-other",
+      societyName: "Other Society",
+      societyCode: "OTHER",
+      isSuperAdminViewing: true,
+      saQueryString: "?sid=soc-other",
+    };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockSettings),
+    });
+    renderPage(fetchMock);
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/api/v1/admin/settings?societyId=soc-other"),
+      );
+    });
+  });
+
+  it("falls back to default error message when update fails without body message", async () => {
+    const { toast } = await import("sonner");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(mockSettings) })
+      .mockResolvedValueOnce({ ok: false, json: () => Promise.resolve({}) });
+    renderPage(fetchMock);
+    await waitFor(() => expect(screen.getByText("Settings")).toBeInTheDocument());
+    // Toggle email verification -> triggers update mutation
+    const toggle = screen.getByRole("switch");
+    fireEvent.click(toggle);
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith("Failed to update settings");
     });
   });
 });

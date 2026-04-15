@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { internalError, forbiddenError, unauthorizedError } from "@/lib/api-helpers";
-import { getFullAccessAdmin } from "@/lib/get-current-user";
+import { internalError, unauthorizedError } from "@/lib/api-helpers";
+import { getAdminContext } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { computeCompleteness, type TierLabel } from "@/lib/utils/profile-completeness";
@@ -43,10 +43,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Auth guard: must be a FULL_ACCESS admin belonging to this society
-    const admin = await getFullAccessAdmin();
+    // Auth guard: must be a FULL_ACCESS admin for this society, OR an active Super Admin.
+    const admin = await getAdminContext(societyId);
     if (!admin) return unauthorizedError("Admin authentication required");
-    if (admin.societyId !== societyId) return forbiddenError("Access denied to this society");
+    if (!admin.isSuperAdmin && admin.adminPermission !== "FULL_ACCESS") {
+      return unauthorizedError("Admin authentication required");
+    }
 
     const where: Record<string, unknown> = {
       societyId,

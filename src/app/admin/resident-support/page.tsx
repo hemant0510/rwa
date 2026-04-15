@@ -112,10 +112,11 @@ function KpiCard({
 }
 
 export default function AdminResidentSupportPage() {
-  const { saQueryString } = useSocietyId();
+  const { societyId, saQueryString } = useSocietyId();
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
 
   const apiFilters: Record<string, string> = {};
+  if (societyId) apiFilters.societyId = societyId;
   if (filters.status) apiFilters.status = filters.status;
   if (filters.type) apiFilters.type = filters.type;
   if (filters.priority) apiFilters.priority = filters.priority;
@@ -125,12 +126,14 @@ export default function AdminResidentSupportPage() {
     queryKey: ["admin-resident-tickets", apiFilters],
     queryFn: () =>
       getAdminResidentTickets(apiFilters) as unknown as Promise<AdminTicketListResponse>,
+    enabled: !!societyId,
   });
 
   const { data: stats } = useQuery<ResidentTicketStats>({
-    queryKey: ["admin-resident-stats"],
-    queryFn: getAdminResidentStats,
+    queryKey: ["admin-resident-stats", societyId],
+    queryFn: () => getAdminResidentStats(societyId ? { societyId } : undefined),
     staleTime: 30_000,
+    enabled: !!societyId,
   });
 
   const setFilter = <K extends keyof Filters>(key: K, value: Filters[K]) => {

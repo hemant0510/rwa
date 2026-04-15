@@ -10,7 +10,7 @@ const mockPrisma = vi.hoisted(() => ({
   },
 }));
 
-const mockGetFullAccessAdmin = vi.hoisted(() => vi.fn());
+const mockGetAdminContext = vi.hoisted(() => vi.fn());
 
 const mockStorageBucket = vi.hoisted(() => ({
   createSignedUrl: vi.fn().mockResolvedValue({
@@ -21,7 +21,7 @@ const mockStorageBucket = vi.hoisted(() => ({
 
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 vi.mock("@/lib/get-current-user", () => ({
-  getFullAccessAdmin: mockGetFullAccessAdmin,
+  getAdminContext: mockGetAdminContext,
 }));
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => ({
@@ -67,26 +67,49 @@ const mockAdmin = {
   societyId: "soc-1",
   role: "RWA_ADMIN" as const,
   adminPermission: "FULL_ACCESS" as const,
+  name: "Admin",
+  isSuperAdmin: false,
 };
 
 describe("GET /api/v1/residents", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetFullAccessAdmin.mockResolvedValue(mockAdmin);
+    mockGetAdminContext.mockResolvedValue(mockAdmin);
     mockPrisma.user.findMany.mockResolvedValue([mockResident]);
     mockPrisma.user.count.mockResolvedValue(1);
   });
 
   it("returns 401 when not authenticated", async () => {
-    mockGetFullAccessAdmin.mockResolvedValue(null);
+    mockGetAdminContext.mockResolvedValue(null);
     const res = await GET(makeReq({ societyId: "soc-1" }));
     expect(res.status).toBe(401);
   });
 
-  it("returns 403 when admin belongs to a different society", async () => {
-    mockGetFullAccessAdmin.mockResolvedValue({ ...mockAdmin, societyId: "other-society" });
+  it("returns 401 when admin belongs to a different society (context returns null)", async () => {
+    mockGetAdminContext.mockResolvedValue(null);
     const res = await GET(makeReq({ societyId: "soc-1" }));
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(401);
+  });
+
+  it("allows Super Admin viewing as this society", async () => {
+    mockGetAdminContext.mockResolvedValue({
+      ...mockAdmin,
+      userId: null,
+      isSuperAdmin: true,
+      role: "SUPER_ADMIN",
+    });
+    const res = await GET(makeReq({ societyId: "soc-1" }));
+    expect(res.status).toBe(200);
+    expect(mockGetAdminContext).toHaveBeenCalledWith("soc-1");
+  });
+
+  it("returns 401 when admin has READ_NOTIFY (not FULL_ACCESS) and is not Super Admin", async () => {
+    mockGetAdminContext.mockResolvedValue({
+      ...mockAdmin,
+      adminPermission: "READ_NOTIFY",
+    });
+    const res = await GET(makeReq({ societyId: "soc-1" }));
+    expect(res.status).toBe(401);
   });
 
   it("returns 400 when societyId is missing", async () => {

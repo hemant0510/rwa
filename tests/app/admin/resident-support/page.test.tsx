@@ -16,8 +16,12 @@ vi.mock("@/services/resident-support", () => ({
   getAdminResidentStats: (...args: unknown[]) => mockGetAdminResidentStats(...args),
 }));
 
+const mockSocietyIdState = vi.hoisted(() => ({
+  current: { societyId: "soc-1", saQueryString: "" } as Record<string, unknown>,
+}));
+
 vi.mock("@/hooks/useSocietyId", () => ({
-  useSocietyId: () => ({ societyId: "soc-1", saQueryString: "" }),
+  useSocietyId: () => mockSocietyIdState.current,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -117,6 +121,7 @@ async function renderPage(userOverride = MOCK_ADMIN) {
 
 describe("AdminResidentSupportPage", () => {
   beforeEach(() => {
+    mockSocietyIdState.current = { societyId: "soc-1", saQueryString: "" };
     vi.clearAllMocks();
     mockGetAdminResidentTickets.mockResolvedValue(EMPTY_RESPONSE);
     mockGetAdminResidentStats.mockResolvedValue(MOCK_STATS);
@@ -407,5 +412,79 @@ describe("AdminResidentSupportPage", () => {
     // The ticket row should contain the pulsing dot (span with animate-pulse class)
     const dots = document.querySelectorAll(".animate-pulse");
     expect(dots.length).toBeGreaterThan(0);
+  });
+
+  it("does not fetch when societyId is empty (falsy guard branch)", async () => {
+    mockSocietyIdState.current = { societyId: "", saQueryString: "" };
+    await renderPage();
+    // Query is disabled when societyId is falsy — service fns are never called
+    expect(mockGetAdminResidentTickets).not.toHaveBeenCalled();
+    expect(mockGetAdminResidentStats).not.toHaveBeenCalled();
+  });
+
+  it("resets status filter when 'all' is selected after a value", async () => {
+    await renderPage();
+    const statusTrigger = screen.getAllByRole("combobox")[0];
+    fireEvent.click(statusTrigger);
+    await waitFor(() => {
+      fireEvent.click(screen.getByRole("option", { name: "Open" }));
+    });
+    await waitFor(() =>
+      expect(mockGetAdminResidentTickets).toHaveBeenCalledWith(
+        expect.objectContaining({ status: "OPEN" }),
+      ),
+    );
+    fireEvent.click(statusTrigger);
+    await waitFor(() => {
+      fireEvent.click(screen.getByRole("option", { name: "All statuses" }));
+    });
+    await waitFor(() => {
+      const lastCall = mockGetAdminResidentTickets.mock.calls.at(-1);
+      expect(lastCall?.[0]).not.toHaveProperty("status");
+    });
+  });
+
+  it("resets type filter when 'all' is selected after a value", async () => {
+    await renderPage();
+    const typeTrigger = screen.getAllByRole("combobox")[1];
+    fireEvent.click(typeTrigger);
+    await waitFor(() => {
+      fireEvent.click(screen.getByRole("option", { name: "Maintenance" }));
+    });
+    await waitFor(() =>
+      expect(mockGetAdminResidentTickets).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "MAINTENANCE_ISSUE" }),
+      ),
+    );
+    fireEvent.click(typeTrigger);
+    await waitFor(() => {
+      fireEvent.click(screen.getByRole("option", { name: "All types" }));
+    });
+    await waitFor(() => {
+      const lastCall = mockGetAdminResidentTickets.mock.calls.at(-1);
+      expect(lastCall?.[0]).not.toHaveProperty("type");
+    });
+  });
+
+  it("resets priority filter when 'all' is selected after a value", async () => {
+    await renderPage();
+    const priorityTrigger = screen.getAllByRole("combobox")[2];
+    fireEvent.click(priorityTrigger);
+    await waitFor(() => {
+      fireEvent.click(screen.getByRole("option", { name: "Urgent" }));
+    });
+    await waitFor(() =>
+      expect(mockGetAdminResidentTickets).toHaveBeenCalledWith(
+        expect.objectContaining({ priority: "URGENT" }),
+      ),
+    );
+    fireEvent.click(priorityTrigger);
+    await waitFor(() => {
+      fireEvent.click(screen.getByRole("option", { name: "All priorities" }));
+    });
+    await waitFor(() => {
+      const lastCall = mockGetAdminResidentTickets.mock.calls.at(-1);
+      expect(lastCall?.[0]).not.toHaveProperty("priority");
+    });
   });
 });

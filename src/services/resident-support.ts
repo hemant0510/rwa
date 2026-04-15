@@ -136,8 +136,13 @@ export async function getAdminResidentTickets(
   return res.json();
 }
 
-export async function getAdminResidentStats(): Promise<ResidentTicketStats> {
-  const res = await fetch(`${ADMIN_BASE}/stats`);
+export async function getAdminResidentStats(
+  filters: { societyId?: string } = {},
+): Promise<ResidentTicketStats> {
+  const params = new URLSearchParams();
+  if (filters.societyId) params.set("societyId", filters.societyId);
+  const qs = params.toString();
+  const res = await fetch(qs ? `${ADMIN_BASE}/stats?${qs}` : `${ADMIN_BASE}/stats`);
   if (!res.ok) throw new Error("Failed to fetch resident ticket stats");
   return res.json();
 }

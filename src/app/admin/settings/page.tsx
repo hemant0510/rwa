@@ -49,6 +49,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useSocietyId } from "@/hooks/useSocietyId";
 
 interface FeeSession {
   id: string;
@@ -91,8 +92,9 @@ const SESSION_STATUS_COLORS: Record<string, string> = {
   COMPLETED: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
 };
 
-async function fetchSettings(): Promise<Settings> {
-  const res = await fetch("/api/v1/admin/settings");
+async function fetchSettings(societyId?: string): Promise<Settings> {
+  const qs = societyId ? `?societyId=${encodeURIComponent(societyId)}` : "";
+  const res = await fetch(`/api/v1/admin/settings${qs}`);
   if (!res.ok) throw new Error("Failed to fetch settings");
   return res.json() as Promise<Settings>;
 }
@@ -125,10 +127,11 @@ async function createFeeSession(year: number): Promise<FeeSession & { message: s
 
 export default function AdminSettingsPage() {
   const queryClient = useQueryClient();
+  const { societyId, isSuperAdminViewing } = useSocietyId();
 
   const { data: settings, isLoading } = useQuery({
-    queryKey: ["admin-settings"],
-    queryFn: fetchSettings,
+    queryKey: ["admin-settings", societyId],
+    queryFn: () => fetchSettings(isSuperAdminViewing ? societyId : undefined),
   });
 
   const mutation = useMutation({

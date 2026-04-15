@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const mockGetCurrentUser = vi.hoisted(() => vi.fn());
+const mockGetAdminContext = vi.hoisted(() => vi.fn());
 const mockPrisma = vi.hoisted(() => ({
   residentTicket: { findMany: vi.fn(), count: vi.fn() },
 }));
 
-vi.mock("@/lib/get-current-user", () => ({ getCurrentUser: mockGetCurrentUser }));
+vi.mock("@/lib/get-current-user", () => ({ getAdminContext: mockGetAdminContext }));
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 
 import { GET } from "@/app/api/v1/admin/resident-support/route";
@@ -16,6 +16,8 @@ const mockAdmin = {
   societyId: "soc-1",
   role: "RWA_ADMIN",
   adminPermission: "FULL_ACCESS",
+  name: "Admin",
+  isSuperAdmin: false,
 };
 
 function makeRequest(params = "") {
@@ -27,20 +29,35 @@ function makeRequest(params = "") {
 describe("GET /api/v1/admin/resident-support", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetCurrentUser.mockResolvedValue(mockAdmin);
+    mockGetAdminContext.mockResolvedValue(mockAdmin);
     mockPrisma.residentTicket.findMany.mockResolvedValue([]);
     mockPrisma.residentTicket.count.mockResolvedValue(0);
   });
 
   it("returns 403 when not admin", async () => {
-    mockGetCurrentUser.mockResolvedValue(null);
+    mockGetAdminContext.mockResolvedValue(null);
 
     const res = await GET(makeRequest());
     const body = await res.json();
 
     expect(res.status).toBe(403);
     expect(body.error.code).toBe("FORBIDDEN");
-    expect(mockGetCurrentUser).toHaveBeenCalledWith("RWA_ADMIN");
+    expect(mockGetAdminContext).toHaveBeenCalledWith(null);
+  });
+
+  it("scopes to ?societyId param (Super Admin)", async () => {
+    mockGetAdminContext.mockResolvedValue({
+      ...mockAdmin,
+      userId: null,
+      isSuperAdmin: true,
+      role: "SUPER_ADMIN",
+      societyId: "soc-other",
+    });
+    await GET(makeRequest("societyId=soc-other"));
+    expect(mockGetAdminContext).toHaveBeenCalledWith("soc-other");
+    expect(mockPrisma.residentTicket.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { societyId: "soc-other" } }),
+    );
   });
 
   it("lists society-scoped tickets with pagination", async () => {
