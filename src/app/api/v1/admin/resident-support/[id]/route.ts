@@ -28,6 +28,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
           include: {
             attachments: true,
             author: { select: { name: true } },
+            counsellor: { select: { name: true } },
           },
         },
         assignees: {

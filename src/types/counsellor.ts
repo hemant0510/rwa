@@ -1,3 +1,5 @@
+import type { ResidentTicketMessageItem } from "./resident-support";
+
 // ─── Counsellor ───────────────────────────────────────────────────
 
 export interface CounsellorListItem {
@@ -238,17 +240,6 @@ export interface CounsellorEscalationDetail {
     createdAt: string;
     society: { name: string; societyCode: string };
     createdByUser: { id: string; name: string; email: string };
-    messages: Array<{
-      id: string;
-      authorId: string | null;
-      authorRole: string;
-      content: string;
-      isInternal: boolean;
-      kind: string | null;
-      counsellorId: string | null;
-      createdAt: string;
-      author: { name: string } | null;
-      counsellor: { name: string } | null;
-    }>;
+    messages: ResidentTicketMessageItem[];
   };
 }

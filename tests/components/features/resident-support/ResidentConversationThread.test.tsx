@@ -14,6 +14,8 @@ const baseMsg: ResidentTicketMessageItem = {
   authorRole: "RESIDENT",
   content: "Hello there",
   isInternal: false,
+  kind: null,
+  counsellorId: null,
   createdAt: new Date().toISOString(),
   attachments: [],
   author: { name: "Jane Resident" },
@@ -138,6 +140,83 @@ describe("ResidentConversationThread", () => {
     expect(attachmentLink).toBeInTheDocument();
     const svgs = attachmentLink!.querySelectorAll("svg");
     expect(svgs.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("renders counsellor ADVISORY_TO_ADMIN message with advisory label and counsellor name", () => {
+    const advisoryMsg: ResidentTicketMessageItem = {
+      ...baseMsg,
+      id: "m-adv",
+      authorRole: "COUNSELLOR",
+      kind: "ADVISORY_TO_ADMIN",
+      counsellorId: "c-1",
+      content: "Suggest mediation",
+      author: null,
+      counsellor: { name: "Counsellor A" },
+    };
+    render(<ResidentConversationThread messages={[advisoryMsg]} showInternal={true} />);
+    expect(screen.getByText("Counsellor Advisory")).toBeInTheDocument();
+    expect(screen.getByText("Counsellor A")).toBeInTheDocument();
+    expect(screen.getByText("Suggest mediation")).toBeInTheDocument();
+  });
+
+  it("renders counsellor PRIVATE_NOTE with private note label when showInternal is true", () => {
+    const privateNote: ResidentTicketMessageItem = {
+      ...baseMsg,
+      id: "m-pn",
+      authorRole: "COUNSELLOR",
+      kind: "PRIVATE_NOTE",
+      counsellorId: "c-1",
+      isInternal: true,
+      content: "Private thought",
+      author: null,
+      counsellor: { name: "Counsellor B" },
+    };
+    render(<ResidentConversationThread messages={[privateNote]} showInternal={true} />);
+    expect(screen.getByText("Counsellor Private Note")).toBeInTheDocument();
+    expect(screen.getByText("Counsellor B")).toBeInTheDocument();
+    expect(screen.getByText("Private thought")).toBeInTheDocument();
+  });
+
+  it("falls back to 'Counsellor' when private note has no counsellor name", () => {
+    const privateNote: ResidentTicketMessageItem = {
+      ...baseMsg,
+      id: "m-pn2",
+      authorRole: "COUNSELLOR",
+      kind: "PRIVATE_NOTE",
+      counsellorId: "c-1",
+      isInternal: true,
+      content: "Anonymous thought",
+      author: null,
+      counsellor: null,
+    };
+    render(<ResidentConversationThread messages={[privateNote]} showInternal={true} />);
+    expect(screen.getByText("Counsellor")).toBeInTheDocument();
+  });
+
+  it("falls back to 'Counsellor' when advisory has no counsellor name", () => {
+    const advisory: ResidentTicketMessageItem = {
+      ...baseMsg,
+      id: "m-adv2",
+      authorRole: "COUNSELLOR",
+      kind: "ADVISORY_TO_ADMIN",
+      counsellorId: "c-1",
+      content: "Anonymous advisory",
+      author: null,
+      counsellor: null,
+    };
+    render(<ResidentConversationThread messages={[advisory]} showInternal={true} />);
+    expect(screen.getByText("Counsellor")).toBeInTheDocument();
+  });
+
+  it("falls back to 'User' when regular message has no author name", () => {
+    const noAuthor: ResidentTicketMessageItem = {
+      ...baseMsg,
+      id: "m-na",
+      author: null,
+      counsellor: null,
+    };
+    render(<ResidentConversationThread messages={[noAuthor]} />);
+    expect(screen.getByText("User")).toBeInTheDocument();
   });
 
   it("renders both admin and resident messages with their names", () => {

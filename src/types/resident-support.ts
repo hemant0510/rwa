@@ -80,16 +80,21 @@ export interface EscalationItem {
 
 // ─── Ticket Message ───────────────────────────────────────────────
 
+export type CounsellorMessageKind = "ADVISORY_TO_ADMIN" | "PRIVATE_NOTE";
+
 export interface ResidentTicketMessageItem {
   id: string;
   ticketId: string;
-  authorId: string;
+  authorId: string | null;
   authorRole: string;
   content: string;
   isInternal: boolean;
+  kind: CounsellorMessageKind | null;
+  counsellorId: string | null;
   createdAt: string;
   attachments: AttachmentItem[];
-  author: { name: string };
+  author: { name: string } | null;
+  counsellor?: { name: string } | null;
 }
 
 // ─── Attachment ───────────────────────────────────────────────────

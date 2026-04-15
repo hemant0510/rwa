@@ -40,15 +40,8 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
             createdByUser: { select: { id: true, name: true, email: true } },
             messages: {
               orderBy: { createdAt: "asc" },
-              select: {
-                id: true,
-                authorId: true,
-                authorRole: true,
-                content: true,
-                isInternal: true,
-                kind: true,
-                counsellorId: true,
-                createdAt: true,
+              include: {
+                attachments: true,
                 author: { select: { name: true } },
                 counsellor: { select: { name: true } },
               },

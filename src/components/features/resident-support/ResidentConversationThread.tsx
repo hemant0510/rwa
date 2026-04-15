@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, Image, User } from "lucide-react";
+import { FileText, Image, Shield, User } from "lucide-react";
 
 import type { ResidentTicketMessageItem } from "@/types/resident-support";
 
@@ -31,6 +31,52 @@ export function ResidentConversationThread({
   return (
     <div className="space-y-3">
       {visible.map((msg) => {
+        const isCounsellor = msg.authorRole === "COUNSELLOR";
+        const isAdvisory = isCounsellor && msg.kind === "ADVISORY_TO_ADMIN";
+        const isPrivateNote = isCounsellor && msg.kind === "PRIVATE_NOTE";
+
+        if (isPrivateNote) {
+          return (
+            <div
+              key={msg.id}
+              className="rounded-md border border-dashed border-amber-400 bg-amber-50/70 p-3 dark:border-amber-700 dark:bg-amber-950/30"
+            >
+              <div className="mb-1 flex items-center gap-2">
+                <Shield className="h-3.5 w-3.5 text-amber-700 dark:text-amber-400" />
+                <span className="text-xs font-semibold text-amber-800 dark:text-amber-300">
+                  Counsellor Private Note
+                </span>
+                <span className="text-xs text-amber-700 dark:text-amber-400">
+                  {msg.counsellor?.name ?? "Counsellor"}
+                </span>
+                <span className="text-muted-foreground text-xs">{timeAgo(msg.createdAt)}</span>
+              </div>
+              <p className="text-sm">{msg.content}</p>
+            </div>
+          );
+        }
+
+        if (isAdvisory) {
+          return (
+            <div
+              key={msg.id}
+              className="rounded-md border-l-4 border-emerald-500 bg-emerald-50/70 p-3 dark:border-emerald-400 dark:bg-emerald-950/30"
+            >
+              <div className="mb-1 flex items-center gap-2">
+                <Shield className="h-3.5 w-3.5 text-emerald-700 dark:text-emerald-400" />
+                <span className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+                  Counsellor Advisory
+                </span>
+                <span className="text-xs text-emerald-700 dark:text-emerald-400">
+                  {msg.counsellor?.name ?? "Counsellor"}
+                </span>
+                <span className="text-muted-foreground text-xs">{timeAgo(msg.createdAt)}</span>
+              </div>
+              <p className="text-sm">{msg.content}</p>
+            </div>
+          );
+        }
+
         if (msg.isInternal) {
           return (
             <div
@@ -49,6 +95,7 @@ export function ResidentConversationThread({
         }
 
         const isAdmin = msg.authorRole === "ADMIN";
+        const authorName = msg.author?.name ?? msg.counsellor?.name ?? "User";
         return (
           <div
             key={msg.id}
@@ -56,7 +103,7 @@ export function ResidentConversationThread({
           >
             <div className="mb-1 flex items-center gap-2">
               <User className="h-3.5 w-3.5" />
-              <span className="text-xs font-semibold">{msg.author.name}</span>
+              <span className="text-xs font-semibold">{authorName}</span>
               <span className="text-muted-foreground text-xs">{timeAgo(msg.createdAt)}</span>
             </div>
             <p className="text-sm">{msg.content}</p>
