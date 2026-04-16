@@ -11,7 +11,12 @@ vi.mock("@/lib/active-society-server", () => ({
   getActiveSocietyId: mockGetActiveSocietyId,
 }));
 
-import { getAdminContext, getCurrentUser, getFullAccessAdmin } from "@/lib/get-current-user";
+import {
+  getAdminContext,
+  getAuthUser,
+  getCurrentUser,
+  getFullAccessAdmin,
+} from "@/lib/get-current-user";
 
 const baseUser = {
   id: "u1",
@@ -20,6 +25,31 @@ const baseUser = {
   role: "RESIDENT",
   adminPermission: null,
 };
+
+describe("getAuthUser", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockSupabaseClient.auth.getUser.mockResolvedValue({
+      data: { user: { id: "auth-1" } },
+      error: null,
+    });
+  });
+
+  it("returns the Supabase auth user when authenticated", async () => {
+    const user = await getAuthUser();
+    expect(user).toEqual({ id: "auth-1" });
+    expect(mockSupabaseClient.auth.getUser).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns null when not authenticated", async () => {
+    mockSupabaseClient.auth.getUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: null,
+    });
+    const user = await getAuthUser();
+    expect(user).toBeNull();
+  });
+});
 
 describe("getCurrentUser", () => {
   beforeEach(() => {

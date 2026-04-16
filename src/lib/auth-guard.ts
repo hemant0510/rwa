@@ -1,7 +1,7 @@
 import { forbiddenError, unauthorizedError } from "@/lib/api-helpers";
 import { isCounsellorRoleEnabled } from "@/lib/counsellor/feature-flag";
+import { getAuthUser } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
-import { createClient } from "@/lib/supabase/server";
 
 interface SuperAdminContext {
   superAdminId: string;
@@ -23,11 +23,7 @@ type CounsellorAuthResult =
   | { data: null; error: Response };
 
 export async function requireSuperAdmin(): Promise<AuthResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const user = await getAuthUser();
   if (!user) {
     return { data: null, error: unauthorizedError() };
   }
@@ -57,11 +53,7 @@ export async function requireCounsellor(): Promise<CounsellorAuthResult> {
     return { data: null, error: forbiddenError("Counsellor role is disabled") };
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const user = await getAuthUser();
   if (!user) {
     return { data: null, error: unauthorizedError() };
   }

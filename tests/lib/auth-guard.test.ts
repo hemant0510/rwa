@@ -1,15 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // --- Hoisted mocks ---
-const mockGetUser = vi.hoisted(() => vi.fn());
-const mockCreateClient = vi.hoisted(() =>
-  vi.fn().mockResolvedValue({ auth: { getUser: mockGetUser } }),
-);
+const mockGetAuthUser = vi.hoisted(() => vi.fn());
 const mockSuperAdminFindUnique = vi.hoisted(() => vi.fn());
 const mockCounsellorFindUnique = vi.hoisted(() => vi.fn());
 const mockIsCounsellorRoleEnabled = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/supabase/server", () => ({ createClient: mockCreateClient }));
+vi.mock("@/lib/get-current-user", () => ({ getAuthUser: mockGetAuthUser }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     superAdmin: { findUnique: mockSuperAdminFindUnique },
@@ -26,11 +23,11 @@ import { requireSuperAdmin, requireCounsellor } from "@/lib/auth-guard";
 describe("requireSuperAdmin", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockCreateClient.mockResolvedValue({ auth: { getUser: mockGetUser } });
+    mockGetAuthUser.mockResolvedValue({ id: "auth-sa-1" });
   });
 
   it("returns 401 when no Supabase user (not logged in)", async () => {
-    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
+    mockGetAuthUser.mockResolvedValue(null);
 
     const result = await requireSuperAdmin();
 
@@ -42,10 +39,7 @@ describe("requireSuperAdmin", () => {
   });
 
   it("returns 403 when user exists but is not in super_admins table", async () => {
-    mockGetUser.mockResolvedValue({
-      data: { user: { id: "auth-user-999" } },
-      error: null,
-    });
+    mockGetAuthUser.mockResolvedValue({ id: "auth-user-999" });
     mockSuperAdminFindUnique.mockResolvedValue(null);
 
     const result = await requireSuperAdmin();
@@ -57,10 +51,6 @@ describe("requireSuperAdmin", () => {
   });
 
   it("returns 403 when super admin is inactive", async () => {
-    mockGetUser.mockResolvedValue({
-      data: { user: { id: "auth-sa-1" } },
-      error: null,
-    });
     mockSuperAdminFindUnique.mockResolvedValue({
       id: "sa-1",
       authUserId: "auth-sa-1",
@@ -77,10 +67,6 @@ describe("requireSuperAdmin", () => {
   });
 
   it("returns SA context when active super admin", async () => {
-    mockGetUser.mockResolvedValue({
-      data: { user: { id: "auth-sa-1" } },
-      error: null,
-    });
     mockSuperAdminFindUnique.mockResolvedValue({
       id: "sa-1",
       authUserId: "auth-sa-1",
@@ -99,10 +85,7 @@ describe("requireSuperAdmin", () => {
   });
 
   it("queries super_admins by authUserId from Supabase user", async () => {
-    mockGetUser.mockResolvedValue({
-      data: { user: { id: "specific-auth-id" } },
-      error: null,
-    });
+    mockGetAuthUser.mockResolvedValue({ id: "specific-auth-id" });
     mockSuperAdminFindUnique.mockResolvedValue(null);
 
     await requireSuperAdmin();
@@ -117,7 +100,7 @@ describe("requireSuperAdmin", () => {
 describe("requireCounsellor", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockCreateClient.mockResolvedValue({ auth: { getUser: mockGetUser } });
+    mockGetAuthUser.mockResolvedValue({ id: "auth-c-1" });
     mockIsCounsellorRoleEnabled.mockResolvedValue(true);
   });
 
@@ -130,11 +113,11 @@ describe("requireCounsellor", () => {
     const body = await (result.error as Response).json();
     expect(body.error.code).toBe("FORBIDDEN");
     expect(body.error.message).toBe("Counsellor role is disabled");
-    expect(mockGetUser).not.toHaveBeenCalled();
+    expect(mockGetAuthUser).not.toHaveBeenCalled();
   });
 
   it("returns 401 when no Supabase user (not logged in)", async () => {
-    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
+    mockGetAuthUser.mockResolvedValue(null);
 
     const result = await requireCounsellor();
 
@@ -146,10 +129,7 @@ describe("requireCounsellor", () => {
   });
 
   it("returns 403 when user exists but is not in counsellors table", async () => {
-    mockGetUser.mockResolvedValue({
-      data: { user: { id: "auth-user-999" } },
-      error: null,
-    });
+    mockGetAuthUser.mockResolvedValue({ id: "auth-user-999" });
     mockCounsellorFindUnique.mockResolvedValue(null);
 
     const result = await requireCounsellor();
@@ -162,10 +142,6 @@ describe("requireCounsellor", () => {
   });
 
   it("returns 403 when counsellor is inactive (suspended)", async () => {
-    mockGetUser.mockResolvedValue({
-      data: { user: { id: "auth-c-1" } },
-      error: null,
-    });
     mockCounsellorFindUnique.mockResolvedValue({
       id: "c-1",
       authUserId: "auth-c-1",
@@ -182,10 +158,6 @@ describe("requireCounsellor", () => {
   });
 
   it("returns counsellor context when active", async () => {
-    mockGetUser.mockResolvedValue({
-      data: { user: { id: "auth-c-1" } },
-      error: null,
-    });
     mockCounsellorFindUnique.mockResolvedValue({
       id: "c-1",
       authUserId: "auth-c-1",
@@ -206,10 +178,7 @@ describe("requireCounsellor", () => {
   });
 
   it("queries counsellors by authUserId from Supabase user", async () => {
-    mockGetUser.mockResolvedValue({
-      data: { user: { id: "specific-auth-id" } },
-      error: null,
-    });
+    mockGetAuthUser.mockResolvedValue({ id: "specific-auth-id" });
     mockCounsellorFindUnique.mockResolvedValue(null);
 
     await requireCounsellor();

@@ -1,8 +1,21 @@
+import { cache } from "react";
+
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import type { AdminPermission, UserRole } from "@/types/user";
 
 import { getActiveSocietyId } from "./active-society-server";
+
+/**
+ * Request-scoped auth user resolver.
+ * Uses React.cache to dedup supabase.auth.getUser() calls within a single
+ * RSC render or Route Handler, eliminating navigator.locks contention.
+ */
+export const getAuthUser = cache(async () => {
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getUser();
+  return data.user;
+});
 
 export interface CurrentUser {
   userId: string;
@@ -23,11 +36,7 @@ export interface CurrentUser {
 export async function getCurrentUser(
   requiredRole?: "RWA_ADMIN" | "RESIDENT",
 ): Promise<CurrentUser | null> {
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
-
+  const authUser = await getAuthUser();
   if (!authUser) return null;
 
   const activeSocietyId = await getActiveSocietyId();
@@ -100,10 +109,7 @@ export interface AdminContext {
 export async function getAdminContext(
   targetSocietyId: string | null | undefined,
 ): Promise<AdminContext | null> {
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
+  const authUser = await getAuthUser();
   if (!authUser) return null;
 
   const admin = await prisma.user.findFirst({
