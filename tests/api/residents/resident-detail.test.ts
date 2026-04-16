@@ -14,6 +14,7 @@ const mockPrisma = vi.hoisted(() => ({
   $transaction: vi.fn(),
 }));
 
+const mockGetAdminContext = vi.hoisted(() => vi.fn());
 const mockGetCurrentUser = vi.hoisted(() => vi.fn());
 
 const mockStorageBucket = vi.hoisted(() => ({
@@ -24,6 +25,7 @@ const mockUpdateUserById = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 vi.mock("@/lib/get-current-user", () => ({
+  getAdminContext: mockGetAdminContext,
   getCurrentUser: mockGetCurrentUser,
 }));
 vi.mock("@/lib/supabase/admin", () => ({
@@ -80,9 +82,17 @@ describe("GET /api/v1/residents/[id]", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.spyOn(console, "error").mockImplementation(() => {});
+    mockGetAdminContext.mockResolvedValue(mockAdmin);
+    // Reset to clear any leftover mockResolvedValueOnce queue, then set up chain
+    mockPrisma.user.findUnique.mockReset();
+    // First call: entity lookup (select societyId). Second call: full resident.
+    mockPrisma.user.findUnique
+      .mockResolvedValueOnce({ societyId: "soc-1" })
+      .mockResolvedValueOnce(mockResident);
   });
 
-  it("returns 404 when resident not found", async () => {
+  it("returns 404 when resident entity not found", async () => {
+    mockPrisma.user.findUnique.mockReset();
     mockPrisma.user.findUnique.mockResolvedValue(null);
 
     const res = await GET(makeReq(), makeParams());
@@ -91,8 +101,17 @@ describe("GET /api/v1/residents/[id]", () => {
     expect(body.error.code).toBe("NOT_FOUND");
   });
 
+  it("returns 403 when caller is not admin (security fix)", async () => {
+    mockGetAdminContext.mockResolvedValue(null);
+
+    const res = await GET(makeReq(), makeParams());
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error.code).toBe("FORBIDDEN");
+    expect(mockGetAdminContext).toHaveBeenCalledWith("soc-1");
+  });
+
   it("returns 200 with resident data and signed photo URL", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue(mockResident);
     mockStorageBucket.createSignedUrl.mockResolvedValue({
       data: { signedUrl: "https://storage.example.com/signed-photo" },
       error: null,
@@ -106,8 +125,25 @@ describe("GET /api/v1/residents/[id]", () => {
     expect(mockStorageBucket.createSignedUrl).toHaveBeenCalledWith("photos/jane.jpg", 3600);
   });
 
+  it("returns 200 for Super Admin viewing another society", async () => {
+    mockGetAdminContext.mockResolvedValue({
+      userId: null,
+      authUserId: "auth-sa",
+      societyId: "soc-1",
+      role: "SUPER_ADMIN",
+      adminPermission: "FULL_ACCESS",
+      isSuperAdmin: true,
+    });
+
+    const res = await GET(makeReq(), makeParams());
+    expect(res.status).toBe(200);
+  });
+
   it("returns photoUrl as null when user has no photoUrl", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({ ...mockResident, photoUrl: null });
+    mockPrisma.user.findUnique.mockReset();
+    mockPrisma.user.findUnique
+      .mockResolvedValueOnce({ societyId: "soc-1" })
+      .mockResolvedValueOnce({ ...mockResident, photoUrl: null });
 
     const res = await GET(makeReq(), makeParams());
     expect(res.status).toBe(200);
@@ -117,7 +153,6 @@ describe("GET /api/v1/residents/[id]", () => {
   });
 
   it("returns photoUrl as null when signed URL generation returns no data", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue(mockResident);
     mockStorageBucket.createSignedUrl.mockResolvedValue({
       data: null,
       error: { message: "not found" },
@@ -130,6 +165,7 @@ describe("GET /api/v1/residents/[id]", () => {
   });
 
   it("returns 500 on unexpected error", async () => {
+    mockPrisma.user.findUnique.mockReset();
     mockPrisma.user.findUnique.mockRejectedValue(new Error("DB crash"));
 
     const res = await GET(makeReq(), makeParams());
@@ -138,11 +174,15 @@ describe("GET /api/v1/residents/[id]", () => {
     expect(body.error.code).toBe("INTERNAL_ERROR");
   });
 
-  it("includes related society, userUnits, and membershipFees in query", async () => {
-    mockPrisma.user.findUnique.mockResolvedValue({ ...mockResident, photoUrl: null });
+  it("includes related society, userUnits, and membershipFees in full query", async () => {
+    mockPrisma.user.findUnique.mockReset();
+    mockPrisma.user.findUnique
+      .mockResolvedValueOnce({ societyId: "soc-1" })
+      .mockResolvedValueOnce({ ...mockResident, photoUrl: null });
 
     await GET(makeReq(), makeParams());
-    expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
+    // Second call is the full query
+    expect(mockPrisma.user.findUnique).toHaveBeenLastCalledWith({
       where: { id: RESIDENT_ID },
       include: {
         society: true,

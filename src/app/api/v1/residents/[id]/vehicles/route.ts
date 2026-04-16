@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { forbiddenError, internalError, notFoundError } from "@/lib/api-helpers";
-import { getCurrentUser } from "@/lib/get-current-user";
+import { getAdminContext } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getExpiryStatus } from "@/lib/utils/vehicle-utils";
@@ -22,9 +22,6 @@ async function generateSignedUrl(path: string | null): Promise<string | null> {
 /** GET /api/v1/residents/[id]/vehicles — admin-only, returns all vehicles for resident's units */
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   try {
-    const admin = await getCurrentUser("RWA_ADMIN");
-    if (!admin) return forbiddenError("Admin access required");
-
     const { id } = await context.params;
 
     const resident = await prisma.user.findUnique({
@@ -32,8 +29,9 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       select: { id: true, societyId: true, role: true },
     });
     if (!resident || resident.role !== "RESIDENT") return notFoundError("Resident not found");
-    if (resident.societyId !== admin.societyId)
-      return forbiddenError("Access denied to this resident");
+
+    const admin = await getAdminContext(resident.societyId);
+    if (!admin) return forbiddenError("Admin access required");
 
     // All units linked to this resident
     const userUnits = await prisma.userUnit.findMany({

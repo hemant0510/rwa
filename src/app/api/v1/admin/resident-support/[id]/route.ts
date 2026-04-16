@@ -1,16 +1,22 @@
 import { forbiddenError, internalError, notFoundError, successResponse } from "@/lib/api-helpers";
-import { getCurrentUser } from "@/lib/get-current-user";
+import { getAdminContext } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const admin = await getCurrentUser("RWA_ADMIN");
-    if (!admin) return forbiddenError("Admin access required");
-
     const { id } = await params;
 
+    const entity = await prisma.residentTicket.findUnique({
+      where: { id },
+      select: { societyId: true },
+    });
+    if (!entity) return notFoundError("Ticket not found");
+
+    const admin = await getAdminContext(entity.societyId);
+    if (!admin) return forbiddenError("Admin access required");
+
     const ticket = await prisma.residentTicket.findUnique({
-      where: { id, societyId: admin.societyId },
+      where: { id },
       include: {
         createdByUser: {
           select: {

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ── Hoisted mocks (inline — admin pattern) ─────────────────────────────────
-const mockGetCurrentUser = vi.hoisted(() => vi.fn());
+const mockGetAdminContext = vi.hoisted(() => vi.fn());
 const mockPrisma = vi.hoisted(() => ({
   user: { findUnique: vi.fn() },
   dependent: { findMany: vi.fn() },
@@ -10,7 +10,7 @@ const mockStorageBucket = vi.hoisted(() => ({
   createSignedUrl: vi.fn(),
 }));
 
-vi.mock("@/lib/get-current-user", () => ({ getCurrentUser: mockGetCurrentUser }));
+vi.mock("@/lib/get-current-user", () => ({ getAdminContext: mockGetAdminContext }));
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => ({ storage: { from: () => mockStorageBucket } }),
@@ -24,6 +24,7 @@ const mockAdmin = {
   societyId: "soc-1",
   role: "RWA_ADMIN" as const,
   adminPermission: "FULL_ACCESS" as const,
+  isSuperAdmin: false,
 };
 
 const mockResident = { id: "user-1", societyId: "soc-1", role: "RESIDENT" };
@@ -62,16 +63,28 @@ const makeContext = (id = "user-1") => ({
 describe("GET /api/v1/residents/[id]/family", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetCurrentUser.mockResolvedValue(mockAdmin);
+    mockGetAdminContext.mockResolvedValue(mockAdmin);
     mockPrisma.user.findUnique.mockResolvedValue(mockResident);
     mockPrisma.dependent.findMany.mockResolvedValue([mockDependent]);
     mockStorageBucket.createSignedUrl.mockResolvedValue({ data: null, error: null });
   });
 
-  it("returns 403 when user is not admin", async () => {
-    mockGetCurrentUser.mockResolvedValue(null);
+  it("returns 403 when caller is not admin of that society", async () => {
+    mockGetAdminContext.mockResolvedValue(null);
     const res = await GET(makeRequest(), makeContext());
     expect(res.status).toBe(403);
+    expect(mockGetAdminContext).toHaveBeenCalledWith("soc-1");
+  });
+
+  it("returns 200 for Super Admin viewing another society", async () => {
+    mockGetAdminContext.mockResolvedValue({
+      ...mockAdmin,
+      userId: null,
+      role: "SUPER_ADMIN",
+      isSuperAdmin: true,
+    });
+    const res = await GET(makeRequest(), makeContext());
+    expect(res.status).toBe(200);
   });
 
   it("returns 404 when resident is not found", async () => {
@@ -86,10 +99,12 @@ describe("GET /api/v1/residents/[id]/family", () => {
     expect(res.status).toBe(404);
   });
 
-  it("returns 403 when resident belongs to a different society", async () => {
+  it("returns 403 when admin belongs to a different society", async () => {
     mockPrisma.user.findUnique.mockResolvedValue({ ...mockResident, societyId: "other-soc" });
+    mockGetAdminContext.mockResolvedValue(null); // getAdminContext returns null for wrong society
     const res = await GET(makeRequest(), makeContext());
     expect(res.status).toBe(403);
+    expect(mockGetAdminContext).toHaveBeenCalledWith("other-soc");
   });
 
   it("returns all dependents for the resident", async () => {

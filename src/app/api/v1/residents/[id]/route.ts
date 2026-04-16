@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { notFoundError, internalError, unauthorizedError, forbiddenError } from "@/lib/api-helpers";
-import { getCurrentUser } from "@/lib/get-current-user";
+import { getAdminContext, getCurrentUser } from "@/lib/get-current-user";
 import { prisma, type TransactionClient } from "@/lib/prisma";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -12,6 +12,16 @@ const PHOTO_BUCKET = "resident-photos";
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
+
+    // Entity-derived scoping: find resident first, then authorize
+    const resident = await prisma.user.findUnique({
+      where: { id },
+      select: { societyId: true },
+    });
+    if (!resident) return notFoundError("Resident not found");
+
+    const admin = await getAdminContext(resident.societyId);
+    if (!admin) return forbiddenError("Admin access required");
 
     const user = await prisma.user.findUnique({
       where: { id },
