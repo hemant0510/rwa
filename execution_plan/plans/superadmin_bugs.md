@@ -19,16 +19,49 @@ Wave 1 shipped `getAdminContext(targetSocietyId)` and migrated 4 list routes (re
 
 ---
 
+## 2.1 Conventions & invariants
+
+### `sid` vs `societyId` translation boundary
+
+The URL uses `?sid=<id>&sname=<name>&scode=<code>`. The API routes use `?societyId=<id>`. The translation happens in the service layer:
+
+```
+Page → useSocietyId() → { societyId, saQueryString }
+     → service(id, societyId) → fetch(`/api/v1/admin/…?societyId=${societyId}`)
+     → route handler → searchParams.get("societyId")
+```
+
+**Rule:** Pages NEVER send `sid` to API routes. Services ALWAYS append `?societyId=`. Route handlers ALWAYS read `societyId`, never `sid`.
+
+### `sname` / `scode` query params
+
+`sname` and `scode` are **banner-text only** — used by `useSocietyId()` to render "Viewing as …" in the admin layout. They are NOT sent to API routes and are NOT needed for entity-derived scoping. They must be preserved in navigation Links (via `saQueryString`) but have no server-side significance.
+
+### Test conventions (all phases)
+
+Every "Tests:" block in this doc implies these repo-wide rules:
+
+- **API route tests MUST use the `vi.hoisted()` mock pattern** (see `.claude/memory/feedback_vitest_mock_pattern.md`).
+- **95% per-file coverage** enforced by the pre-commit hook (`scripts/test-staged.mjs`) — lines, branches, functions, statements.
+- Simulate the hook with: `npx vitest related <source-files> --run --coverage --coverage.provider=v8 --coverage.reporter=text --coverage.include=<file> --coverage.thresholds.perFile=true --coverage.thresholds.lines=95 --coverage.thresholds.branches=95 --coverage.thresholds.functions=95 --coverage.thresholds.statements=95`
+- Shared mocks: always `import { mockPrisma } from "../__mocks__/prisma"` — never recreate inline.
+
+### React.cache and cookies invariant (Phase 0)
+
+`React.cache` is request-scoped in both RSC renders and Route Handlers. Cookies are read once per request. The cache key is the request boundary — cookies cannot change mid-request, so the cached auth user is always consistent. Safe.
+
+---
+
 ## 3. Phased rollout
 
-| Phase | Goal                                                                                    | Why first                                                                                                                                                             |
-| ----- | --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **0** | Lock contention + request-scoped auth cache                                             | Prerequisite. Fixes Bug 2's AbortError AND masks future perf wins. Current "blocked" endpoints may partly be lock errors masquerading as 403s — remeasure after this. |
-| **1** | Detail-route entity-derived scoping (bugs 2, 3, 5)                                      | Biggest user-visible impact: all "not found" / "empty profile" pages. Also closes the missing-auth security hole on `/residents/[id]`.                                |
-| **2** | Remaining list/GET migrations (bug 1 + bug 8 tail)                                      | Mechanical once Phase 0+1 land.                                                                                                                                       |
-| **3** | Navigation propagation (`useSAHref` + Link sweep) (bug 6)                               | Unblocks SA from losing context across hops.                                                                                                                          |
-| **4** | Counsellor parity (bug 9) + perf hardening (bug 7)                                      | Lower-impact polish.                                                                                                                                                  |
-| **5** | Systemic gaps from plan review (RLS / storage / realtime / server actions / middleware) | Audit + hardening.                                                                                                                                                    |
+| Phase | Goal                                                                     | Why first                                                                                                                                                             |
+| ----- | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **0** | Lock contention + request-scoped auth cache                              | Prerequisite. Fixes Bug 2's AbortError AND masks future perf wins. Current "blocked" endpoints may partly be lock errors masquerading as 403s — remeasure after this. |
+| **1** | Detail-route entity-derived scoping (bugs 2, 3, 5)                       | Biggest user-visible impact: all "not found" / "empty profile" pages. Also closes the missing-auth security hole on `/residents/[id]`.                                |
+| **2** | Remaining list/GET migrations (bug 1 + bug 8 tail)                       | Mechanical once Phase 0+1 land.                                                                                                                                       |
+| **3** | Navigation propagation (`useSAHref` + Link sweep) (bug 6)                | Unblocks SA from losing context across hops.                                                                                                                          |
+| **4** | Counsellor parity (bug 9) + perf hardening (bug 7)                       | Lower-impact polish.                                                                                                                                                  |
+| **5** | Dev docs (§5.6) — only remaining item (§5.1–5.5 all resolved pre-flight) | Minimal. All systemic audits passed.                                                                                                                                  |
 
 Do NOT merge phases. Ship + verify each before starting the next. Phase 0 MUST land first.
 
@@ -137,6 +170,26 @@ Entity-derived scoping is safer than trusting `?societyId=` from the client — 
 
 **Risk:** Medium. `React.cache` swap touches every auth resolver — regression-test the `/api/v1/auth/me` path, `requireSuperAdmin` pages, counsellor routes before shipping.
 
+**Existing test file:** [tests/lib/get-current-user.test.ts](../../tests/lib/get-current-user.test.ts) — update mocks after adding `getAuthUser`. Also update the 75 test files that mock `get-current-user` (grep: `getAdminContext|get-current-user` across `tests/`).
+
+**Rollback plan:** Ship Phase 0 as a single PR with isolated commits:
+
+1. Commit 1: `getAuthUser` + `createClient` cache wrappers (no callers changed)
+2. Commit 2: `getCurrentUser` → `getAuthUser`
+3. Commit 3: `getAdminContext` → `getAuthUser`
+4. Commit 4: `requireSuperAdmin` → `getAuthUser`
+5. Commit 5: `requireCounsellor` → `getAuthUser`
+
+If prod breaks, revert the last commit(s) to isolate which resolver caused the regression. Do NOT squash-merge this PR.
+
+**Regression checklist (run after each commit):**
+
+- `GET /api/v1/auth/me` — regular admin, SA, resident
+- `GET /api/v1/admin/residents?societyId=X` — regular admin + SA
+- `GET /api/v1/super-admin/dashboard` — SA-only
+- Any counsellor route — counsellor user
+- Cold page load of `/admin/residents?sid=X` — verify no AbortError in server logs
+
 ---
 
 ### Bug 3 — Admin support detail "Request not found" for SA
@@ -221,11 +274,55 @@ if (!admin) return forbiddenError("Admin access required");
 
 **Symptom:** click on a resident row from `/admin/residents?sid=X&sname=Y&scode=Z` → land on `/admin/residents/<id>` with NO query params → banner gone, `isSuperAdminViewing=false`, subsequent clicks break.
 
-**Files:**
+**Files — root cause:**
 
 - Confirmed offender: [src/app/admin/residents/page.tsx:532](../../src/app/admin/residents/page.tsx#L532): `<Link href={`/admin/residents/${resident.id}`}>` — no `saQueryString`.
 - Detail page ([src/app/admin/residents/[id]/page.tsx](../../src/app/admin/residents/[id]/page.tsx) lines 157, 229) DOES append `saQueryString` to its back-link — but `useSocietyId()` has already observed the empty query and returned `saQueryString=""`, so the back link points to `/admin/residents` bare. Cascade failure: the forward Link is the real root cause.
-- Grep sweep needed across `src/app/admin/**/*.tsx` for `<Link href="/admin/...">` or `` `/admin/...` `` not followed by `saQueryString`.
+
+**Complete Link/router.push inventory (grep 2026-04-16):**
+
+`<Link>` without `saQueryString` (5 sites):
+
+| #   | File                                           | Line | Code                                                     |
+| --- | ---------------------------------------------- | ---- | -------------------------------------------------------- |
+| 1   | `src/app/admin/residents/page.tsx`             | 532  | `<Link href={/admin/residents/${resident.id}}>`          |
+| 2   | `src/app/admin/migration/page.tsx`             | 315  | `<Link href="/admin/residents?status=MIGRATED_PENDING">` |
+| 3   | `src/app/admin/settings/page.tsx`              | 158  | `<Link href="/admin/settings/subscription">`             |
+| 4   | `src/app/admin/settings/page.tsx`              | 176  | `<Link href="/admin/settings/payment-setup">`            |
+| 5   | `src/app/admin/settings/subscription/page.tsx` | 74   | `<Link href="/admin/settings">`                          |
+
+`router.push`/`router.replace` without `saQueryString` (8 sites):
+
+| #   | File                                            | Line | Code                                           |
+| --- | ----------------------------------------------- | ---- | ---------------------------------------------- |
+| 6   | `src/app/admin/events/page.tsx`                 | 276  | `router.push(/admin/events/${event.id})`       |
+| 7   | `src/app/admin/events/[eventId]/page.tsx`       | 352  | `router.push("/admin/events")`                 |
+| 8   | `src/app/admin/events/[eventId]/page.tsx`       | 529  | `router.push("/admin/events")`                 |
+| 9   | `src/app/admin/events/[eventId]/page.tsx`       | 548  | `router.push("/admin/events")`                 |
+| 10  | `src/app/admin/petitions/page.tsx`              | 227  | `router.push(/admin/petitions/${petition.id})` |
+| 11  | `src/app/admin/petitions/[petitionId]/page.tsx` | 376  | `router.push("/admin/petitions")`              |
+| 12  | `src/app/admin/petitions/[petitionId]/page.tsx` | 484  | `router.push("/admin/petitions")`              |
+| 13  | `src/app/admin/petitions/[petitionId]/page.tsx` | 502  | `router.push("/admin/petitions")`              |
+
+**SA-blind pages** (don't call `useSocietyId` at all — can't form URLs or thread `societyId`):
+
+| #   | File                                         | Uses `useSocietyId`? | Needs it?                                 |
+| --- | -------------------------------------------- | -------------------- | ----------------------------------------- |
+| 1   | `src/app/admin/announcements/page.tsx`       | No                   | Yes — list + service call                 |
+| 2   | `src/app/admin/migration/page.tsx`           | No                   | Yes — Link + service call                 |
+| 3   | `src/app/admin/reports/page.tsx`             | No                   | Yes — service call                        |
+| 4   | `src/app/admin/profile/page.tsx`             | No                   | No — see §Bug 8 `/admin/profile` decision |
+| 5   | `src/app/admin/fees/claims/page.tsx`         | No                   | Yes — service call                        |
+| 6   | `src/app/admin/support/[requestId]/page.tsx` | No                   | Yes — detail + back-link                  |
+
+Pages that destructure `societyId` but NOT `saQueryString` (router.push breaks):
+
+| #   | File                                            |
+| --- | ----------------------------------------------- |
+| 7   | `src/app/admin/events/page.tsx`                 |
+| 8   | `src/app/admin/events/[eventId]/page.tsx`       |
+| 9   | `src/app/admin/petitions/page.tsx`              |
+| 10  | `src/app/admin/petitions/[petitionId]/page.tsx` |
 
 **Fix recipe (Phase 3):**
 
@@ -236,16 +333,17 @@ if (!admin) return forbiddenError("Admin access required");
      return `${basePath}${saQueryString}`;
    }
    ```
-2. Grep sweep: every `<Link href="/admin/…">` and `router.push("/admin/…")` / `router.push(`/admin/…`)` inside `src/app/admin/` must use `useSAHref` OR inline `${saQueryString}`.
-3. At minimum: fix [src/app/admin/residents/page.tsx:532](../../src/app/admin/residents/page.tsx#L532), [src/app/admin/settings/page.tsx](../../src/app/admin/settings/page.tsx) (Subscription, Payment Setup cards), [src/app/admin/migration/page.tsx](../../src/app/admin/migration/page.tsx), [src/app/admin/settings/subscription/page.tsx](../../src/app/admin/settings/subscription/page.tsx).
-4. Consider a one-time lint rule (ESLint custom) that fails CI on `<Link href=.*\/admin\/` without `saQueryString`.
+2. Fix all 13 Link/router.push sites listed above — use `useSAHref` OR inline `${saQueryString}`.
+3. Add `useSocietyId` to all 6 SA-blind pages and thread `societyId` into their service calls.
+4. For pages that already have `useSocietyId` but not `saQueryString` (#7–10), destructure `saQueryString` and append to all `router.push` calls.
+5. Consider a one-time lint rule (ESLint custom) that fails CI on `<Link href=.*\/admin\/` without `saQueryString`.
 
 **Tests:**
 
-- Page test: render residents list with `useSocietyId` mocked as SA viewing → assert rendered row Link href contains `?sid=`.
-- Manual smoke: navigate 3 hops deep; banner stays.
+- Per page: render with `useSocietyId` mocked as SA viewing → assert all rendered Link hrefs contain `?sid=`.
+- Manual smoke: navigate 3 hops deep from dashboard; banner stays; back button preserves context.
 
-**Risk:** Low, but mechanically large — ~10-20 Link touch-points.
+**Risk:** Low, but mechanically large — 13 Link sites + 6 SA-blind pages + 4 partial pages = 23 touch-points.
 
 ---
 
@@ -280,6 +378,8 @@ if (!admin) return forbiddenError("Admin access required");
 
 **Phase 4 task.** Benchmark cold-start load of `/admin/residents?sid=…` before vs after Phase 0 — a lot of "slowness" perception may be the lock error's retry loop, not true CPU/IO time.
 
+**Perf baseline (capture BEFORE Phase 0):** Record p50/p95 for cold-start load of `/admin/residents?sid=…` using browser DevTools Network tab. Save the numbers so Phase 4 can compare before/after with real data, not guesses.
+
 **Tests:** add a counter mock on `prisma.platformConfig.findUnique` in an integration test that hits 3 counsellor routes back-to-back; assert `toHaveBeenCalledTimes(1)` after cache lands.
 
 ---
@@ -302,22 +402,20 @@ All `export async function GET` under `src/app/api/v1/admin/**` that still block
 | `/admin/profile`                       | [route.ts](../../src/app/api/v1/admin/profile/route.ts)                       | `getCurrentUser("RWA_ADMIN")` | **Special** — see below               |
 | `/admin/counsellor`                    | [route.ts](../../src/app/api/v1/admin/counsellor/route.ts)                    | `getCurrentUser("RWA_ADMIN")` | Swap                                  |
 
-**`/admin/profile` special case:** "profile" for a SA-viewing-as-admin is semantically undefined. Decide one of:
+**`/admin/profile` — DECISION LOCKED:** **(a) Return the SA's own profile.** SA hits `/admin/profile` → show SA identity (name, email from `super_admins` table) with a "You are Super Admin" banner. The route should check for SA via `getAuthUser()` → `superAdmin.findUnique()` fallback when no `User` row found. No `?societyId=` needed — profile is the SA's own data. This does NOT need the Phase 3 `useSocietyId` treatment.
 
-- (a) Return the SA's own profile (recommended — matches the real session).
-- (b) Return synthetic "Viewing as Super Admin" record.
-- (c) 404.
+**SA-blind pages** (don't call `useSocietyId`, so can't form URLs or thread `societyId`):
 
-Doc recommendation: (a). If SA hits `/admin/profile`, show their SA identity with a "you are Super Admin" banner.
+| #   | Page                                                                                           | Needs `useSocietyId`? | Notes                                     |
+| --- | ---------------------------------------------------------------------------------------------- | --------------------- | ----------------------------------------- |
+| 1   | [src/app/admin/announcements/page.tsx](../../src/app/admin/announcements/page.tsx)             | Yes                   | List + service call                       |
+| 2   | [src/app/admin/migration/page.tsx](../../src/app/admin/migration/page.tsx)                     | Yes                   | Link + service call                       |
+| 3   | [src/app/admin/reports/page.tsx](../../src/app/admin/reports/page.tsx)                         | Yes                   | Service call                              |
+| 4   | [src/app/admin/profile/page.tsx](../../src/app/admin/profile/page.tsx)                         | No                    | SA profile = SA's own data (decision (a)) |
+| 5   | [src/app/admin/fees/claims/page.tsx](../../src/app/admin/fees/claims/page.tsx)                 | Yes                   | Service call                              |
+| 6   | [src/app/admin/support/[requestId]/page.tsx](../../src/app/admin/support/[requestId]/page.tsx) | Yes                   | Detail + back-link                        |
 
-**SA-blind pages** (don't call `useSocietyId`, so can't even form URLs):
-
-- [src/app/admin/announcements/page.tsx](../../src/app/admin/announcements/page.tsx)
-- [src/app/admin/migration/page.tsx](../../src/app/admin/migration/page.tsx)
-- [src/app/admin/reports/page.tsx](../../src/app/admin/reports/page.tsx)
-- [src/app/admin/profile/page.tsx](../../src/app/admin/profile/page.tsx) (fine if rule (a) above)
-
-All four need the Phase 3 Link/useSocietyId treatment.
+Pages #1–3, #5–6 need the Phase 3 Link/useSocietyId treatment. Page #4 is exempt per the profile decision above.
 
 ---
 
@@ -377,9 +475,40 @@ export async function requireCounsellor(): Promise<CounsellorAuthResult> {
 }
 ```
 
-`CounsellorAuthContext` adds `isSuperAdmin: boolean`. Every counsellor route that mutates (POST/PATCH/DELETE) AND writes rows keyed by `counsellorId` FK (e.g. assignment, resolution-by, notes) MUST check `if (ctx.isSuperAdmin) return forbiddenError("Super Admin cannot perform counsellor actions")`. **Audit all counsellor routes for FK writes before shipping this phase.**
+`CounsellorAuthContext` adds `isSuperAdmin: boolean`. Every counsellor route that mutates (POST/PATCH/DELETE) AND writes rows keyed by `counsellorId` FK MUST check `if (ctx.isSuperAdmin) return forbiddenError("Super Admin cannot perform counsellor actions")`.
 
-Reads that need `counsellorId` (dashboard KPIs, "my societies", "my tickets") should do:
+**Counsellor route FK audit (grep 2026-04-16):**
+
+Mutation routes that write `counsellorId` FK — **SA MUST be blocked:**
+
+| #   | Route                                  | Method | File                                                          | FK writes on lines |
+| --- | -------------------------------------- | ------ | ------------------------------------------------------------- | ------------------ |
+| 1   | `/counsellor/tickets/[id]/acknowledge` | POST   | `src/app/api/v1/counsellor/tickets/[id]/acknowledge/route.ts` | L50                |
+| 2   | `/counsellor/tickets/[id]/defer`       | POST   | `src/app/api/v1/counsellor/tickets/[id]/defer/route.ts`       | L57, L78           |
+| 3   | `/counsellor/tickets/[id]/resolve`     | POST   | `src/app/api/v1/counsellor/tickets/[id]/resolve/route.ts`     | L57, L78           |
+| 4   | `/counsellor/tickets/[id]/messages`    | POST   | `src/app/api/v1/counsellor/tickets/[id]/messages/route.ts`    | L56, L83           |
+| 5   | `/counsellor/me`                       | PATCH  | `src/app/api/v1/counsellor/me/route.ts`                       | L61                |
+
+Read routes that filter by `counsellorId` — **SA gets unfiltered (all counsellors):**
+
+| #   | Route                             | Method | File                                                     | Filter on lines      |
+| --- | --------------------------------- | ------ | -------------------------------------------------------- | -------------------- |
+| 6   | `/counsellor/tickets`             | GET    | `src/app/api/v1/counsellor/tickets/route.ts`             | L39                  |
+| 7   | `/counsellor/tickets/[id]`        | GET    | `src/app/api/v1/counsellor/tickets/[id]/route.ts`        | L18                  |
+| 8   | `/counsellor/dashboard`           | GET    | `src/app/api/v1/counsellor/dashboard/route.ts`           | L16, L20, L39        |
+| 9   | `/counsellor/analytics/portfolio` | GET    | `src/app/api/v1/counsellor/analytics/portfolio/route.ts` | L28, L34, L160, L163 |
+| 10  | `/counsellor/societies`           | GET    | `src/app/api/v1/counsellor/societies/route.ts`           | L11                  |
+| 11  | `/counsellor/societies/[id]`      | GET    | `src/app/api/v1/counsellor/societies/[id]/route.ts`      | L42                  |
+
+**`assertCounsellorSocietyAccess` also needs SA bypass** ([src/lib/counsellor/access.ts](../../src/lib/counsellor/access.ts)) — it checks `counsellorSocietyAssignment` which SA won't have. Add early return if `ctx.isSuperAdmin`.
+
+Society sub-routes that use `assertCounsellorSocietyAccess` (SA reads all societies, no assignment check):
+
+- `GET /counsellor/societies/[id]/governing-body`
+- `GET /counsellor/societies/[id]/residents`
+- `GET /counsellor/societies/[id]/residents/[rid]`
+
+Reads that need `counsellorId`:
 
 - For real counsellor: keep filtering by `counsellorId: ctx.counsellorId`.
 - For SA: skip the counsellor filter (return all societies / all tickets across all counsellors). Explicit branch.
@@ -392,40 +521,46 @@ Reads that need `counsellorId` (dashboard KPIs, "my societies", "my tickets") sh
 
 These are categories of SA visibility that are not API-route-level but can still silently blackhole data. Audit needed before calling the fix complete.
 
-### 5.1 Supabase RLS policies
+### 5.1 Supabase RLS policies — ✅ RESOLVED (no action needed)
 
-If any client-side code does `supabase.from('<table>').select(…)` (not Prisma on service-role key), RLS policies apply. Typical policies key off `auth.uid()` existing in the `User` table for that society. SA has no User row → empty result, no error.
+**Grep result (2026-04-16):** Zero `supabase.from(` calls found in `src/`. All database access uses Prisma with the service-role connection string. No RLS exposure for SA.
 
-**Action:** Grep the codebase for `supabase.from(`. For each hit:
+### 5.2 Storage signed URLs — ✅ RESOLVED (no action needed)
 
-- If it's reading admin data, either (i) migrate to a Prisma-backed API route, or (ii) add an RLS policy clause `OR auth.uid() IN (SELECT auth_user_id FROM super_admins WHERE is_active = true)`.
+**Grep result (2026-04-16):** All 21 `.createSignedUrl(` calls use `createAdminClient()` (service-role key), which bypasses bucket policies. No client-side storage access found. SA is safe through storage.
 
-### 5.2 Storage signed URLs
+Files using `createSignedUrl` (all server-side, all via `createAdminClient`):
 
-`supabase.storage.from('<bucket>').createSignedUrl(…)` respects bucket policies. If bucket policies enforce society membership, SA reads may fail silently (null url).
+- `src/app/api/v1/residents/[id]/route.ts` (L42)
+- `src/app/api/v1/residents/[id]/family/route.ts` (L16)
+- `src/app/api/v1/residents/[id]/vehicles/route.ts` (L17)
+- `src/app/api/v1/residents/[id]/id-proof/route.ts` (L117)
+- `src/app/api/v1/residents/[id]/ownership-proof/route.ts` (L99)
+- `src/app/api/v1/residents/route.ts` (L205)
+- `src/app/api/v1/residents/me/*` (7 files — resident-facing, not admin)
+- `src/app/api/v1/super-admin/residents/route.ts` (L100)
+- `src/app/api/v1/admin/resident-support/[id]/attachments/route.ts` (L41)
+- `src/app/api/v1/societies/[id]/petitions/[petitionId]/*` (3 files)
 
-**Action:** Grep `.createSignedUrl(`. For each:
+### 5.3 Realtime channels — ✅ RESOLVED (no action needed)
 
-- Server-side using service-role client → safe.
-- Client-side → verify bucket policy admits SA.
+**Grep result (2026-04-16):** Zero `supabase.channel(` calls found in `src/app/admin/`. No admin pages use Realtime subscriptions. Notification/unread-count updates use polling via react-query, not Realtime channels.
 
-Known buckets worth checking: `resident-photos`, ID-proof, ownership-proof, receipt uploads, society registration docs.
+### 5.4 Server Actions — ✅ RESOLVED (no action needed)
 
-### 5.3 Realtime channels
+**Grep result (2026-04-16):** Zero `'use server'` directives found in `src/app/admin/`. No server actions exist in admin pages. All admin forms use client-side mutations via react-query → API routes.
 
-`supabase.channel(…).on(…)` subscriptions filter by RLS server-side. Same class of bug as 5.1. Less likely in admin views — check notification / unread-count live updates.
+### 5.5 Middleware — ✅ RESOLVED (SA passes, no action needed)
 
-### 5.4 Server Actions
+**Analysis (2026-04-16):** There is no `src/middleware.ts`. The app uses `src/proxy.ts` which calls `updateSession()` from `src/lib/supabase/middleware.ts`.
 
-`'use server'` functions resolve auth via `getCurrentUser` too. If any admin page uses a Server Action (forms, toggles), SA submission will 403 even when the page loads.
+The proxy's auth logic (L54–72):
 
-**Action:** Grep `^'use server'$` in `src/app/admin/`. Migrate those functions to use `getAdminContext` with an explicit societyId parameter (server actions don't have a `request.url`, so the client must pass societyId in the action args).
+- API routes: checks `!!user` only — no role check. SA with a valid Supabase session passes.
+- Protected pages: redirects if `!user` — no role check. SA passes.
+- `/admin` and `/sa` paths: inactivity timeout via `admin-last-activity` cookie — no role check. SA passes.
 
-### 5.5 Middleware
-
-`middleware.ts` at `src/middleware.ts` (or under `src/lib/supabase/middleware.ts`) may gate `/admin/*` by role. Verify it admits SA.
-
-**Action:** Read middleware; ensure SA (identified by row in `super_admins`) passes the `/admin/*` matcher.
+**Result:** SA is admitted to all `/admin/*` pages and API routes at the middleware level. No changes needed.
 
 ### 5.6 Dev hazard — session cookie collision
 
@@ -442,9 +577,66 @@ Not a code bug, but document: if SA and RWA_ADMIN sign in to the same browser at
 | **P0**   | Support + resident-support detail routes (SA + entity-scoping) | 1                                |
 | **P0**   | Residents list Link — preserve `saQueryString`                 | 3 (but ship ASAP, it's one-line) |
 | **P1**   | Governing-body / designations / fee-sessions / vehicles-search | 2                                |
-| **P1**   | Full admin Link sweep                                          | 3                                |
-| **P2**   | Counsellor parity                                              | 4                                |
+| **P1**   | Full admin Link sweep (13 sites) + SA-blind pages (5 pages)    | 3                                |
+| **P2**   | Counsellor parity (5 mutation blocks + 6 read routes)          | 4                                |
 | **P2**   | Counsellor feature-flag caching + `/auth/me` perf review       | 4                                |
-| **P3**   | RLS / storage / realtime / server actions / middleware audit   | 5                                |
+| **P3**   | Dev docs: session cookie collision warning (§5.6)              | 5                                |
 
-**Done definition:** walk every URL in the user's original report as an SA; every dataset renders; the blue "Viewing as …" banner persists across ≥ 3 navigation hops; no AbortError in server logs under normal use; `make coverage` green at ≥ 95% per file.
+**Done definition:** walk every URL in the user's original report as an SA; every dataset renders; the blue "Viewing as …" banner persists across ≥ 3 navigation hops; no AbortError in server logs under normal use; `npm run test:coverage` green at ≥ 95% per file.
+
+---
+
+## 7. Per-phase sign-off checklist
+
+Each phase MUST pass its checklist before merging. Do not batch phases.
+
+### Phase 0 — Sign-off
+
+- [ ] `getAuthUser` + `createClient` cache wrappers unit-tested (10 concurrent calls = 1 `auth.getUser`)
+- [ ] All 4 auth resolvers (`getCurrentUser`, `getAdminContext`, `requireSuperAdmin`, `requireCounsellor`) migrated to `getAuthUser()`
+- [ ] Regression checklist passes (§Bug 2 rollback plan)
+- [ ] `npx vitest related` on all changed files passes 95% per-file coverage
+- [ ] No AbortError in server logs during manual smoke test of `/admin/resident-support/<id>?sid=…`
+- [ ] `npx tsc --noEmit` clean
+
+### Phase 1 — Sign-off
+
+- [ ] Entity-derived scoping on: `/admin/resident-support/[id]`, `/admin/support/[id]`, `/residents/[id]`, `/residents/[id]/family`, `/residents/[id]/vehicles`
+- [ ] P0 security: unauthenticated GET `/api/v1/residents/<id>` → 403
+- [ ] SA can view resident detail, support ticket detail, resident-support ticket detail
+- [ ] Wrong-society admin gets 403 on all entity-derived routes
+- [ ] `npx vitest related` passes; `npx tsc --noEmit` clean
+
+### Phase 2 — Sign-off
+
+- [ ] All routes in Bug 1 + Bug 8 table migrated to `getAdminContext`
+- [ ] SA can view: governing body, designations, fee sessions, vehicles search, announcements, unread counts, counsellor list
+- [ ] `/admin/profile` shows SA identity (decision (a))
+- [ ] `npx vitest related` passes; `npx tsc --noEmit` clean
+
+### Phase 3 — Sign-off
+
+- [ ] All 13 Link/router.push sites fixed (Bug 6 inventory table)
+- [ ] All 5 SA-blind pages wired to `useSocietyId` (excluding profile)
+- [ ] 4 partial pages (events, petitions) destructure `saQueryString`
+- [ ] Manual smoke: navigate dashboard → residents list → resident detail → back → petitions → petition detail — banner persists at every hop
+- [ ] `npx vitest related` passes; `npx tsc --noEmit` clean
+
+### Phase 4 — Sign-off
+
+- [ ] `requireCounsellor()` extended with SA fallback
+- [ ] All 5 mutation routes block SA with 403
+- [ ] All 6 read routes return unfiltered data for SA
+- [ ] `assertCounsellorSocietyAccess` bypassed for SA
+- [ ] `isCounsellorRoleEnabled` uses `React.cache`
+- [ ] `npx vitest related` passes; `npx tsc --noEmit` clean
+
+### Phase 5 — Sign-off
+
+- [x] §5.1 RLS: zero `supabase.from(` calls — no action (resolved pre-flight)
+- [x] §5.2 Storage: all `createSignedUrl` via service-role — no action (resolved pre-flight)
+- [x] §5.3 Realtime: zero `supabase.channel(` in admin — no action (resolved pre-flight)
+- [x] §5.4 Server actions: zero `'use server'` in admin — no action (resolved pre-flight)
+- [x] §5.5 Middleware: `src/proxy.ts` only checks `!!user` — SA passes (resolved pre-flight)
+- [ ] §5.6 Dev docs updated with session cookie collision warning
+- [ ] Final walkthrough: every URL from original bug report renders correctly as SA
