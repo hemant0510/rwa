@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { forbiddenError, internalError, notFoundError } from "@/lib/api-helpers";
-import { getFullAccessAdmin } from "@/lib/get-current-user";
+import { getAdminContext, getFullAccessAdmin } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
 
 const assignMemberSchema = z.object({
@@ -11,10 +11,13 @@ const assignMemberSchema = z.object({
   designationId: z.string().uuid(),
 });
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const admin = await getFullAccessAdmin();
-    if (!admin) return forbiddenError("Only admins with full access can view governing body");
+    const { searchParams } = new URL(request.url);
+    const admin = await getAdminContext(searchParams.get("societyId"));
+    if (!admin || (!admin.isSuperAdmin && admin.adminPermission !== "FULL_ACCESS")) {
+      return forbiddenError("Only admins with full access can view governing body");
+    }
 
     const [members, designations] = await Promise.all([
       prisma.governingBodyMember.findMany({

@@ -1,10 +1,11 @@
 import { forbiddenError, internalError, successResponse } from "@/lib/api-helpers";
-import { getCurrentUser } from "@/lib/get-current-user";
+import { getAdminContext } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const admin = await getCurrentUser("RWA_ADMIN");
+    const { searchParams } = new URL(request.url);
+    const admin = await getAdminContext(searchParams.get("societyId"));
     if (!admin) return forbiddenError("Admin access required");
 
     const count = await prisma.residentTicket.count({

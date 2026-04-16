@@ -1,14 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // --- Hoisted mocks ---
-const mockGetCurrentUser = vi.hoisted(() => vi.fn());
+const mockGetAdminContext = vi.hoisted(() => vi.fn());
 const mockPrisma = vi.hoisted(() => ({
   announcementRead: { findMany: vi.fn() },
   platformAnnouncement: { findMany: vi.fn() },
 }));
 
 vi.mock("@/lib/get-current-user", () => ({
-  getCurrentUser: mockGetCurrentUser,
+  getAdminContext: mockGetAdminContext,
 }));
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 
@@ -21,19 +21,24 @@ const mockAdmin = {
   societyId: "soc-1",
   role: "RWA_ADMIN",
   adminPermission: "FULL_ACCESS",
+  isSuperAdmin: false,
+  name: "Admin",
 };
+
+const makeRequest = () =>
+  new Request("http://localhost/api/v1/admin/announcements?societyId=soc-1");
 
 describe("GET /api/v1/admin/announcements", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetCurrentUser.mockResolvedValue(mockAdmin);
+    mockGetAdminContext.mockResolvedValue(mockAdmin);
     mockPrisma.announcementRead.findMany.mockResolvedValue([]);
     mockPrisma.platformAnnouncement.findMany.mockResolvedValue([]);
   });
 
   it("returns 403 when user is not admin", async () => {
-    mockGetCurrentUser.mockResolvedValue(null);
-    const res = await GET();
+    mockGetAdminContext.mockResolvedValue(null);
+    const res = await GET(makeRequest());
     expect(res.status).toBe(403);
   });
 
@@ -42,18 +47,35 @@ describe("GET /api/v1/admin/announcements", () => {
       { id: "ann-1", subject: "Update", priority: "NORMAL", body: "Test" },
     ]);
 
-    const res = await GET();
+    const res = await GET(makeRequest());
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toHaveLength(1);
     expect(body[0].subject).toBe("Update");
   });
 
+  it("returns announcements for Super Admin", async () => {
+    mockGetAdminContext.mockResolvedValue({
+      ...mockAdmin,
+      userId: null,
+      role: "SUPER_ADMIN",
+      isSuperAdmin: true,
+    });
+    mockPrisma.platformAnnouncement.findMany.mockResolvedValue([
+      { id: "ann-1", subject: "Update" },
+    ]);
+
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+    // SA has no userId — skip announcementRead query
+    expect(mockPrisma.announcementRead.findMany).not.toHaveBeenCalled();
+  });
+
   it("excludes already-read announcements", async () => {
     mockPrisma.announcementRead.findMany.mockResolvedValue([{ announcementId: "ann-read" }]);
     mockPrisma.platformAnnouncement.findMany.mockResolvedValue([]);
 
-    const res = await GET();
+    const res = await GET(makeRequest());
     expect(res.status).toBe(200);
 
     // Verify findMany was called with notIn filter
@@ -72,7 +94,7 @@ describe("GET /api/v1/admin/announcements", () => {
       { id: "ann-targeted", subject: "For soc-1" },
     ]);
 
-    const res = await GET();
+    const res = await GET(makeRequest());
     const body = await res.json();
     expect(body).toHaveLength(2);
 
@@ -92,7 +114,7 @@ describe("GET /api/v1/admin/announcements", () => {
   it("does not pass notIn when no announcements are read", async () => {
     mockPrisma.announcementRead.findMany.mockResolvedValue([]);
 
-    await GET();
+    await GET(makeRequest());
 
     expect(mockPrisma.platformAnnouncement.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -105,7 +127,7 @@ describe("GET /api/v1/admin/announcements", () => {
 
   it("returns 500 when Prisma throws", async () => {
     mockPrisma.announcementRead.findMany.mockRejectedValue(new Error("DB error"));
-    const res = await GET();
+    const res = await GET(makeRequest());
     expect(res.status).toBe(500);
   });
 });

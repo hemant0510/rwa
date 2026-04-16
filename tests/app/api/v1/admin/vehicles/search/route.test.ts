@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ── Hoisted mocks (inline — admin pattern) ─────────────────────────────────
-const mockGetCurrentUser = vi.hoisted(() => vi.fn());
+const mockGetAdminContext = vi.hoisted(() => vi.fn());
 const mockPrisma = vi.hoisted(() => ({
   vehicle: {
     findMany: vi.fn(),
@@ -9,7 +9,7 @@ const mockPrisma = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("@/lib/get-current-user", () => ({ getCurrentUser: mockGetCurrentUser }));
+vi.mock("@/lib/get-current-user", () => ({ getAdminContext: mockGetAdminContext }));
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 
 // ── Import after mocks ─────────────────────────────────────────────────────
@@ -21,6 +21,8 @@ const mockAdmin = {
   societyId: "soc-1",
   role: "RWA_ADMIN",
   adminPermission: "FULL_ACCESS",
+  isSuperAdmin: false,
+  name: "Admin",
 };
 
 const mockVehicleResult = {
@@ -37,6 +39,7 @@ const mockVehicleResult = {
 
 const makeRequest = (params: Record<string, string> = {}) => {
   const url = new URL("http://localhost/api/v1/admin/vehicles/search");
+  if (!params.societyId) url.searchParams.set("societyId", "soc-1");
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
   return new Request(url.toString()) as never;
 };
@@ -44,15 +47,26 @@ const makeRequest = (params: Record<string, string> = {}) => {
 describe("GET /api/v1/admin/vehicles/search", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetCurrentUser.mockResolvedValue(mockAdmin);
+    mockGetAdminContext.mockResolvedValue(mockAdmin);
     mockPrisma.vehicle.findMany.mockResolvedValue([mockVehicleResult]);
     mockPrisma.vehicle.count.mockResolvedValue(1);
   });
 
   it("returns 403 when user is not admin", async () => {
-    mockGetCurrentUser.mockResolvedValue(null);
+    mockGetAdminContext.mockResolvedValue(null);
     const res = await GET(makeRequest({ q: "DL3" }));
     expect(res.status).toBe(403);
+  });
+
+  it("returns vehicles for Super Admin with societyId", async () => {
+    mockGetAdminContext.mockResolvedValue({
+      ...mockAdmin,
+      userId: null,
+      role: "SUPER_ADMIN",
+      isSuperAdmin: true,
+    });
+    const res = await GET(makeRequest({ q: "DL3" }));
+    expect(res.status).toBe(200);
   });
 
   it("returns 400 when query is shorter than 3 characters", async () => {

@@ -1,14 +1,15 @@
-import { internalError, successResponse, unauthorizedError } from "@/lib/api-helpers";
-import { getCurrentUser } from "@/lib/get-current-user";
+import { forbiddenError, internalError, successResponse } from "@/lib/api-helpers";
+import { getAdminContext } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
 
-export async function GET() {
-  const user = await getCurrentUser("RWA_ADMIN");
-  if (!user) return unauthorizedError();
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const admin = await getAdminContext(searchParams.get("societyId"));
+  if (!admin) return forbiddenError("Admin access required");
 
   try {
     const assignment = await prisma.counsellorSocietyAssignment.findFirst({
-      where: { societyId: user.societyId, isActive: true, isPrimary: true },
+      where: { societyId: admin.societyId, isActive: true, isPrimary: true },
       select: {
         isPrimary: true,
         assignedAt: true,

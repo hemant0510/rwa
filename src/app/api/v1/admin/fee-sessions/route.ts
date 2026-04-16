@@ -2,14 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { forbiddenError, internalError } from "@/lib/api-helpers";
 import { getSessionDates } from "@/lib/fee-calculator";
-import { getFullAccessAdmin } from "@/lib/get-current-user";
+import { getAdminContext, getFullAccessAdmin } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
 import { createFeeSessionSchema } from "@/lib/validations/society";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const admin = await getFullAccessAdmin();
-    if (!admin) return forbiddenError("Only admins with full access can view fee sessions");
+    const { searchParams } = new URL(request.url);
+    const admin = await getAdminContext(searchParams.get("societyId"));
+    if (!admin || (!admin.isSuperAdmin && admin.adminPermission !== "FULL_ACCESS")) {
+      return forbiddenError("Only admins with full access can view fee sessions");
+    }
 
     const sessions = await prisma.feeSession.findMany({
       where: { societyId: admin.societyId },

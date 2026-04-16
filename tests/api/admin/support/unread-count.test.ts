@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const mockGetCurrentUser = vi.hoisted(() => vi.fn());
+const mockGetAdminContext = vi.hoisted(() => vi.fn());
 const mockPrisma = vi.hoisted(() => ({
   serviceRequest: { count: vi.fn() },
 }));
 
-vi.mock("@/lib/get-current-user", () => ({ getCurrentUser: mockGetCurrentUser }));
+vi.mock("@/lib/get-current-user", () => ({ getAdminContext: mockGetAdminContext }));
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 
 import { GET } from "@/app/api/v1/admin/support/unread-count/route";
@@ -16,17 +16,22 @@ const mockAdmin = {
   societyId: "soc-1",
   role: "RWA_ADMIN",
   adminPermission: "FULL_ACCESS",
+  isSuperAdmin: false,
+  name: "Admin",
 };
+
+const makeRequest = () =>
+  new Request("http://localhost/api/v1/admin/support/unread-count?societyId=soc-1");
 
 describe("Admin Support Unread Count", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetCurrentUser.mockResolvedValue(mockAdmin);
+    mockGetAdminContext.mockResolvedValue(mockAdmin);
   });
 
   it("returns count of AWAITING_ADMIN requests", async () => {
     mockPrisma.serviceRequest.count.mockResolvedValue(3);
-    const res = await GET();
+    const res = await GET(makeRequest());
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.count).toBe(3);
@@ -38,14 +43,28 @@ describe("Admin Support Unread Count", () => {
   });
 
   it("returns 403 when not admin", async () => {
-    mockGetCurrentUser.mockResolvedValue(null);
-    const res = await GET();
+    mockGetAdminContext.mockResolvedValue(null);
+    const res = await GET(makeRequest());
     expect(res.status).toBe(403);
+  });
+
+  it("returns count for Super Admin", async () => {
+    mockGetAdminContext.mockResolvedValue({
+      ...mockAdmin,
+      userId: null,
+      role: "SUPER_ADMIN",
+      isSuperAdmin: true,
+    });
+    mockPrisma.serviceRequest.count.mockResolvedValue(5);
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.count).toBe(5);
   });
 
   it("returns 500 on DB error", async () => {
     mockPrisma.serviceRequest.count.mockRejectedValue(new Error("DB"));
-    const res = await GET();
+    const res = await GET(makeRequest());
     expect(res.status).toBe(500);
   });
 });

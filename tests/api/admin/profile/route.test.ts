@@ -5,15 +5,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // ─── Hoisted mocks ────────────────────────────────────────────────────────────
 
 const mockGetCurrentUser = vi.hoisted(() => vi.fn());
+const mockGetAuthUser = vi.hoisted(() => vi.fn());
 const mockPrisma = vi.hoisted(() => ({
   user: {
     findUnique: vi.fn(),
     update: vi.fn(),
   },
+  superAdmin: {
+    findUnique: vi.fn(),
+  },
 }));
 
 vi.mock("@/lib/get-current-user", () => ({
   getCurrentUser: mockGetCurrentUser,
+  getAuthUser: mockGetAuthUser,
 }));
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 
@@ -59,14 +64,48 @@ describe("GET /api/v1/admin/profile", () => {
     mockPrisma.user.findUnique.mockResolvedValue(mockDbUser);
   });
 
-  it("returns 403 when not authenticated", async () => {
+  it("returns 403 when not authenticated (neither admin nor SA)", async () => {
     mockGetCurrentUser.mockResolvedValue(null);
+    mockGetAuthUser.mockResolvedValue(null);
     const res = await GET();
     expect(res.status).toBe(403);
   });
 
-  it("returns 403 when user not found in DB", async () => {
+  it("returns 403 when admin user not found in DB", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(null);
+    const res = await GET();
+    expect(res.status).toBe(403);
+  });
+
+  it("returns SA profile when caller is Super Admin", async () => {
+    mockGetCurrentUser.mockResolvedValue(null);
+    mockGetAuthUser.mockResolvedValue({ id: "auth-sa-1" });
+    mockPrisma.superAdmin.findUnique.mockResolvedValue({
+      id: "sa-1",
+      name: "Super Admin",
+      email: "sa@platform.com",
+      isActive: true,
+    });
+
+    const res = await GET();
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.role).toBe("SUPER_ADMIN");
+    expect(body.name).toBe("Super Admin");
+    expect(body.adminPermission).toBe("FULL_ACCESS");
+    expect(body.societyName).toBeNull();
+  });
+
+  it("returns 403 when SA is inactive", async () => {
+    mockGetCurrentUser.mockResolvedValue(null);
+    mockGetAuthUser.mockResolvedValue({ id: "auth-sa-1" });
+    mockPrisma.superAdmin.findUnique.mockResolvedValue({
+      id: "sa-1",
+      name: "Super Admin",
+      email: "sa@platform.com",
+      isActive: false,
+    });
+
     const res = await GET();
     expect(res.status).toBe(403);
   });

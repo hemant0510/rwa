@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 
 import { forbiddenError, internalError } from "@/lib/api-helpers";
-import { getCurrentUser } from "@/lib/get-current-user";
+import { getAdminContext } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
 import { normalizeRegNumber } from "@/lib/utils/vehicle-utils";
 
@@ -17,10 +17,9 @@ function buildOrderBy(sort: SortField) {
 /** GET /api/v1/admin/vehicles/search?q=...&sort=reg|type|unit&page=1&limit=20 */
 export async function GET(request: NextRequest) {
   try {
-    const user = await getCurrentUser("RWA_ADMIN");
-    if (!user) return forbiddenError("Admin access required");
-
     const { searchParams } = new URL(request.url);
+    const admin = await getAdminContext(searchParams.get("societyId"));
+    if (!admin) return forbiddenError("Admin access required");
     const q = normalizeRegNumber(searchParams.get("q") ?? "");
 
     if (q.length < 3) {
@@ -44,7 +43,7 @@ export async function GET(request: NextRequest) {
     const [vehicles, total] = await Promise.all([
       prisma.vehicle.findMany({
         where: {
-          societyId: user.societyId,
+          societyId: admin.societyId,
           isActive: true,
           OR: [
             { registrationNumber: { contains: q, mode: "insensitive" } },
@@ -69,7 +68,7 @@ export async function GET(request: NextRequest) {
       }),
       prisma.vehicle.count({
         where: {
-          societyId: user.societyId,
+          societyId: admin.societyId,
           isActive: true,
           OR: [
             { registrationNumber: { contains: q, mode: "insensitive" } },

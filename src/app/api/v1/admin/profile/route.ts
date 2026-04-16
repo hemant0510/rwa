@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { forbiddenError, internalError } from "@/lib/api-helpers";
 import { INDIAN_MOBILE_PATTERN } from "@/lib/constants";
-import { getCurrentUser } from "@/lib/get-current-user";
+import { getAuthUser, getCurrentUser } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
 
 const updateProfileSchema = z.object({
@@ -18,33 +18,56 @@ const updateProfileSchema = z.object({
 
 export async function GET() {
   try {
+    // Try regular admin first
     const admin = await getCurrentUser("RWA_ADMIN");
-    if (!admin) return forbiddenError("Not authenticated as admin");
+    if (admin) {
+      const user = await prisma.user.findUnique({
+        where: { id: admin.userId },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          mobile: true,
+          role: true,
+          adminPermission: true,
+          society: { select: { name: true, societyCode: true } },
+        },
+      });
 
-    const user = await prisma.user.findUnique({
-      where: { id: admin.userId },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        mobile: true,
-        role: true,
-        adminPermission: true,
-        society: { select: { name: true, societyCode: true } },
-      },
+      if (!user) return forbiddenError("User not found");
+
+      return NextResponse.json({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        mobile: user.mobile ?? "",
+        role: user.role,
+        adminPermission: user.adminPermission,
+        societyName: user.society?.name ?? null,
+        societyCode: user.society?.societyCode ?? null,
+      });
+    }
+
+    // SA fallback — return SA's own profile
+    const authUser = await getAuthUser();
+    if (!authUser) return forbiddenError("Not authenticated");
+
+    const superAdmin = await prisma.superAdmin.findUnique({
+      where: { authUserId: authUser.id },
+      select: { id: true, name: true, email: true, isActive: true },
     });
 
-    if (!user) return forbiddenError("User not found");
+    if (!superAdmin?.isActive) return forbiddenError("Not authenticated as admin");
 
     return NextResponse.json({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      mobile: user.mobile ?? "",
-      role: user.role,
-      adminPermission: user.adminPermission,
-      societyName: user.society?.name ?? null,
-      societyCode: user.society?.societyCode ?? null,
+      id: superAdmin.id,
+      name: superAdmin.name,
+      email: superAdmin.email,
+      mobile: "",
+      role: "SUPER_ADMIN",
+      adminPermission: "FULL_ACCESS",
+      societyName: null,
+      societyCode: null,
     });
   } catch (err) {
     console.error("Admin profile GET error:", err);

@@ -1,16 +1,17 @@
 import { forbiddenError, internalError, successResponse } from "@/lib/api-helpers";
-import { getCurrentUser } from "@/lib/get-current-user";
+import { getAdminContext } from "@/lib/get-current-user";
 import { prisma } from "@/lib/prisma";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const user = await getCurrentUser("RWA_ADMIN");
-    if (!user) return forbiddenError("Admin access required");
+    const { searchParams } = new URL(request.url);
+    const admin = await getAdminContext(searchParams.get("societyId"));
+    if (!admin) return forbiddenError("Admin access required");
 
     // Count requests where SA has replied (AWAITING_ADMIN status)
     const count = await prisma.serviceRequest.count({
       where: {
-        societyId: user.societyId,
+        societyId: admin.societyId,
         status: "AWAITING_ADMIN",
       },
     });
