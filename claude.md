@@ -163,6 +163,10 @@ unless the spec says otherwise.
   description) explicitly calls out "SA excluded" with a reason — e.g.
   resident-private data, legally restricted PII. Record the exception in the
   route file as a comment linking to the spec line.
+- **Testing SA impersonation**: SA and RWA_ADMIN share the same `active-society-id`
+  cookie. If you sign in as both roles in the same browser, the cookie collision
+  produces ghost behaviour (wrong society context, stale banner). Use an incognito
+  window or do an explicit "Sign out" between roles.
 
 ## Core Coding Rules
 
