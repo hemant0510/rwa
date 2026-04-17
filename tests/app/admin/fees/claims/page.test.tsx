@@ -7,12 +7,21 @@ import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mockFetch } = vi.hoisted(() => ({ mockFetch: vi.fn() }));
-const mockUseAuthClaims = vi.hoisted(() => vi.fn(() => ({ user: { societyId: "soc-1" } })));
 globalThis.fetch = mockFetch;
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
-vi.mock("@/hooks/useAuth", () => ({
-  useAuth: mockUseAuthClaims,
+const mockUseSocietyId = vi.hoisted(() =>
+  vi.fn(() => ({
+    societyId: "soc-1",
+    societyName: "Test Society",
+    societyCode: "TST",
+    isSuperAdminViewing: false,
+    saQueryString: "",
+  })),
+);
+
+vi.mock("@/hooks/useSocietyId", () => ({
+  useSocietyId: mockUseSocietyId,
 }));
 vi.mock("@/components/ui/LoadingSkeleton", () => ({
   PageSkeleton: () => <div data-testid="page-skeleton" />,
@@ -199,7 +208,13 @@ describe("AdminClaimsPage", () => {
   });
 
   it("renders without crashing when user has no societyId", () => {
-    mockUseAuthClaims.mockReturnValueOnce({ user: null } as never);
+    mockUseSocietyId.mockReturnValueOnce({
+      societyId: "",
+      societyName: "",
+      societyCode: "",
+      isSuperAdminViewing: false,
+      saQueryString: "",
+    });
     mockFetch.mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ claims: [], total: 0, page: 1, pageSize: 20 }),

@@ -16,7 +16,11 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
   const { id: societyId } = await params;
   const counsellorId = auth.data.counsellorId;
 
-  const accessError = await assertCounsellorSocietyAccess(counsellorId, societyId);
+  const accessError = await assertCounsellorSocietyAccess(
+    counsellorId,
+    societyId,
+    auth.data.isSuperAdmin,
+  );
   if (accessError) return accessError;
 
   try {
@@ -38,15 +42,17 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
             onboardingDate: true,
           },
         }),
-        prisma.counsellorSocietyAssignment.findFirst({
-          where: { counsellorId, societyId, isActive: true },
-          select: { assignedAt: true, isPrimary: true },
-        }),
+        auth.data.isSuperAdmin
+          ? Promise.resolve({ assignedAt: null, isPrimary: false })
+          : prisma.counsellorSocietyAssignment.findFirst({
+              where: { counsellorId, societyId, isActive: true },
+              select: { assignedAt: true, isPrimary: true },
+            }),
         prisma.user.count({ where: { societyId, role: "RESIDENT" } }),
         prisma.governingBodyMember.count({ where: { societyId } }),
         prisma.residentTicketEscalation.count({
           where: {
-            counsellorId,
+            ...(auth.data.isSuperAdmin ? {} : { counsellorId }),
             status: { in: [...OPEN_ESCALATION_STATUSES] },
             ticket: { societyId },
           },

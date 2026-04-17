@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useAuth } from "@/hooks/useAuth";
+import { useSocietyId } from "@/hooks/useSocietyId";
 import { getReportSummary, downloadReport, type ReportType } from "@/services/reports";
 
 function getAvailableSessions(currentSession: string): string[] {
@@ -80,8 +80,7 @@ const REPORTS: {
 ];
 
 export default function ReportsPage() {
-  const { user } = useAuth();
-  const societyId = user?.societyId ?? "";
+  const { societyId } = useSocietyId();
 
   const [generating, setGenerating] = useState<string | null>(null);
 

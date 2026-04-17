@@ -125,6 +125,12 @@ describe("announcements service", () => {
         "Failed to fetch unread announcements",
       );
     });
+
+    it("appends societyId when provided", async () => {
+      mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve([]) });
+      await getUnreadAnnouncements("soc-1");
+      expect(mockFetch).toHaveBeenCalledWith("/api/v1/admin/announcements?societyId=soc-1");
+    });
   });
 
   describe("markAnnouncementRead", () => {

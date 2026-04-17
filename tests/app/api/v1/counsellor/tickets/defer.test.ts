@@ -121,4 +121,21 @@ describe("POST /api/v1/counsellor/tickets/[id]/defer", () => {
     const res = await POST(makeReq({ reason: "a".repeat(20) }) as never, makeParams());
     expect(res.status).toBe(500);
   });
+
+  it("returns 403 for super admin", async () => {
+    mockRequireCounsellor.mockResolvedValue({
+      data: {
+        counsellorId: "__super_admin__",
+        authUserId: "auth-sa",
+        email: "sa@x.com",
+        name: "SA",
+        isSuperAdmin: true,
+      },
+      error: null,
+    });
+    const res = await POST(makeReq({ reason: "a".repeat(20) }) as never, makeParams());
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error.message).toContain("Super Admin");
+  });
 });

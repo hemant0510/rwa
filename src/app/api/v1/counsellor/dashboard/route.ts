@@ -9,34 +9,61 @@ export async function GET() {
   if (auth.error) return auth.error;
 
   const counsellorId = auth.data.counsellorId;
+  const isSA = auth.data.isSuperAdmin;
 
   try {
     const [counsellor, assignments, escalations] = await Promise.all([
-      prisma.counsellor.findUnique({
-        where: { id: counsellorId },
-        select: { id: true, name: true, email: true, photoUrl: true },
-      }),
-      prisma.counsellorSocietyAssignment.findMany({
-        where: { counsellorId, isActive: true },
-        orderBy: { assignedAt: "desc" },
-        select: {
-          isPrimary: true,
-          society: {
+      isSA
+        ? Promise.resolve({
+            id: counsellorId,
+            name: auth.data.name,
+            email: auth.data.email,
+            photoUrl: null,
+          })
+        : prisma.counsellor.findUnique({
+            where: { id: counsellorId },
+            select: { id: true, name: true, email: true, photoUrl: true },
+          }),
+      isSA
+        ? prisma.counsellorSocietyAssignment.findMany({
+            where: { isActive: true },
+            orderBy: { assignedAt: "desc" },
             select: {
-              id: true,
-              name: true,
-              societyCode: true,
-              city: true,
-              state: true,
-              totalUnits: true,
-              _count: { select: { users: { where: { role: "RESIDENT" } } } },
+              isPrimary: true,
+              society: {
+                select: {
+                  id: true,
+                  name: true,
+                  societyCode: true,
+                  city: true,
+                  state: true,
+                  totalUnits: true,
+                  _count: { select: { users: { where: { role: "RESIDENT" } } } },
+                },
+              },
             },
-          },
-        },
-      }),
+          })
+        : prisma.counsellorSocietyAssignment.findMany({
+            where: { counsellorId, isActive: true },
+            orderBy: { assignedAt: "desc" },
+            select: {
+              isPrimary: true,
+              society: {
+                select: {
+                  id: true,
+                  name: true,
+                  societyCode: true,
+                  city: true,
+                  state: true,
+                  totalUnits: true,
+                  _count: { select: { users: { where: { role: "RESIDENT" } } } },
+                },
+              },
+            },
+          }),
       prisma.residentTicketEscalation.findMany({
         where: {
-          counsellorId,
+          ...(isSA ? {} : { counsellorId }),
           status: { in: [...OPEN_ESCALATION_STATUSES] },
         },
         select: {

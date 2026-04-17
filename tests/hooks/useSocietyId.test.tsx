@@ -4,7 +4,7 @@ import { renderHook } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 import { AuthContext } from "@/hooks/useAuth";
-import { useSocietyId } from "@/hooks/useSocietyId";
+import { useSAHref, useSocietyId } from "@/hooks/useSocietyId";
 
 const { mockGetSearchParams } = vi.hoisted(() => ({
   mockGetSearchParams: vi.fn().mockReturnValue(new URLSearchParams("")),
@@ -135,6 +135,28 @@ describe("useSocietyId — super admin viewing a society", () => {
     const { result } = renderHook(() => useSocietyId(), { wrapper: makeWrapper(regularAdmin) });
     expect(result.current.isSuperAdminViewing).toBe(false);
     expect(result.current.societyId).toBe("soc-1"); // uses own society
+  });
+});
+
+describe("useSAHref", () => {
+  it("returns basePath only for regular admin", () => {
+    mockGetSearchParams.mockReturnValue(new URLSearchParams(""));
+    const { result } = renderHook(() => useSAHref("/admin/events/123"), {
+      wrapper: makeWrapper(makeAdminUser()),
+    });
+    expect(result.current).toBe("/admin/events/123");
+  });
+
+  it("appends SA query string for super admin", () => {
+    mockGetSearchParams.mockReturnValue(
+      new URLSearchParams("sid=soc-2&sname=Test%20Society&scode=TEST"),
+    );
+    const superAdmin = makeAdminUser({ role: "SUPER_ADMIN" as const });
+    const { result } = renderHook(() => useSAHref("/admin/events/123"), {
+      wrapper: makeWrapper(superAdmin),
+    });
+    expect(result.current).toContain("/admin/events/123?sid=soc-2");
+    expect(result.current).toContain("sname=");
   });
 });
 

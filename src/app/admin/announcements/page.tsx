@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useSocietyId } from "@/hooks/useSocietyId";
 import type { AdminAnnouncementItem } from "@/services/announcements";
 import { getUnreadAnnouncements, markAnnouncementRead } from "@/services/announcements";
 
@@ -63,11 +64,13 @@ function AnnouncementCard({
 }
 
 export default function AdminAnnouncementsPage() {
+  const { societyId } = useSocietyId();
   const queryClient = useQueryClient();
 
   const { data: announcements = [], isLoading } = useQuery({
-    queryKey: ["admin-announcements"],
-    queryFn: getUnreadAnnouncements,
+    queryKey: ["admin-announcements", societyId],
+    queryFn: () => getUnreadAnnouncements(societyId),
+    enabled: !!societyId,
   });
 
   const markReadMutation = useMutation({

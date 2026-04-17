@@ -58,8 +58,9 @@ export interface AdminAnnouncementItem {
   createdAt: string;
 }
 
-export async function getUnreadAnnouncements(): Promise<AdminAnnouncementItem[]> {
-  const res = await fetch(ADMIN_BASE);
+export async function getUnreadAnnouncements(societyId?: string): Promise<AdminAnnouncementItem[]> {
+  const url = societyId ? `${ADMIN_BASE}?societyId=${encodeURIComponent(societyId)}` : ADMIN_BASE;
+  const res = await fetch(url);
   if (!res.ok) throw new Error("Failed to fetch unread announcements");
   return res.json() as Promise<AdminAnnouncementItem[]>;
 }

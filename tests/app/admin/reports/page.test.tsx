@@ -4,8 +4,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-import { AuthContext } from "@/hooks/useAuth";
-
 const { mockGetReportSummary, mockDownloadReport } = vi.hoisted(() => ({
   mockGetReportSummary: vi.fn(),
   mockDownloadReport: vi.fn(),
@@ -19,9 +17,11 @@ vi.mock("@/services/reports", () => ({
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
   usePathname: () => "/admin/reports",
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 import ReportsPage from "@/app/admin/reports/page";
+import { AuthContext } from "@/hooks/useAuth";
 
 function renderPage(userOverrides: Record<string, unknown> = {}) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -209,5 +209,31 @@ describe("ReportsPage", () => {
     renderPage({ societyId: "" });
     const pdfButtons = screen.getAllByText("PDF");
     pdfButtons.forEach((btn) => expect(btn.closest("button")).toBeDisabled());
+  });
+
+  it("shows error toast when report download fails", async () => {
+    mockGetReportSummary.mockResolvedValue(MOCK_SUMMARY);
+    mockDownloadReport.mockRejectedValue(new Error("Network error"));
+    renderPage();
+
+    await waitFor(() => screen.getByText("Session"));
+    await waitFor(() => screen.getByText("2025-26"));
+    const pdfButtons = screen.getAllByText("PDF");
+    fireEvent.click(pdfButtons[0]);
+
+    await waitFor(() => {
+      // After error, generating is reset to null — buttons are re-enabled
+      expect(pdfButtons[0].closest("button")).not.toBeDisabled();
+    });
+    // downloadReport was called and rejected
+    expect(mockDownloadReport).toHaveBeenCalled();
+  });
+
+  it("shows expenses amount in summary", async () => {
+    mockGetReportSummary.mockResolvedValue(MOCK_SUMMARY);
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText(/14,000/)).toBeInTheDocument();
+    });
   });
 });

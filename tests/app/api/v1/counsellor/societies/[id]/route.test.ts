@@ -83,4 +83,31 @@ describe("GET /api/v1/counsellor/societies/[id]", () => {
     const res = await GET(makeReq(), params);
     expect(res.status).toBe(500);
   });
+
+  it("returns society detail for super admin with synthetic assignment", async () => {
+    mockRequireCounsellor.mockResolvedValue({
+      data: {
+        counsellorId: "__super_admin__",
+        authUserId: "auth-sa",
+        email: "sa@x.com",
+        name: "SA",
+        isSuperAdmin: true,
+      },
+      error: null,
+    });
+    // assertCounsellorSocietyAccess returns null (allowed) for SA
+    mockAssertAccess.mockResolvedValue(null);
+    const res = await GET(makeReq(), params);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.id).toBe("s-1");
+    // SA gets synthetic assignment (isPrimary: false, assignedAt: null)
+    expect(body.isPrimary).toBe(false);
+    expect(body.assignedAt).toBeNull();
+    // counsellorSocietyAssignment.findFirst should NOT be called for SA
+    expect(mockPrisma.counsellorSocietyAssignment.findFirst).not.toHaveBeenCalled();
+    // escalation count query should not have counsellorId
+    const escCall = mockPrisma.residentTicketEscalation.count.mock.calls[0][0];
+    expect(escCall.where).not.toHaveProperty("counsellorId");
+  });
 });

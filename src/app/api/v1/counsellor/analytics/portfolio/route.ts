@@ -23,15 +23,16 @@ export async function GET(request: Request) {
   const windowStart = new Date(now.getTime() - windowDays * 24 * 60 * 60 * 1000);
 
   try {
+    const isSA = auth.data.isSuperAdmin;
     const [assignments, escalations] = await Promise.all([
       prisma.counsellorSocietyAssignment.findMany({
-        where: { counsellorId, isActive: true },
+        where: { ...(isSA ? {} : { counsellorId }), isActive: true },
         select: {
           society: { select: { id: true, name: true, societyCode: true } },
         },
       }),
       prisma.residentTicketEscalation.findMany({
-        where: { counsellorId },
+        where: isSA ? {} : { counsellorId },
         select: {
           id: true,
           status: true,

@@ -14,6 +14,7 @@ interface CounsellorAuthContext {
   authUserId: string;
   email: string;
   name: string;
+  isSuperAdmin: boolean;
 }
 
 type AuthResult = { data: SuperAdminContext; error: null } | { data: null; error: Response };
@@ -63,17 +64,37 @@ export async function requireCounsellor(): Promise<CounsellorAuthResult> {
     select: { id: true, authUserId: true, email: true, name: true, isActive: true },
   });
 
-  if (!counsellor?.isActive) {
-    return { data: null, error: forbiddenError("Counsellor access required") };
+  if (counsellor?.isActive) {
+    return {
+      data: {
+        counsellorId: counsellor.id,
+        authUserId: user.id,
+        email: counsellor.email,
+        name: counsellor.name,
+        isSuperAdmin: false,
+      },
+      error: null,
+    };
   }
 
-  return {
-    data: {
-      counsellorId: counsellor.id,
-      authUserId: counsellor.authUserId,
-      email: counsellor.email,
-      name: counsellor.name,
-    },
-    error: null,
-  };
+  // SA fallback — READ-ONLY access to counsellor features
+  const sa = await prisma.superAdmin.findUnique({
+    where: { authUserId: user.id },
+    select: { id: true, email: true, name: true, isActive: true },
+  });
+
+  if (sa?.isActive) {
+    return {
+      data: {
+        counsellorId: "__super_admin__",
+        authUserId: user.id,
+        email: sa.email,
+        name: sa.name,
+        isSuperAdmin: true,
+      },
+      error: null,
+    };
+  }
+
+  return { data: null, error: forbiddenError("Counsellor access required") };
 }

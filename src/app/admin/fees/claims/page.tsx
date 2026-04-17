@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useAuth } from "@/hooks/useAuth";
+import { useSocietyId } from "@/hooks/useSocietyId";
 import { getAdminPaymentClaims, rejectClaim, verifyClaim } from "@/services/admin-payment-claims";
 
 const STATUS_OPTIONS = [
@@ -27,8 +27,7 @@ const STATUS_OPTIONS = [
 ];
 
 export default function AdminClaimsPage() {
-  const { user } = useAuth();
-  const societyId = user?.societyId ?? "";
+  const { societyId } = useSocietyId();
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState("ALL");
 

@@ -31,3 +31,12 @@ export function useSocietyId() {
 
   return { societyId, societyName, societyCode, isSuperAdminViewing, saQueryString };
 }
+
+/**
+ * Returns a path with SA query params appended (if viewing as SA).
+ * Use for Link hrefs and router.push targets in admin pages.
+ */
+export function useSAHref(basePath: string): string {
+  const { saQueryString } = useSocietyId();
+  return `${basePath}${saQueryString}`;
+}

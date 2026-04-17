@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 
 import {
   errorResponse,
+  forbiddenError,
   internalError,
   notFoundError,
   successResponse,
@@ -18,6 +19,8 @@ type RouteContext = { params: Promise<{ id: string }> };
 export async function POST(request: NextRequest, { params }: RouteContext) {
   const auth = await requireCounsellor();
   if (auth.error) return auth.error;
+  if (auth.data.isSuperAdmin)
+    return forbiddenError("Super Admin cannot perform counsellor actions");
 
   const { id: escalationId } = await params;
   const counsellorId = auth.data.counsellorId;

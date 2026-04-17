@@ -15,7 +15,10 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
 
   try {
     const escalation = await prisma.residentTicketEscalation.findFirst({
-      where: { id: escalationId, counsellorId },
+      where: {
+        id: escalationId,
+        ...(auth.data.isSuperAdmin ? {} : { counsellorId }),
+      },
       select: {
         id: true,
         status: true,

@@ -151,7 +151,7 @@ export default function ResidentsPage() {
 }
 
 function ResidentsPageInner() {
-  const { societyId, societyCode } = useSocietyId();
+  const { societyId, societyCode, saQueryString } = useSocietyId();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -529,7 +529,7 @@ function ResidentsPageInner() {
                         </Avatar>
                         <div>
                           <Link
-                            href={`/admin/residents/${resident.id}`}
+                            href={`/admin/residents/${resident.id}${saQueryString}`}
                             className="font-medium hover:underline"
                           >
                             {resident.name}

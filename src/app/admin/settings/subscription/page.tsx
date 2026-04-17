@@ -30,7 +30,7 @@ async function getPlatformPaymentInfo(societyId: string): Promise<PlatformUpiSet
 }
 
 export default function AdminSubscriptionPage() {
-  const { societyId } = useSocietyId();
+  const { societyId, saQueryString } = useSocietyId();
   const queryClient = useQueryClient();
 
   const { data: sub, isLoading: subLoading } = useQuery({
@@ -71,7 +71,10 @@ export default function AdminSubscriptionPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
-        <Link href="/admin/settings" className="text-muted-foreground hover:text-foreground">
+        <Link
+          href={`/admin/settings${saQueryString}`}
+          className="text-muted-foreground hover:text-foreground"
+        >
           <ArrowLeft className="h-4 w-4" />
         </Link>
         <PageHeader

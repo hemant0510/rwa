@@ -1,6 +1,12 @@
 import { NextRequest } from "next/server";
 
-import { errorResponse, internalError, notFoundError, successResponse } from "@/lib/api-helpers";
+import {
+  errorResponse,
+  forbiddenError,
+  internalError,
+  notFoundError,
+  successResponse,
+} from "@/lib/api-helpers";
 import { logAudit } from "@/lib/audit";
 import { requireCounsellor } from "@/lib/auth-guard";
 import { logCounsellorAudit } from "@/lib/counsellor/audit";
@@ -12,6 +18,8 @@ type RouteContext = { params: Promise<{ id: string }> };
 export async function POST(_request: NextRequest, { params }: RouteContext) {
   const auth = await requireCounsellor();
   if (auth.error) return auth.error;
+  if (auth.data.isSuperAdmin)
+    return forbiddenError("Super Admin cannot perform counsellor actions");
 
   const { id: escalationId } = await params;
   const counsellorId = auth.data.counsellorId;

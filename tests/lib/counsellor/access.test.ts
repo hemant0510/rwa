@@ -38,4 +38,15 @@ describe("assertCounsellorSocietyAccess", () => {
     const res = await assertCounsellorSocietyAccess("c-1", VALID_UUID);
     expect(res).toBeNull();
   });
+
+  it("returns null for SA without checking assignment", async () => {
+    const res = await assertCounsellorSocietyAccess("__super_admin__", VALID_UUID, true);
+    expect(res).toBeNull();
+    expect(mockPrisma.counsellorSocietyAssignment.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 for SA when societyId is invalid UUID", async () => {
+    const res = await assertCounsellorSocietyAccess("__super_admin__", "not-valid", true);
+    expect(res?.status).toBe(404);
+  });
 });

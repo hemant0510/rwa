@@ -12,7 +12,11 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
   if (auth.error) return auth.error;
 
   const { id: societyId, rid } = await params;
-  const accessError = await assertCounsellorSocietyAccess(auth.data.counsellorId, societyId);
+  const accessError = await assertCounsellorSocietyAccess(
+    auth.data.counsellorId,
+    societyId,
+    auth.data.isSuperAdmin,
+  );
   if (accessError) return accessError;
 
   try {

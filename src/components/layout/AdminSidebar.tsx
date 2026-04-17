@@ -59,9 +59,10 @@ function SidebarContent({
   const societyId = sid ?? user?.societyId ?? "";
 
   const { data: announcements = [] } = useQuery({
-    queryKey: ["admin-announcements"],
-    queryFn: getUnreadAnnouncements,
+    queryKey: ["admin-announcements", societyId],
+    queryFn: () => getUnreadAnnouncements(societyId),
     staleTime: 60_000,
+    enabled: !!societyId,
   });
 
   const { data: pendingClaimsData } = useQuery({

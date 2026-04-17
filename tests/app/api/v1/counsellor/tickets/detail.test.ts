@@ -61,4 +61,27 @@ describe("GET /api/v1/counsellor/tickets/[id]", () => {
     const res = await GET(makeReq() as never, makeParams());
     expect(res.status).toBe(500);
   });
+
+  it("returns ticket without counsellorId filter for super admin", async () => {
+    mockRequireCounsellor.mockResolvedValue({
+      data: {
+        counsellorId: "__super_admin__",
+        authUserId: "auth-sa",
+        email: "sa@x.com",
+        name: "SA",
+        isSuperAdmin: true,
+      },
+      error: null,
+    });
+    mockPrisma.residentTicketEscalation.findFirst.mockResolvedValue({
+      id: "e-1",
+      status: "ACKNOWLEDGED",
+      ticket: { id: "t-1", messages: [] },
+    });
+    const res = await GET(makeReq() as never, makeParams());
+    expect(res.status).toBe(200);
+    const call = mockPrisma.residentTicketEscalation.findFirst.mock.calls[0][0];
+    expect(call.where).toEqual({ id: "e-1" });
+    expect(call.where).not.toHaveProperty("counsellorId");
+  });
 });

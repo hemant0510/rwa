@@ -105,4 +105,35 @@ describe("GET /api/v1/counsellor/dashboard", () => {
     const res = await GET();
     expect(res.status).toBe(500);
   });
+
+  it("returns dashboard for super admin with synthetic counsellor identity", async () => {
+    mockRequireCounsellor.mockResolvedValue({
+      data: {
+        counsellorId: "__super_admin__",
+        authUserId: "auth-sa",
+        email: "sa@x.com",
+        name: "SA",
+        isSuperAdmin: true,
+      },
+      error: null,
+    });
+    mockPrisma.counsellorSocietyAssignment.findMany.mockResolvedValue([
+      { isPrimary: true, society: society("s-1", "Alpha") },
+    ]);
+    mockPrisma.residentTicketEscalation.findMany.mockResolvedValue([
+      { status: "PENDING", ticket: { societyId: "s-1" } },
+    ]);
+    const res = await GET();
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.counsellor.id).toBe("__super_admin__");
+    expect(body.counsellor.name).toBe("SA");
+    expect(mockPrisma.counsellor.findUnique).not.toHaveBeenCalled();
+    // SA assignment query has no counsellorId filter
+    const assignCall = mockPrisma.counsellorSocietyAssignment.findMany.mock.calls[0][0];
+    expect(assignCall.where).not.toHaveProperty("counsellorId");
+    // SA escalation query has no counsellorId filter
+    const escCall = mockPrisma.residentTicketEscalation.findMany.mock.calls[0][0];
+    expect(escCall.where).not.toHaveProperty("counsellorId");
+  });
 });

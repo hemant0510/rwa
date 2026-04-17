@@ -127,7 +127,7 @@ async function createFeeSession(year: number): Promise<FeeSession & { message: s
 
 export default function AdminSettingsPage() {
   const queryClient = useQueryClient();
-  const { societyId, isSuperAdminViewing } = useSocietyId();
+  const { societyId, isSuperAdminViewing, saQueryString } = useSocietyId();
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ["admin-settings", societyId],
@@ -155,7 +155,7 @@ export default function AdminSettingsPage() {
       <YourCounsellorCard />
 
       {/* Subscription Payment Card */}
-      <Link href="/admin/settings/subscription">
+      <Link href={`/admin/settings/subscription${saQueryString}`}>
         <Card className="hover:bg-muted/50 cursor-pointer transition-colors">
           <CardHeader className="flex flex-row items-center justify-between">
             <div className="flex items-center gap-3">
@@ -173,7 +173,7 @@ export default function AdminSettingsPage() {
       </Link>
 
       {/* Payment Setup Card */}
-      <Link href="/admin/settings/payment-setup">
+      <Link href={`/admin/settings/payment-setup${saQueryString}`}>
         <Card className="hover:bg-muted/50 cursor-pointer transition-colors">
           <CardHeader className="flex flex-row items-center justify-between">
             <div className="flex items-center gap-3">

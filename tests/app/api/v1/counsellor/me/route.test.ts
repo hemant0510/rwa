@@ -76,6 +76,26 @@ describe("GET /api/v1/counsellor/me", () => {
     );
   });
 
+  it("returns SA identity when super admin calls GET", async () => {
+    mockRequireCounsellor.mockResolvedValue({
+      data: {
+        counsellorId: "__super_admin__",
+        authUserId: "auth-sa",
+        email: "sa@x.com",
+        name: "SA",
+        isSuperAdmin: true,
+      },
+      error: null,
+    });
+    const res = await GET();
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.id).toBe("__super_admin__");
+    expect(body.isSuperAdmin).toBe(true);
+    expect(body.email).toBe("sa@x.com");
+    expect(mockPrisma.counsellor.findUnique).not.toHaveBeenCalled();
+  });
+
   it("swallows lastLoginAt update failure (best-effort)", async () => {
     mockPrisma.counsellor.update.mockRejectedValue(new Error("DB"));
     const res = await GET();
@@ -133,5 +153,22 @@ describe("PATCH /api/v1/counsellor/me", () => {
     mockPrisma.counsellor.update.mockRejectedValue(new Error("DB"));
     const res = await PATCH(makePatchReq({ name: "New Name" }));
     expect(res.status).toBe(500);
+  });
+
+  it("returns 403 for super admin", async () => {
+    mockRequireCounsellor.mockResolvedValue({
+      data: {
+        counsellorId: "__super_admin__",
+        authUserId: "auth-sa",
+        email: "sa@x.com",
+        name: "SA",
+        isSuperAdmin: true,
+      },
+      error: null,
+    });
+    const res = await PATCH(makePatchReq({ name: "New Name" }));
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error.message).toContain("Super Admin");
   });
 });

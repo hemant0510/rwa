@@ -190,4 +190,29 @@ describe("GET /api/v1/counsellor/analytics/portfolio", () => {
     const res = await GET(makeReq());
     expect(res.status).toBe(500);
   });
+
+  it("returns unfiltered analytics for super admin", async () => {
+    mockRequireCounsellor.mockResolvedValue({
+      data: {
+        counsellorId: "__super_admin__",
+        authUserId: "auth-sa",
+        email: "sa@x.com",
+        name: "SA",
+        isSuperAdmin: true,
+      },
+      error: null,
+    });
+    mockPrisma.counsellorSocietyAssignment.findMany.mockResolvedValue([
+      { society: { id: "s-1", name: "Alpha", societyCode: "ALPHA1" } },
+    ]);
+    mockPrisma.residentTicketEscalation.findMany.mockResolvedValue([]);
+    const res = await GET(makeReq());
+    expect(res.status).toBe(200);
+    // Assignment query has no counsellorId filter for SA
+    const assignCall = mockPrisma.counsellorSocietyAssignment.findMany.mock.calls[0][0];
+    expect(assignCall.where).not.toHaveProperty("counsellorId");
+    // Escalation query has no counsellorId filter for SA
+    const escCall = mockPrisma.residentTicketEscalation.findMany.mock.calls[0][0];
+    expect(escCall.where).not.toHaveProperty("counsellorId");
+  });
 });

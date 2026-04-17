@@ -5,6 +5,7 @@ import { Megaphone, X } from "lucide-react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { useSocietyId } from "@/hooks/useSocietyId";
 import {
   getUnreadAnnouncements,
   markAnnouncementRead,
@@ -12,18 +13,20 @@ import {
 } from "@/services/announcements";
 
 export function AnnouncementBanner() {
+  const { societyId } = useSocietyId();
   const queryClient = useQueryClient();
 
   const { data: announcements = [] } = useQuery({
-    queryKey: ["admin-announcements-unread"],
-    queryFn: getUnreadAnnouncements,
+    queryKey: ["admin-announcements-unread", societyId],
+    queryFn: () => getUnreadAnnouncements(societyId),
+    enabled: !!societyId,
   });
 
   const handleDismiss = async (id: string) => {
     try {
       await markAnnouncementRead(id);
       queryClient.setQueryData<AdminAnnouncementItem[]>(
-        ["admin-announcements-unread"],
+        ["admin-announcements-unread", societyId],
         (old = []) => old.filter((a) => a.id !== id),
       );
     } catch {

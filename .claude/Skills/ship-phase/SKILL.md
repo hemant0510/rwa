@@ -63,7 +63,25 @@ Follow it completely. Do not proceed to Stage 2 until every deliverable in the p
 
 ## Stage 2 — QUALITY GATE
 
-**Before invoking quality-gate:** List every source file created or modified in Stage 1. For each, ensure a test file exists (create one if not). Then run the **hook simulation** — NOT individual `vitest run` calls:
+### Pre-flight: coverage audit BEFORE writing code
+
+**CRITICAL** — before modifying any existing source file in Stage 1, check if it has a test file:
+
+```bash
+# For each source file you plan to modify:
+find tests/ -path "*<matching-path>*" -name "*.test.*"
+```
+
+If no test file exists, you MUST either:
+
+1. **Write a test file** covering the full component to ≥ 95% BEFORE making your change, OR
+2. **Use `/* v8 ignore start/stop */`** on your specific additions if the component is a large page with no existing tests and your change is a trivial one-liner (e.g., appending `${saQueryString}` to a URL)
+
+The pre-commit hook enforces 95% per-file coverage on ALL staged `.ts/.tsx` files — not just files in `vitest.config.ts` coverage.include. Staging a 300-line page component that has no tests will fail the commit even if you only changed 1 line.
+
+### Coverage check
+
+**After implementation:** List every source file created or modified in Stage 1. For each, ensure a test file exists (create one if not). Then run the **hook simulation** — NOT individual `vitest run` calls:
 
 ```bash
 npx vitest related src/file1.ts src/file2.ts [all source files...] --run \

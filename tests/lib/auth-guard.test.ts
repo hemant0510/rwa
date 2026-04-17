@@ -128,9 +128,10 @@ describe("requireCounsellor", () => {
     expect((result.error as Response).status).toBe(401);
   });
 
-  it("returns 403 when user exists but is not in counsellors table", async () => {
+  it("returns 403 when user is neither counsellor nor SA", async () => {
     mockGetAuthUser.mockResolvedValue({ id: "auth-user-999" });
     mockCounsellorFindUnique.mockResolvedValue(null);
+    mockSuperAdminFindUnique.mockResolvedValue(null);
 
     const result = await requireCounsellor();
 
@@ -141,7 +142,7 @@ describe("requireCounsellor", () => {
     expect((result.error as Response).status).toBe(403);
   });
 
-  it("returns 403 when counsellor is inactive (suspended)", async () => {
+  it("returns 403 when counsellor is inactive and no SA row", async () => {
     mockCounsellorFindUnique.mockResolvedValue({
       id: "c-1",
       authUserId: "auth-c-1",
@@ -149,6 +150,7 @@ describe("requireCounsellor", () => {
       name: "Asha Patel",
       isActive: false,
     });
+    mockSuperAdminFindUnique.mockResolvedValue(null);
 
     const result = await requireCounsellor();
 
@@ -157,7 +159,7 @@ describe("requireCounsellor", () => {
     expect(body.error.code).toBe("FORBIDDEN");
   });
 
-  it("returns counsellor context when active", async () => {
+  it("returns counsellor context with isSuperAdmin=false when active", async () => {
     mockCounsellorFindUnique.mockResolvedValue({
       id: "c-1",
       authUserId: "auth-c-1",
@@ -174,12 +176,54 @@ describe("requireCounsellor", () => {
       authUserId: "auth-c-1",
       email: "counsellor@rwa.com",
       name: "Asha Patel",
+      isSuperAdmin: false,
     });
+  });
+
+  it("returns SA fallback context when counsellor not found but SA is active", async () => {
+    mockCounsellorFindUnique.mockResolvedValue(null);
+    mockSuperAdminFindUnique.mockResolvedValue({
+      id: "sa-1",
+      email: "sa@platform.com",
+      name: "Super Admin",
+      isActive: true,
+    });
+
+    const result = await requireCounsellor();
+
+    expect(result.error).toBeNull();
+    expect(result.data).toEqual({
+      counsellorId: "__super_admin__",
+      authUserId: "auth-c-1",
+      email: "sa@platform.com",
+      name: "Super Admin",
+      isSuperAdmin: true,
+    });
+  });
+
+  it("returns 403 when counsellor inactive and SA also inactive", async () => {
+    mockCounsellorFindUnique.mockResolvedValue({
+      id: "c-1",
+      authUserId: "auth-c-1",
+      email: "c@rwa.com",
+      name: "C",
+      isActive: false,
+    });
+    mockSuperAdminFindUnique.mockResolvedValue({
+      id: "sa-1",
+      email: "sa@rwa.com",
+      name: "SA",
+      isActive: false,
+    });
+
+    const result = await requireCounsellor();
+    expect(result.data).toBeNull();
   });
 
   it("queries counsellors by authUserId from Supabase user", async () => {
     mockGetAuthUser.mockResolvedValue({ id: "specific-auth-id" });
     mockCounsellorFindUnique.mockResolvedValue(null);
+    mockSuperAdminFindUnique.mockResolvedValue(null);
 
     await requireCounsellor();
 

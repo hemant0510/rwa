@@ -8,7 +8,10 @@ export async function GET() {
 
   try {
     const assignments = await prisma.counsellorSocietyAssignment.findMany({
-      where: { counsellorId: auth.data.counsellorId, isActive: true },
+      where: {
+        ...(auth.data.isSuperAdmin ? {} : { counsellorId: auth.data.counsellorId }),
+        isActive: true,
+      },
       orderBy: [{ isPrimary: "desc" }, { assignedAt: "desc" }],
       select: {
         assignedAt: true,

@@ -5,6 +5,17 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 import { AnnouncementBanner } from "@/components/features/announcements/AnnouncementBanner";
 
+// Mock useSocietyId
+vi.mock("@/hooks/useSocietyId", () => ({
+  useSocietyId: () => ({
+    societyId: "soc-1",
+    societyName: "Test Society",
+    societyCode: "TST",
+    isSuperAdminViewing: false,
+    saQueryString: "",
+  }),
+}));
+
 // Mock the service module
 const mockGetUnread = vi.fn();
 const mockMarkRead = vi.fn();

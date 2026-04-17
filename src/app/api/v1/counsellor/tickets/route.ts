@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
   try {
     const escalations = await prisma.residentTicketEscalation.findMany({
       where: {
-        counsellorId: auth.data.counsellorId,
+        ...(auth.data.isSuperAdmin ? {} : { counsellorId: auth.data.counsellorId }),
         status: { in: [...statuses] },
         ...(societyIdParam ? { ticket: { societyId: societyIdParam } } : {}),
       },

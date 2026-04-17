@@ -84,4 +84,37 @@ describe("GET /api/v1/counsellor/societies", () => {
     const res = await GET();
     expect(res.status).toBe(500);
   });
+
+  it("returns all societies for super admin (no counsellorId filter)", async () => {
+    mockRequireCounsellor.mockResolvedValue({
+      data: {
+        counsellorId: "__super_admin__",
+        authUserId: "auth-sa",
+        email: "sa@x.com",
+        name: "SA",
+        isSuperAdmin: true,
+      },
+      error: null,
+    });
+    mockPrisma.counsellorSocietyAssignment.findMany.mockResolvedValue([
+      {
+        assignedAt: new Date("2026-01-01"),
+        isPrimary: true,
+        society: {
+          id: "s-1",
+          name: "Alpha",
+          societyCode: "ALPHA",
+          city: "Pune",
+          state: "MH",
+          totalUnits: 120,
+        },
+      },
+    ]);
+    const res = await GET();
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.societies).toHaveLength(1);
+    const call = mockPrisma.counsellorSocietyAssignment.findMany.mock.calls[0][0];
+    expect(call.where).not.toHaveProperty("counsellorId");
+  });
 });

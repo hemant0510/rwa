@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 
-import { internalError, parseBody, successResponse } from "@/lib/api-helpers";
+import { forbiddenError, internalError, parseBody, successResponse } from "@/lib/api-helpers";
 import { requireCounsellor } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { updateCounsellorSelfSchema } from "@/lib/validations/counsellor";
@@ -8,6 +8,17 @@ import { updateCounsellorSelfSchema } from "@/lib/validations/counsellor";
 export async function GET() {
   const auth = await requireCounsellor();
   if (auth.error) return auth.error;
+
+  // SA viewing counsellor portal — return SA identity
+  if (auth.data.isSuperAdmin) {
+    return successResponse({
+      id: auth.data.counsellorId,
+      authUserId: auth.data.authUserId,
+      email: auth.data.email,
+      name: auth.data.name,
+      isSuperAdmin: true,
+    });
+  }
 
   try {
     const counsellor = await prisma.counsellor.findUnique({
@@ -49,6 +60,8 @@ export async function GET() {
 export async function PATCH(request: NextRequest) {
   const auth = await requireCounsellor();
   if (auth.error) return auth.error;
+  if (auth.data.isSuperAdmin)
+    return forbiddenError("Super Admin cannot perform counsellor actions");
 
   const { data, error } = await parseBody(request, updateCounsellorSelfSchema);
   if (error) return error;

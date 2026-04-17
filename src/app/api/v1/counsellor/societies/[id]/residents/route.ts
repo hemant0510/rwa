@@ -14,7 +14,11 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
   const { id: societyId } = await params;
   const counsellorId = auth.data.counsellorId;
 
-  const accessError = await assertCounsellorSocietyAccess(counsellorId, societyId);
+  const accessError = await assertCounsellorSocietyAccess(
+    counsellorId,
+    societyId,
+    auth.data.isSuperAdmin,
+  );
   if (accessError) return accessError;
 
   try {

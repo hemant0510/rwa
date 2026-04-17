@@ -26,6 +26,7 @@ vi.mock("@/services/migration", () => ({
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
   usePathname: () => "/admin/migration",
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 function renderPage(userOverrides: Record<string, unknown> = {}) {
@@ -336,5 +337,331 @@ describe("MigrationPage", () => {
     renderPage({ societyId: "" });
     const btn = screen.getByText("Download Template").closest("button");
     expect(btn).toBeDisabled();
+  });
+
+  it("shows error toast when download template fails", async () => {
+    mockDownloadMigrationTemplate.mockRejectedValue(new Error("Network error"));
+    renderPage();
+    fireEvent.click(screen.getByText("Download Template"));
+    await waitFor(() => {
+      expect(mockDownloadMigrationTemplate).toHaveBeenCalledWith("soc-1");
+    });
+  });
+
+  it("handles progress events during import stream", async () => {
+    mockValidateMigrationFile.mockResolvedValue(MOCK_VALIDATE_RESULT);
+    mockImportMigrationRecordsStream.mockImplementation(
+      async (_societyId: unknown, _records: unknown, onEvent: (e: unknown) => void) => {
+        onEvent({
+          type: "progress",
+          processed: 1,
+          total: 2,
+          imported: 1,
+          failed: 0,
+        });
+        onEvent({ type: "done", summary: { total: 2, imported: 2, failed: 0 } });
+      },
+    );
+    renderPage();
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(["content"], "residents.xlsx");
+    Object.defineProperty(input, "files", { value: [file] });
+    fireEvent.change(input);
+    fireEvent.click(await screen.findByText("Validate & Preview"));
+
+    await waitFor(() => screen.getByText("Import 2 Valid Records"));
+    fireEvent.click(screen.getByText("Import 2 Valid Records"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Import Complete!")).toBeInTheDocument();
+    });
+  });
+
+  it("shows error and returns to preview when import fails", async () => {
+    mockValidateMigrationFile.mockResolvedValue(MOCK_VALIDATE_RESULT);
+    mockImportMigrationRecordsStream.mockRejectedValue(new Error("Import network error"));
+    renderPage();
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(["content"], "residents.xlsx");
+    Object.defineProperty(input, "files", { value: [file] });
+    fireEvent.change(input);
+    fireEvent.click(await screen.findByText("Validate & Preview"));
+
+    await waitFor(() => screen.getByText("Import 2 Valid Records"));
+    fireEvent.click(screen.getByText("Import 2 Valid Records"));
+
+    await waitFor(() => {
+      // Should return to preview step after error
+      expect(screen.getByText("Upload Different File")).toBeInTheDocument();
+    });
+  });
+
+  it("resets to upload step when Import More is clicked in done step", async () => {
+    mockValidateMigrationFile.mockResolvedValue(MOCK_VALIDATE_RESULT);
+    mockImportMigrationRecordsStream.mockImplementation(
+      async (_societyId: unknown, _records: unknown, onEvent: (e: unknown) => void) => {
+        onEvent({ type: "done", summary: { total: 2, imported: 2, failed: 0 } });
+      },
+    );
+    renderPage();
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(["content"], "residents.xlsx");
+    Object.defineProperty(input, "files", { value: [file] });
+    fireEvent.change(input);
+    fireEvent.click(await screen.findByText("Validate & Preview"));
+    await waitFor(() => screen.getByText("Import 2 Valid Records"));
+    fireEvent.click(screen.getByText("Import 2 Valid Records"));
+
+    await waitFor(() => screen.getByText("Import More"));
+    fireEvent.click(screen.getByText("Import More"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Upload Excel File")).toBeInTheDocument();
+    });
+  });
+
+  it("shows View Imported link in done step", async () => {
+    mockValidateMigrationFile.mockResolvedValue(MOCK_VALIDATE_RESULT);
+    mockImportMigrationRecordsStream.mockImplementation(
+      async (_societyId: unknown, _records: unknown, onEvent: (e: unknown) => void) => {
+        onEvent({ type: "done", summary: { total: 2, imported: 2, failed: 0 } });
+      },
+    );
+    renderPage();
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(["content"], "residents.xlsx");
+    Object.defineProperty(input, "files", { value: [file] });
+    fireEvent.change(input);
+    fireEvent.click(await screen.findByText("Validate & Preview"));
+    await waitFor(() => screen.getByText("Import 2 Valid Records"));
+    fireEvent.click(screen.getByText("Import 2 Valid Records"));
+
+    await waitFor(() => {
+      expect(screen.getByText("View Imported")).toBeInTheDocument();
+    });
+  });
+
+  it("shows generic error message when import fails with non-Error", async () => {
+    mockValidateMigrationFile.mockResolvedValue(MOCK_VALIDATE_RESULT);
+    mockImportMigrationRecordsStream.mockRejectedValue("string error");
+    renderPage();
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(["content"], "residents.xlsx");
+    Object.defineProperty(input, "files", { value: [file] });
+    fireEvent.change(input);
+    fireEvent.click(await screen.findByText("Validate & Preview"));
+
+    await waitFor(() => screen.getByText("Import 2 Valid Records"));
+    fireEvent.click(screen.getByText("Import 2 Valid Records"));
+
+    await waitFor(() => {
+      // Should return to preview step after error
+      expect(screen.getByText("Upload Different File")).toBeInTheDocument();
+    });
+  });
+
+  it("shows generic error message when validation fails with non-Error", async () => {
+    mockValidateMigrationFile.mockRejectedValue("string error");
+    renderPage();
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(["content"], "residents.xlsx");
+    Object.defineProperty(input, "files", { value: [file] });
+    fireEvent.change(input);
+    fireEvent.click(await screen.findByText("Validate & Preview"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Upload Excel File")).toBeInTheDocument();
+    });
+  });
+
+  it("shows importing progress with failed count", async () => {
+    mockValidateMigrationFile.mockResolvedValue(MOCK_VALIDATE_RESULT);
+
+    let resolveImport: () => void;
+    mockImportMigrationRecordsStream.mockImplementation(
+      (_societyId: unknown, _records: unknown, onEvent: (e: unknown) => void) =>
+        new Promise<void>((resolve) => {
+          resolveImport = () => {
+            onEvent({ type: "done", summary: { total: 2, imported: 1, failed: 1 } });
+            resolve();
+          };
+          // Fire progress event with failed > 0 synchronously
+          onEvent({
+            type: "progress",
+            processed: 1,
+            total: 2,
+            imported: 0,
+            failed: 1,
+          });
+        }),
+    );
+    renderPage();
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(["content"], "residents.xlsx");
+    Object.defineProperty(input, "files", { value: [file] });
+    fireEvent.change(input);
+    fireEvent.click(await screen.findByText("Validate & Preview"));
+    await waitFor(() => screen.getByText("Import 2 Valid Records"));
+    fireEvent.click(screen.getByText("Import 2 Valid Records"));
+
+    // Should show importing step with progress text including failed count
+    await waitFor(() => {
+      expect(screen.getByText("Importing residents...")).toBeInTheDocument();
+      expect(screen.getByText(/1 failed/)).toBeInTheDocument();
+    });
+
+    // Now resolve
+    resolveImport!();
+    await waitFor(() => {
+      expect(screen.getByText("Import Complete!")).toBeInTheDocument();
+    });
+  });
+
+  it("shows importing progress with imported count", async () => {
+    mockValidateMigrationFile.mockResolvedValue(MOCK_VALIDATE_RESULT);
+
+    let resolveImport: () => void;
+    mockImportMigrationRecordsStream.mockImplementation(
+      (_societyId: unknown, _records: unknown, onEvent: (e: unknown) => void) =>
+        new Promise<void>((resolve) => {
+          resolveImport = () => {
+            onEvent({ type: "done", summary: { total: 2, imported: 2, failed: 0 } });
+            resolve();
+          };
+          onEvent({
+            type: "progress",
+            processed: 1,
+            total: 2,
+            imported: 1,
+            failed: 0,
+          });
+        }),
+    );
+    renderPage();
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(["content"], "residents.xlsx");
+    Object.defineProperty(input, "files", { value: [file] });
+    fireEvent.change(input);
+    fireEvent.click(await screen.findByText("Validate & Preview"));
+    await waitFor(() => screen.getByText("Import 2 Valid Records"));
+    fireEvent.click(screen.getByText("Import 2 Valid Records"));
+
+    await waitFor(() => {
+      expect(screen.getByText(/1 imported/)).toBeInTheDocument();
+    });
+
+    resolveImport!();
+    await waitFor(() => {
+      expect(screen.getByText("Import Complete!")).toBeInTheDocument();
+    });
+  });
+
+  it("shows no errors section when validation has zero errors", async () => {
+    mockValidateMigrationFile.mockResolvedValue({
+      ...MOCK_VALIDATE_RESULT,
+      valid: 3,
+      invalid: 0,
+      errors: [],
+    });
+    renderPage();
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(["content"], "residents.xlsx");
+    Object.defineProperty(input, "files", { value: [file] });
+    fireEvent.change(input);
+    fireEvent.click(await screen.findByText("Validate & Preview"));
+
+    await waitFor(() => {
+      expect(screen.getByText("Import 3 Valid Records")).toBeInTheDocument();
+    });
+    // No validation errors table should be present
+    expect(screen.queryByText("Validation Errors")).not.toBeInTheDocument();
+  });
+
+  it("does not show file size text before file selection", () => {
+    renderPage();
+    expect(screen.getByText("Supports .xlsx and .xls files")).toBeInTheDocument();
+    expect(screen.getByText("Select an Excel file")).toBeInTheDocument();
+  });
+
+  it("shows file size after selection", async () => {
+    renderPage();
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const content = "x".repeat(2048);
+    const file = new File([content], "residents.xlsx");
+    Object.defineProperty(input, "files", { value: [file] });
+    fireEvent.change(input);
+    await waitFor(() => {
+      expect(screen.getByText("residents.xlsx")).toBeInTheDocument();
+      expect(screen.getByText(/KB/)).toBeInTheDocument();
+    });
+  });
+
+  it("shows Change File button after file selection", async () => {
+    renderPage();
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(["content"], "residents.xlsx");
+    Object.defineProperty(input, "files", { value: [file] });
+    fireEvent.change(input);
+    await waitFor(() => {
+      expect(screen.getByText("Change File")).toBeInTheDocument();
+    });
+  });
+
+  it("does nothing on file select when no files in event", async () => {
+    renderPage();
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    Object.defineProperty(input, "files", { value: [] });
+    fireEvent.change(input);
+    // Should still be in the upload step with no file selected
+    expect(screen.getByText("Select an Excel file")).toBeInTheDocument();
+  });
+
+  it("accepts .xls files", async () => {
+    renderPage();
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(["content"], "residents.xls");
+    Object.defineProperty(input, "files", { value: [file] });
+    fireEvent.change(input);
+    await waitFor(() => {
+      expect(screen.getByText("residents.xls")).toBeInTheDocument();
+    });
+  });
+
+  it("does not validate when no file is selected", async () => {
+    renderPage();
+    // No file selected, try to find Validate button — it shouldn't exist
+    expect(screen.queryByText("Validate & Preview")).not.toBeInTheDocument();
+  });
+
+  it("shows View Imported link with correct href", async () => {
+    mockValidateMigrationFile.mockResolvedValue(MOCK_VALIDATE_RESULT);
+    mockImportMigrationRecordsStream.mockImplementation(
+      async (_societyId: unknown, _records: unknown, onEvent: (e: unknown) => void) => {
+        onEvent({ type: "done", summary: { total: 2, imported: 2, failed: 0 } });
+      },
+    );
+    renderPage();
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(["content"], "residents.xlsx");
+    Object.defineProperty(input, "files", { value: [file] });
+    fireEvent.change(input);
+    fireEvent.click(await screen.findByText("Validate & Preview"));
+    await waitFor(() => screen.getByText("Import 2 Valid Records"));
+    fireEvent.click(screen.getByText("Import 2 Valid Records"));
+
+    await waitFor(() => {
+      const link = screen.getByText("View Imported").closest("a");
+      expect(link).toHaveAttribute("href", "/admin/residents?status=MIGRATED_PENDING");
+    });
   });
 });

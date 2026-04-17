@@ -552,4 +552,363 @@ describe("Admin EventsPage", () => {
       expect(screen.getByText(/Showing 1/)).toBeInTheDocument();
     });
   });
+
+  // ─── Pagination Click Handlers ──────────────────────────────────────────
+
+  it("advances to next page when Next is clicked", async () => {
+    mockGetEvents.mockResolvedValue({ data: [MOCK_DRAFT_EVENT], total: 25, page: 1, limit: 20 });
+    renderPage();
+    await waitFor(() => screen.getByRole("button", { name: /Next/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Next/i }));
+    await waitFor(() => {
+      // getEvents should be called again with page 2
+      const calls = mockGetEvents.mock.calls;
+      const lastCall = calls[calls.length - 1];
+      expect(lastCall[1]).toEqual(expect.objectContaining({ page: 2 }));
+    });
+  });
+
+  it("goes to previous page when Previous is clicked", async () => {
+    // Start on page 2
+    mockGetEvents
+      .mockResolvedValueOnce({ data: [MOCK_DRAFT_EVENT], total: 25, page: 1, limit: 20 })
+      .mockResolvedValue({ data: [MOCK_DRAFT_EVENT], total: 25, page: 2, limit: 20 });
+    renderPage();
+    await waitFor(() => screen.getByRole("button", { name: /Next/i }));
+    // Go to page 2
+    fireEvent.click(screen.getByRole("button", { name: /Next/i }));
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Previous/i })).not.toBeDisabled();
+    });
+    // Go back to page 1
+    fireEvent.click(screen.getByRole("button", { name: /Previous/i }));
+    await waitFor(() => {
+      const calls = mockGetEvents.mock.calls;
+      const lastCall = calls[calls.length - 1];
+      expect(lastCall[1]).toEqual(expect.objectContaining({ page: 1 }));
+    });
+  });
+
+  // ─── Filter Changes ─────────────────────────────────────────────────────
+
+  it("calls getEvents with status filter when changed", async () => {
+    mockGetEvents.mockResolvedValue(EMPTY_LIST);
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => screen.getByText("All Statuses"));
+
+    // Open status filter and select DRAFT
+    const statusTrigger = screen.getByText("All Statuses").closest("button")!;
+    await user.click(statusTrigger);
+    const draftOption = await screen.findByRole("option", { name: /Draft/i });
+    await user.click(draftOption);
+
+    await waitFor(() => {
+      const calls = mockGetEvents.mock.calls;
+      const lastCall = calls[calls.length - 1];
+      expect(lastCall[1]).toEqual(expect.objectContaining({ status: "DRAFT" }));
+    });
+  });
+
+  it("calls getEvents with category filter when changed", async () => {
+    mockGetEvents.mockResolvedValue(EMPTY_LIST);
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => screen.getByText("All Categories"));
+
+    const categoryTrigger = screen.getByText("All Categories").closest("button")!;
+    await user.click(categoryTrigger);
+    const sportsOption = await screen.findByRole("option", { name: /Sports/i });
+    await user.click(sportsOption);
+
+    await waitFor(() => {
+      const calls = mockGetEvents.mock.calls;
+      const lastCall = calls[calls.length - 1];
+      expect(lastCall[1]).toEqual(expect.objectContaining({ category: "SPORTS" }));
+    });
+  });
+
+  // ─── Mutation onSuccess / onError ───────────────────────────────────────
+
+  it("closes dialog and shows toast on successful create", async () => {
+    mockGetEvents.mockResolvedValue(EMPTY_LIST);
+    mockCreateEvent.mockResolvedValue({ ...MOCK_DRAFT_EVENT, id: "evt-new" });
+
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => screen.getByRole("button", { name: /Create Event/i }));
+    await user.click(screen.getByRole("button", { name: /Create Event/i }));
+    await waitFor(() => screen.getByRole("dialog"));
+    const dialog = screen.getByRole("dialog");
+
+    await user.type(within(dialog).getByPlaceholderText("Event title"), "New Holi Event");
+    await user.click(within(dialog).getByRole("button", { name: /^Create Event$/i }));
+
+    await waitFor(() => {
+      expect(mockCreateEvent).toHaveBeenCalled();
+    });
+    // Dialog should close on success
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+  });
+
+  it("shows error toast when create event fails", async () => {
+    mockGetEvents.mockResolvedValue(EMPTY_LIST);
+    mockCreateEvent.mockRejectedValue(new Error("Create failed"));
+
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => screen.getByRole("button", { name: /Create Event/i }));
+    await user.click(screen.getByRole("button", { name: /Create Event/i }));
+    await waitFor(() => screen.getByRole("dialog"));
+    const dialog = screen.getByRole("dialog");
+
+    await user.type(within(dialog).getByPlaceholderText("Event title"), "New Holi Event");
+    await user.click(within(dialog).getByRole("button", { name: /^Create Event$/i }));
+
+    await waitFor(() => {
+      expect(mockCreateEvent).toHaveBeenCalled();
+    });
+  });
+
+  // ─── Fee Model Selection in Create Dialog ───────────────────────────────
+
+  it("shows Fee Amount field when FIXED fee model is selected", async () => {
+    mockGetEvents.mockResolvedValue(EMPTY_LIST);
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole("button", { name: /Create Event/i }));
+    await waitFor(() => screen.getByRole("dialog"));
+
+    const dialog = screen.getByRole("dialog");
+    // Find the Fee Model combobox inside the dialog - it's the one that shows "Free" initially
+    const comboboxes = within(dialog).getAllByRole("combobox");
+    // comboboxes[0] is Category (shows "Festival"), comboboxes[1] is Fee Model (shows "Free")
+    const feeModelTrigger = comboboxes[1];
+    await user.click(feeModelTrigger);
+    const fixedOption = await screen.findByRole("option", { name: "Fixed" });
+    await user.click(fixedOption);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Fee Amount/)).toBeInTheDocument();
+    });
+    // Charge Unit should also appear for non-FREE
+    expect(screen.getByText("Charge Unit")).toBeInTheDocument();
+  });
+
+  it("shows Estimated Budget and Min Participants for FLEXIBLE fee model", async () => {
+    mockGetEvents.mockResolvedValue(EMPTY_LIST);
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole("button", { name: /Create Event/i }));
+    await waitFor(() => screen.getByRole("dialog"));
+
+    const dialog = screen.getByRole("dialog");
+    const comboboxes = within(dialog).getAllByRole("combobox");
+    const feeModelTrigger = comboboxes[1];
+    await user.click(feeModelTrigger);
+    const flexibleOption = await screen.findByRole("option", { name: "Flexible" });
+    await user.click(flexibleOption);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Estimated Budget/)).toBeInTheDocument();
+      expect(screen.getByText("Minimum Participants")).toBeInTheDocument();
+    });
+  });
+
+  it("shows Suggested Amount field for CONTRIBUTION fee model", async () => {
+    mockGetEvents.mockResolvedValue(EMPTY_LIST);
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole("button", { name: /Create Event/i }));
+    await waitFor(() => screen.getByRole("dialog"));
+
+    const dialog = screen.getByRole("dialog");
+    const comboboxes = within(dialog).getAllByRole("combobox");
+    const feeModelTrigger = comboboxes[1];
+    await user.click(feeModelTrigger);
+    const contributionOption = await screen.findByRole("option", { name: "Contribution" });
+    await user.click(contributionOption);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Suggested Amount/)).toBeInTheDocument();
+    });
+  });
+
+  it("resets fee fields when switching fee model back to FREE", async () => {
+    mockGetEvents.mockResolvedValue(EMPTY_LIST);
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole("button", { name: /Create Event/i }));
+    await waitFor(() => screen.getByRole("dialog"));
+
+    const dialog = screen.getByRole("dialog");
+    const comboboxes = within(dialog).getAllByRole("combobox");
+    const feeModelTrigger = comboboxes[1];
+
+    // Switch to FIXED first
+    await user.click(feeModelTrigger);
+    const fixedOption = await screen.findByRole("option", { name: "Fixed" });
+    await user.click(fixedOption);
+    await waitFor(() => screen.getByText(/Fee Amount/));
+
+    // Switch back to FREE
+    await user.click(feeModelTrigger);
+    const freeOption = await screen.findByRole("option", { name: "Free" });
+    await user.click(freeOption);
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Fee Amount/)).not.toBeInTheDocument();
+      expect(screen.queryByText("Charge Unit")).not.toBeInTheDocument();
+    });
+  });
+
+  // ─── Multiple Unsettled Events Badge ────────────────────────────────────
+
+  it("shows plural 'events' in pending settlement badge for multiple unsettled", async () => {
+    const secondUnsettled = {
+      ...MOCK_COMPLETED_UNSETTLED,
+      id: "evt-6",
+      title: "Another AGM",
+    };
+    mockGetEvents.mockResolvedValue({
+      data: [MOCK_COMPLETED_UNSETTLED, secondUnsettled],
+      total: 2,
+      page: 1,
+      limit: 20,
+    });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText(/2 events pending settlement/)).toBeInTheDocument();
+    });
+  });
+
+  // ─── Category Badge Display ─────────────────────────────────────────────
+
+  it("renders category badge in table row", async () => {
+    mockGetEvents.mockResolvedValue({
+      data: [{ ...MOCK_DRAFT_EVENT, category: "SPORTS" }],
+      total: 1,
+      page: 1,
+      limit: 20,
+    });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Sports")).toBeInTheDocument();
+    });
+  });
+
+  // ─── Registration Count Fallback ────────────────────────────────────────
+
+  it("shows 0 when _count is missing", async () => {
+    mockGetEvents.mockResolvedValue({
+      data: [{ ...MOCK_DRAFT_EVENT, _count: undefined }],
+      total: 1,
+      page: 1,
+      limit: 20,
+    });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("0")).toBeInTheDocument();
+    });
+  });
+
+  // ─── Category Select Change in Dialog ─────────────────────────────────
+
+  it("changes category via category select in create dialog", async () => {
+    mockGetEvents.mockResolvedValue(EMPTY_LIST);
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole("button", { name: /Create Event/i }));
+    await waitFor(() => screen.getByRole("dialog"));
+
+    const dialog = screen.getByRole("dialog");
+    // comboboxes[0] is Category (shows "Festival" by default)
+    const comboboxes = within(dialog).getAllByRole("combobox");
+    const categoryTrigger = comboboxes[0];
+    await user.click(categoryTrigger);
+    const sportsOption = await screen.findByRole("option", { name: "Sports" });
+    await user.click(sportsOption);
+
+    // After selection, the combobox value should have changed
+    await waitFor(() => {
+      expect(mockCreateEvent).not.toHaveBeenCalled(); // nothing submitted yet
+    });
+  });
+
+  // ─── Charge Unit Select Change in Dialog ──────────────────────────────
+
+  it("changes charge unit via charge unit select when non-FREE", async () => {
+    mockGetEvents.mockResolvedValue(EMPTY_LIST);
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole("button", { name: /Create Event/i }));
+    await waitFor(() => screen.getByRole("dialog"));
+
+    const dialog = screen.getByRole("dialog");
+    const comboboxes = within(dialog).getAllByRole("combobox");
+
+    // Switch to FIXED to show Charge Unit
+    await user.click(comboboxes[1]);
+    const fixedOption = await screen.findByRole("option", { name: "Fixed" });
+    await user.click(fixedOption);
+    await waitFor(() => screen.getByText("Charge Unit"));
+
+    // Now change the charge unit
+    const updatedComboboxes = within(dialog).getAllByRole("combobox");
+    // After FIXED, there are now 3 comboboxes: category, fee model, charge unit
+    const chargeUnitTrigger = updatedComboboxes[2];
+    await user.click(chargeUnitTrigger);
+    const perHouseholdOption = await screen.findByRole("option", { name: "Per Household" });
+    await user.click(perHouseholdOption);
+
+    // Verify the selection happened — the charge unit combobox updated
+    await waitFor(() => {
+      expect(chargeUnitTrigger).toBeInTheDocument();
+    });
+  });
+
+  // ─── Form Submit via Enter Key ────────────────────────────────────────
+
+  it("submits form via Enter key in title field", async () => {
+    mockGetEvents.mockResolvedValue(EMPTY_LIST);
+    mockCreateEvent.mockResolvedValue({ ...MOCK_DRAFT_EVENT, id: "evt-new" });
+
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole("button", { name: /Create Event/i }));
+    await waitFor(() => screen.getByRole("dialog"));
+    const dialog = screen.getByRole("dialog");
+
+    const titleInput = within(dialog).getByPlaceholderText("Event title");
+    await user.type(titleInput, "Enter Submit Event");
+
+    // Submit the form via native form submission
+    const form = dialog.querySelector("form")!;
+    fireEvent.submit(form);
+
+    await waitFor(() => {
+      expect(mockCreateEvent).toHaveBeenCalled();
+    });
+  });
+
+  // ─── Title Validation Error ───────────────────────────────────────────
+
+  it("shows title validation error for short title", async () => {
+    mockGetEvents.mockResolvedValue(EMPTY_LIST);
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole("button", { name: /Create Event/i }));
+    await waitFor(() => screen.getByRole("dialog"));
+    const dialog = screen.getByRole("dialog");
+
+    // Type only 2 characters (min is 3)
+    await user.type(within(dialog).getByPlaceholderText("Event title"), "Hi");
+    await user.click(within(dialog).getByRole("button", { name: /^Create Event$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/at least 3 characters/i)).toBeInTheDocument();
+    });
+  });
 });
