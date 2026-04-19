@@ -26,6 +26,7 @@ export default defineConfig({
         "src/middleware.ts",
         "src/components/layout/AdminSidebar.tsx",
         "src/components/layout/ResidentSidebar.tsx",
+        "src/components/layout/CounsellorSidebar.tsx",
         "src/components/layout/Header.tsx",
         "src/components/features/**",
         "src/components/ui/StatusBadge.tsx",

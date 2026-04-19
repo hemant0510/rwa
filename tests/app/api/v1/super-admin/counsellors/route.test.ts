@@ -8,10 +8,18 @@ const mockPrisma = vi.hoisted(() => ({
     count: vi.fn(),
     create: vi.fn(),
   },
+  user: {
+    findFirst: vi.fn(),
+  },
+  superAdmin: {
+    findUnique: vi.fn(),
+  },
 }));
 const mockAdminCreateUser = vi.hoisted(() => vi.fn());
 const mockAdminDeleteUser = vi.hoisted(() => vi.fn());
 const mockAdminGenerateLink = vi.hoisted(() => vi.fn());
+const mockAdminListUsers = vi.hoisted(() => vi.fn());
+const mockAdminUpdateUserById = vi.hoisted(() => vi.fn());
 const mockSendEmail = vi.hoisted(() => vi.fn());
 const mockLogAudit = vi.hoisted(() => vi.fn());
 
@@ -24,6 +32,8 @@ vi.mock("@/lib/supabase/admin", () => ({
         createUser: mockAdminCreateUser,
         deleteUser: mockAdminDeleteUser,
         generateLink: mockAdminGenerateLink,
+        listUsers: mockAdminListUsers,
+        updateUserById: mockAdminUpdateUserById,
       },
     },
   }),
@@ -142,10 +152,17 @@ describe("POST /api/v1/super-admin/counsellors", () => {
     vi.clearAllMocks();
     mockRequireSuperAdmin.mockResolvedValue(mockSAContext);
     mockPrisma.counsellor.findUnique.mockResolvedValue(null);
+    mockPrisma.user.findFirst.mockResolvedValue(null);
+    mockPrisma.superAdmin.findUnique.mockResolvedValue(null);
     mockAdminCreateUser.mockResolvedValue({
       data: { user: { id: "auth-c-1" } },
       error: null,
     });
+    mockAdminListUsers.mockResolvedValue({
+      data: { users: [] },
+      error: null,
+    });
+    mockAdminUpdateUserById.mockResolvedValue({ error: null });
     mockPrisma.counsellor.create.mockResolvedValue({
       id: "c-1",
       authUserId: "auth-c-1",
@@ -153,7 +170,9 @@ describe("POST /api/v1/super-admin/counsellors", () => {
       name: validCreate.name,
     });
     mockAdminGenerateLink.mockResolvedValue({
-      data: { properties: { action_link: "https://setup.example.com/token" } },
+      data: {
+        properties: { hashed_token: "hash-abc", verification_type: "invite" },
+      },
       error: null,
     });
     mockSendEmail.mockResolvedValue(undefined);
@@ -202,14 +221,14 @@ describe("POST /api/v1/super-admin/counsellors", () => {
     expect(body.inviteSent).toBe(true);
 
     expect(mockAdminCreateUser).toHaveBeenCalledWith(
-      expect.objectContaining({ email: validCreate.email, email_confirm: false }),
+      expect.objectContaining({ email: validCreate.email, email_confirm: true }),
     );
     expect(mockPrisma.counsellor.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           authUserId: "auth-c-1",
           isActive: true,
-          mfaRequired: true,
+          mfaRequired: false,
         }),
       }),
     );
@@ -217,6 +236,11 @@ describe("POST /api/v1/super-admin/counsellors", () => {
       expect.objectContaining({ type: "invite", email: validCreate.email }),
     );
     expect(mockSendEmail).toHaveBeenCalled();
+    const sentHtml = mockSendEmail.mock.calls[0][2] as string;
+    expect(sentHtml).toContain("/auth/confirm?");
+    expect(sentHtml).toContain("token_hash=hash-abc");
+    expect(sentHtml).toContain("type=invite");
+    expect(sentHtml).toContain("next=%2Fcounsellor%2Fset-password");
     expect(mockLogAudit).toHaveBeenCalledWith(
       expect.objectContaining({ actionType: "SA_COUNSELLOR_CREATED" }),
     );
@@ -229,6 +253,32 @@ describe("POST /api/v1/super-admin/counsellors", () => {
     const body = await res.json();
     expect(body.inviteSent).toBe(false);
     expect(mockSendEmail).not.toHaveBeenCalled();
+  });
+
+  it("falls back to a recovery link when invite link says user is already registered", async () => {
+    mockAdminGenerateLink
+      .mockResolvedValueOnce({ data: null, error: { message: "User already registered" } })
+      .mockResolvedValueOnce({
+        data: {
+          properties: { hashed_token: "hash-recovery", verification_type: "recovery" },
+        },
+        error: null,
+      });
+
+    const res = await POST(makePostRequest(validCreate) as never);
+
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.inviteSent).toBe(true);
+    expect(mockAdminGenerateLink).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ type: "invite", email: validCreate.email }),
+    );
+    expect(mockAdminGenerateLink).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ type: "recovery", email: validCreate.email }),
+    );
+    expect(mockSendEmail).toHaveBeenCalled();
   });
 
   it("rolls back auth user when prisma.counsellor.create throws", async () => {
@@ -282,5 +332,103 @@ describe("POST /api/v1/super-admin/counsellors", () => {
     const body = await res.json();
     expect(body.inviteSent).toBe(false);
     expect(mockSendEmail).not.toHaveBeenCalled();
+  });
+
+  it("adopts orphaned auth user when createUser says already registered", async () => {
+    mockAdminCreateUser.mockResolvedValue({
+      data: null,
+      error: { message: "User already registered" },
+    });
+    mockAdminListUsers.mockResolvedValue({
+      data: { users: [{ id: "orphan-auth-1", email: validCreate.email.toUpperCase() }] },
+      error: null,
+    });
+    mockPrisma.counsellor.create.mockResolvedValue({
+      id: "c-1",
+      authUserId: "orphan-auth-1",
+      email: validCreate.email,
+      name: validCreate.name,
+    });
+
+    const res = await POST(makePostRequest(validCreate) as never);
+
+    expect(res.status).toBe(201);
+    expect(mockPrisma.counsellor.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ authUserId: "orphan-auth-1" }),
+      }),
+    );
+  });
+
+  it("returns 409 when email is claimed by a User role", async () => {
+    mockAdminCreateUser.mockResolvedValue({
+      data: null,
+      error: { message: "Email already registered" },
+    });
+    mockAdminListUsers.mockResolvedValue({
+      data: { users: [{ id: "claimed-auth-1", email: validCreate.email }] },
+      error: null,
+    });
+    mockPrisma.user.findFirst.mockResolvedValue({ id: "user-1" });
+
+    const res = await POST(makePostRequest(validCreate) as never);
+
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.error.code).toBe("EMAIL_CLAIMED_BY_OTHER_ROLE");
+    expect(mockPrisma.counsellor.create).not.toHaveBeenCalled();
+  });
+
+  it("returns 409 when email is claimed by a SuperAdmin", async () => {
+    mockAdminCreateUser.mockResolvedValue({
+      data: null,
+      error: { message: "User already registered" },
+    });
+    mockAdminListUsers.mockResolvedValue({
+      data: { users: [{ id: "claimed-auth-2", email: validCreate.email }] },
+      error: null,
+    });
+    mockPrisma.superAdmin.findUnique.mockResolvedValue({ id: "sa-1" });
+
+    const res = await POST(makePostRequest(validCreate) as never);
+
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.error.code).toBe("EMAIL_CLAIMED_BY_OTHER_ROLE");
+    expect(mockPrisma.counsellor.create).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when auth reports already registered but listUsers finds no match", async () => {
+    mockAdminCreateUser.mockResolvedValue({
+      data: null,
+      error: { message: "User already registered" },
+    });
+    mockAdminListUsers.mockResolvedValue({
+      data: { users: [] },
+      error: null,
+    });
+
+    const res = await POST(makePostRequest(validCreate) as never);
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error.code).toBe("AUTH_ERROR");
+  });
+
+  it("skips auth user delete on rollback when counsellor was adopted", async () => {
+    mockAdminCreateUser.mockResolvedValue({
+      data: null,
+      error: { message: "User already registered" },
+    });
+    mockAdminListUsers.mockResolvedValue({
+      data: { users: [{ id: "orphan-auth-2", email: validCreate.email }] },
+      error: null,
+    });
+    mockPrisma.counsellor.create.mockRejectedValue(new Error("DB error"));
+
+    const res = await POST(makePostRequest(validCreate) as never);
+
+    expect(res.status).toBe(500);
+    expect(mockAdminDeleteUser).not.toHaveBeenCalled();
   });
 });

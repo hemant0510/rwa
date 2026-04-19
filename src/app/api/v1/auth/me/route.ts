@@ -33,6 +33,29 @@ export async function GET() {
     });
   }
 
+  // Check counsellors table (platform-level ombudspersons, no society scope)
+  const counsellor = await prisma.counsellor.findUnique({
+    where: { authUserId: authUser.id },
+    select: { id: true, name: true, email: true, isActive: true },
+  });
+
+  if (counsellor) {
+    if (!counsellor.isActive) {
+      return NextResponse.json({ error: "Counsellor account is suspended" }, { status: 403 });
+    }
+    return NextResponse.json({
+      id: counsellor.id,
+      name: counsellor.name,
+      email: counsellor.email,
+      role: "COUNSELLOR" as const,
+      societyId: null,
+      permission: null,
+      redirectTo: "/counsellor",
+      multiSociety: false,
+      societies: null,
+    });
+  }
+
   // Fetch ALL user records for this auth account (may belong to multiple societies)
   const allUsers = await prisma.user.findMany({
     where: { authUserId: authUser.id },

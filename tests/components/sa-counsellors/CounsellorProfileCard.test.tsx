@@ -15,8 +15,9 @@ const base: CounsellorDetail = {
   bio: "10 years ombudsperson experience",
   publicBlurb: "Neutral advisor",
   isActive: true,
-  mfaRequired: true,
-  mfaEnrolledAt: new Date("2026-03-01").toISOString(),
+  mfaRequired: false,
+  mfaEnrolledAt: null,
+  passwordSetAt: new Date("2026-03-01").toISOString(),
   lastLoginAt: new Date("2026-04-01").toISOString(),
   createdAt: new Date("2026-01-01").toISOString(),
   updatedAt: new Date("2026-04-01").toISOString(),
@@ -33,7 +34,7 @@ describe("CounsellorProfileCard", () => {
     expect(screen.getByText("AAAAA1111A")).toBeInTheDocument();
   });
 
-  it("renders Active badge when counsellor is active", () => {
+  it("renders Active badge when counsellor has logged in", () => {
     render(<CounsellorProfileCard counsellor={base} />);
     expect(screen.getByText("Active")).toBeInTheDocument();
   });
@@ -43,10 +44,26 @@ describe("CounsellorProfileCard", () => {
     expect(screen.getByText("Suspended")).toBeInTheDocument();
   });
 
-  it("renders Invite pending badge when active and MFA not enrolled", () => {
-    render(<CounsellorProfileCard counsellor={{ ...base, mfaEnrolledAt: null }} />);
+  it("renders Invite pending badge when password not yet set", () => {
+    render(
+      <CounsellorProfileCard counsellor={{ ...base, passwordSetAt: null, lastLoginAt: null }} />,
+    );
     expect(screen.getByText("Invite pending")).toBeInTheDocument();
-    expect(screen.getByText("Not enrolled")).toBeInTheDocument();
+    expect(screen.queryByText("Active")).not.toBeInTheDocument();
+  });
+
+  it("renders Awaiting first login badge when password set but never logged in", () => {
+    render(
+      <CounsellorProfileCard
+        counsellor={{
+          ...base,
+          passwordSetAt: new Date("2026-03-01").toISOString(),
+          lastLoginAt: null,
+        }}
+      />,
+    );
+    expect(screen.getByText("Awaiting first login")).toBeInTheDocument();
+    expect(screen.queryByText("Active")).not.toBeInTheDocument();
   });
 
   it("renders photo when provided", () => {
@@ -80,5 +97,14 @@ describe("CounsellorProfileCard", () => {
   it("does NOT render blurb when publicBlurb is null", () => {
     render(<CounsellorProfileCard counsellor={{ ...base, publicBlurb: null }} />);
     expect(screen.queryByText("Neutral advisor")).not.toBeInTheDocument();
+  });
+
+  it("renders MFA 'Enrolled' line when mfaEnrolledAt is set", () => {
+    render(
+      <CounsellorProfileCard
+        counsellor={{ ...base, mfaEnrolledAt: new Date("2026-02-01").toISOString() }}
+      />,
+    );
+    expect(screen.getByText(/Enrolled/)).toBeInTheDocument();
   });
 });

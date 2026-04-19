@@ -10,6 +10,7 @@ export interface CounsellorListItem {
   photoUrl: string | null;
   isActive: boolean;
   mfaEnrolledAt: string | null;
+  passwordSetAt: string | null;
   lastLoginAt: string | null;
   createdAt: string;
   _count: { assignments: number };
@@ -28,6 +29,7 @@ export interface CounsellorDetail {
   isActive: boolean;
   mfaRequired: boolean;
   mfaEnrolledAt: string | null;
+  passwordSetAt: string | null;
   lastLoginAt: string | null;
   createdAt: string;
   updatedAt: string;

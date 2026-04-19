@@ -1,50 +1,33 @@
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const mockUpdateUser = vi.hoisted(() => vi.fn());
-const mockEnroll = vi.hoisted(() => vi.fn());
-const mockChallenge = vi.hoisted(() => vi.fn());
-const mockVerify = vi.hoisted(() => vi.fn());
+const mockSignOut = vi.hoisted(() => vi.fn());
 const mockToastSuccess = vi.hoisted(() => vi.fn());
 const mockToastError = vi.hoisted(() => vi.fn());
 const mockPush = vi.hoisted(() => vi.fn());
 const mockRefresh = vi.hoisted(() => vi.fn());
+const mockFetch = vi.hoisted(() => vi.fn());
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: mockPush, refresh: mockRefresh }),
 }));
 vi.mock("@/lib/supabase/client", () => ({
   createClient: () => ({
-    auth: {
-      updateUser: mockUpdateUser,
-      mfa: {
-        enroll: mockEnroll,
-        challenge: mockChallenge,
-        verify: mockVerify,
-      },
-    },
+    auth: { signOut: mockSignOut },
   }),
 }));
 vi.mock("sonner", () => ({
   toast: { success: mockToastSuccess, error: mockToastError },
 }));
 
-import { render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-
 import CounsellorSetPasswordPage from "@/app/counsellor/set-password/page";
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockUpdateUser.mockResolvedValue({ error: null });
-  mockEnroll.mockResolvedValue({
-    data: {
-      id: "factor-1",
-      totp: { qr_code: "data:image/png;base64,xx", secret: "ABCDEF" },
-    },
-    error: null,
-  });
-  mockChallenge.mockResolvedValue({ data: { id: "chall-1" }, error: null });
-  mockVerify.mockResolvedValue({ error: null });
+  mockSignOut.mockResolvedValue({ error: null });
+  mockFetch.mockResolvedValue({ ok: true, json: async () => ({ passwordSet: true }) });
+  vi.stubGlobal("fetch", mockFetch);
 });
 
 async function fillPasswords(
@@ -57,7 +40,7 @@ async function fillPasswords(
   await user.click(screen.getByRole("button", { name: "Set Password & Continue" }));
 }
 
-describe("CounsellorSetPasswordPage — password stage", () => {
+describe("CounsellorSetPasswordPage", () => {
   it("renders heading and password form", () => {
     render(<CounsellorSetPasswordPage />);
     expect(screen.getByText("Set Up Your Account")).toBeInTheDocument();
@@ -72,7 +55,7 @@ describe("CounsellorSetPasswordPage — password stage", () => {
     await waitFor(() => {
       expect(mockToastError).toHaveBeenCalledWith("Password must be at least 8 characters.");
     });
-    expect(mockUpdateUser).not.toHaveBeenCalled();
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 
   it("rejects when passwords do not match", async () => {
@@ -82,123 +65,77 @@ describe("CounsellorSetPasswordPage — password stage", () => {
     await waitFor(() => {
       expect(mockToastError).toHaveBeenCalledWith("Passwords do not match.");
     });
-    expect(mockUpdateUser).not.toHaveBeenCalled();
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  it("shows error and stays when updateUser fails", async () => {
-    mockUpdateUser.mockResolvedValue({ error: { message: "weak password" } });
+  it("posts password to first-password endpoint on submit", async () => {
+    const user = userEvent.setup();
+    render(<CounsellorSetPasswordPage />);
+    await fillPasswords(user);
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        "/api/v1/counsellor/first-password",
+        expect.objectContaining({
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password: "password123" }),
+        }),
+      );
+    });
+  });
+
+  it("signs out, toasts success, and redirects to home on success", async () => {
+    const user = userEvent.setup();
+    render(<CounsellorSetPasswordPage />);
+    await fillPasswords(user);
+    await waitFor(() => {
+      expect(mockSignOut).toHaveBeenCalled();
+      expect(mockToastSuccess).toHaveBeenCalledWith(
+        "Password updated. Please log in with your new credentials.",
+      );
+      expect(mockPush).toHaveBeenCalledWith("/");
+      expect(mockRefresh).toHaveBeenCalled();
+    });
+  });
+
+  it("shows server error message and stays on page when endpoint returns error", async () => {
+    mockFetch.mockResolvedValue({
+      ok: false,
+      json: async () => ({ error: { code: "PASSWORD_UPDATE_FAILED", message: "weak password" } }),
+    });
     const user = userEvent.setup();
     render(<CounsellorSetPasswordPage />);
     await fillPasswords(user);
     await waitFor(() => {
       expect(mockToastError).toHaveBeenCalledWith("weak password");
     });
+    expect(mockSignOut).not.toHaveBeenCalled();
+    expect(mockPush).not.toHaveBeenCalled();
   });
 
-  it("shows error when enrollment fails", async () => {
-    mockEnroll.mockResolvedValue({ data: null, error: { message: "rate" } });
-    const user = userEvent.setup();
-    render(<CounsellorSetPasswordPage />);
-    await fillPasswords(user);
-    await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith("rate");
+  it("falls back to generic message when error body is malformed", async () => {
+    mockFetch.mockResolvedValue({
+      ok: false,
+      json: async () => {
+        throw new Error("bad json");
+      },
     });
-  });
-
-  it("uses generic message when enroll error has no message", async () => {
-    mockEnroll.mockResolvedValue({ data: null, error: {} });
-    const user = userEvent.setup();
-    render(<CounsellorSetPasswordPage />);
-    await fillPasswords(user);
-    await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith("Failed to start MFA enrollment");
-    });
-  });
-
-  it("advances to MFA stage on successful enrollment, showing QR + secret", async () => {
-    const user = userEvent.setup();
-    render(<CounsellorSetPasswordPage />);
-    await fillPasswords(user);
-    await waitFor(() => {
-      expect(screen.getByLabelText("6-digit code")).toBeInTheDocument();
-      expect(screen.getByRole("img", { name: "MFA QR code" })).toBeInTheDocument();
-      expect(screen.getByText(/ABCDEF/)).toBeInTheDocument();
-    });
-  });
-
-  it("shows generic toast when updateUser throws", async () => {
-    mockUpdateUser.mockRejectedValue(new Error("net"));
     const user = userEvent.setup();
     render(<CounsellorSetPasswordPage />);
     await fillPasswords(user);
     await waitFor(() => {
       expect(mockToastError).toHaveBeenCalledWith("Failed to set password. Please try again.");
     });
+    expect(mockSignOut).not.toHaveBeenCalled();
   });
-});
 
-describe("CounsellorSetPasswordPage — MFA stage", () => {
-  async function advanceToMfa() {
+  it("shows generic toast when fetch throws", async () => {
+    mockFetch.mockRejectedValue(new Error("net"));
     const user = userEvent.setup();
     render(<CounsellorSetPasswordPage />);
     await fillPasswords(user);
-    await waitFor(() => expect(screen.getByLabelText("6-digit code")).toBeInTheDocument());
-    return user;
-  }
-
-  it("disables Verify until 6 digits entered", async () => {
-    await advanceToMfa();
-    expect(screen.getByRole("button", { name: "Verify & Continue" })).toBeDisabled();
-  });
-
-  it("shows error when challenge fails", async () => {
-    mockChallenge.mockResolvedValue({ data: null, error: { message: "ch fail" } });
-    const user = await advanceToMfa();
-    await user.type(screen.getByLabelText("6-digit code"), "123456");
-    await user.click(screen.getByRole("button", { name: "Verify & Continue" }));
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith("ch fail");
-    });
-  });
-
-  it("uses generic message when challenge error has no message", async () => {
-    mockChallenge.mockResolvedValue({ data: null, error: {} });
-    const user = await advanceToMfa();
-    await user.type(screen.getByLabelText("6-digit code"), "123456");
-    await user.click(screen.getByRole("button", { name: "Verify & Continue" }));
-    await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith("Failed to challenge MFA factor");
-    });
-  });
-
-  it("shows error when verify fails", async () => {
-    mockVerify.mockResolvedValue({ error: { message: "bad code" } });
-    const user = await advanceToMfa();
-    await user.type(screen.getByLabelText("6-digit code"), "123456");
-    await user.click(screen.getByRole("button", { name: "Verify & Continue" }));
-    await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith("bad code");
-    });
-  });
-
-  it("redirects to /counsellor/onboarding on full success", async () => {
-    const user = await advanceToMfa();
-    await user.type(screen.getByLabelText("6-digit code"), "123456");
-    await user.click(screen.getByRole("button", { name: "Verify & Continue" }));
-    await waitFor(() => {
-      expect(mockToastSuccess).toHaveBeenCalledWith(expect.stringContaining("onboarding"));
-      expect(mockPush).toHaveBeenCalledWith("/counsellor/onboarding");
-      expect(mockRefresh).toHaveBeenCalled();
-    });
-  });
-
-  it("shows generic toast when verify throws", async () => {
-    mockVerify.mockRejectedValue(new Error("net"));
-    const user = await advanceToMfa();
-    await user.type(screen.getByLabelText("6-digit code"), "123456");
-    await user.click(screen.getByRole("button", { name: "Verify & Continue" }));
-    await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith("Verification failed. Please try again.");
+      expect(mockToastError).toHaveBeenCalledWith("Failed to set password. Please try again.");
     });
   });
 });

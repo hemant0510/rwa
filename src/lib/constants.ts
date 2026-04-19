@@ -1,5 +1,6 @@
 export const APP_NAME = "RWA Connect";
-export const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+export const APP_URL =
+  process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
 // Fee defaults
 export const DEFAULT_JOINING_FEE = 1000;

@@ -17,6 +17,7 @@ describe("GET /api/v1/auth/me", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetActiveSocietyId.mockResolvedValue(null);
+    mockPrisma.counsellor.findUnique.mockResolvedValue(null);
   });
 
   it("returns 401 when not authenticated", async () => {
@@ -48,6 +49,46 @@ describe("GET /api/v1/auth/me", () => {
     expect(body.role).toBe("SUPER_ADMIN");
     expect(body.redirectTo).toBe("/sa/dashboard");
     expect(body.multiSociety).toBe(false);
+  });
+
+  it("returns counsellor data when auth user is a counsellor", async () => {
+    mockSupabaseClient.auth.getUser.mockResolvedValueOnce({
+      data: { user: { id: "auth-1" } },
+      error: null,
+    });
+    mockPrisma.superAdmin.findUnique.mockResolvedValue(null);
+    mockPrisma.counsellor.findUnique.mockResolvedValue({
+      id: "c-1",
+      name: "Asha Patel",
+      email: "asha@eden.com",
+      isActive: true,
+    });
+
+    const res = await GET();
+    const body = await res.json();
+    expect(body.role).toBe("COUNSELLOR");
+    expect(body.redirectTo).toBe("/counsellor");
+    expect(body.id).toBe("c-1");
+    expect(mockPrisma.user.findMany).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 when counsellor is suspended", async () => {
+    mockSupabaseClient.auth.getUser.mockResolvedValueOnce({
+      data: { user: { id: "auth-1" } },
+      error: null,
+    });
+    mockPrisma.superAdmin.findUnique.mockResolvedValue(null);
+    mockPrisma.counsellor.findUnique.mockResolvedValue({
+      id: "c-1",
+      name: "Asha Patel",
+      email: "asha@eden.com",
+      isActive: false,
+    });
+
+    const res = await GET();
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error).toMatch(/suspended/i);
   });
 
   it("returns 404 when no user records found", async () => {

@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import { errorResponse, internalError, notFoundError, successResponse } from "@/lib/api-helpers";
 import { logAudit } from "@/lib/audit";
 import { requireSuperAdmin } from "@/lib/auth-guard";
-import { APP_URL } from "@/lib/constants";
+import { generateCounsellorSetupLink } from "@/lib/counsellor/setup-link";
 import { sendEmail } from "@/lib/email";
 import { getCounsellorInviteEmailHtml } from "@/lib/email-templates/counsellor-invite";
 import { prisma } from "@/lib/prisma";
@@ -20,7 +20,7 @@ export async function POST(_request: NextRequest, { params }: RouteContext) {
   try {
     const counsellor = await prisma.counsellor.findUnique({
       where: { id },
-      select: { id: true, email: true, name: true, isActive: true, mfaEnrolledAt: true },
+      select: { id: true, email: true, name: true, isActive: true, passwordSetAt: true },
     });
 
     if (!counsellor) return notFoundError("Counsellor not found");
@@ -33,7 +33,7 @@ export async function POST(_request: NextRequest, { params }: RouteContext) {
       });
     }
 
-    if (counsellor.mfaEnrolledAt) {
+    if (counsellor.passwordSetAt) {
       return errorResponse({
         code: "ALREADY_ONBOARDED",
         message: "Counsellor has already set up their account",
@@ -42,22 +42,17 @@ export async function POST(_request: NextRequest, { params }: RouteContext) {
     }
 
     const supabaseAdmin = createAdminClient();
-    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: "invite",
-      email: counsellor.email,
-      options: { redirectTo: `${APP_URL}/counsellor/set-password` },
-    });
+    const linkResult = await generateCounsellorSetupLink(supabaseAdmin, counsellor.email);
 
-    if (linkError || !linkData?.properties?.action_link) {
+    if (linkResult.actionLink === null) {
       return errorResponse({
         code: "LINK_GENERATION_FAILED",
-        message: linkError?.message ?? "Failed to generate invite link",
+        message: linkResult.errorMessage,
         status: 500,
       });
     }
 
-    const setupUrl = linkData.properties.action_link;
-    const html = getCounsellorInviteEmailHtml(counsellor.name, setupUrl);
+    const html = getCounsellorInviteEmailHtml(counsellor.name, linkResult.actionLink);
     await sendEmail(
       counsellor.email,
       `Welcome to RWA Connect — Set Up Your Counsellor Account`,

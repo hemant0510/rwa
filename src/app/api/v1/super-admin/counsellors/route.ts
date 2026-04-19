@@ -3,7 +3,8 @@ import { NextRequest } from "next/server";
 import { errorResponse, internalError, parseBody, successResponse } from "@/lib/api-helpers";
 import { logAudit } from "@/lib/audit";
 import { requireSuperAdmin } from "@/lib/auth-guard";
-import { APP_URL } from "@/lib/constants";
+import { resolveCounsellorAuthUserId } from "@/lib/counsellor/resolve-auth-user";
+import { generateCounsellorSetupLink } from "@/lib/counsellor/setup-link";
 import { sendEmail } from "@/lib/email";
 import { getCounsellorInviteEmailHtml } from "@/lib/email-templates/counsellor-invite";
 import { prisma } from "@/lib/prisma";
@@ -46,6 +47,7 @@ export async function GET(request: NextRequest) {
           photoUrl: true,
           isActive: true,
           mfaEnrolledAt: true,
+          passwordSetAt: true,
           lastLoginAt: true,
           createdAt: true,
           _count: { select: { assignments: { where: { isActive: true } } } },
@@ -80,22 +82,16 @@ export async function POST(request: NextRequest) {
 
   const supabaseAdmin = createAdminClient();
 
-  const randomPassword = `tmp_${crypto.randomUUID()}`;
-  const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-    email: data.email,
-    password: randomPassword,
-    email_confirm: false,
-  });
-
-  if (authError || !authData?.user) {
+  const resolved = await resolveCounsellorAuthUserId(supabaseAdmin, data.email);
+  if (!resolved.ok) {
     return errorResponse({
-      code: "AUTH_ERROR",
-      message: authError?.message ?? "Failed to create auth account",
-      status: 400,
+      code: resolved.code,
+      message: resolved.message,
+      status: resolved.code === "EMAIL_CLAIMED_BY_OTHER_ROLE" ? 409 : 400,
     });
   }
 
-  const authUserId = authData.user.id;
+  const { authUserId, adopted } = resolved;
 
   try {
     const counsellor = await prisma.counsellor.create({
@@ -108,22 +104,19 @@ export async function POST(request: NextRequest) {
         bio: data.bio ?? null,
         publicBlurb: data.publicBlurb ?? null,
         isActive: true,
-        mfaRequired: true,
+        mfaRequired: false,
       },
     });
 
-    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: "invite",
-      email: data.email,
-      options: { redirectTo: `${APP_URL}/counsellor/set-password` },
-    });
+    const linkResult = await generateCounsellorSetupLink(supabaseAdmin, data.email);
 
     let inviteSent = false;
-    if (!linkError && linkData?.properties?.action_link) {
-      const setupUrl = linkData.properties.action_link;
-      const html = getCounsellorInviteEmailHtml(counsellor.name, setupUrl);
+    if (linkResult.actionLink) {
+      const html = getCounsellorInviteEmailHtml(counsellor.name, linkResult.actionLink);
       await sendEmail(data.email, `Welcome to RWA Connect — Set Up Your Counsellor Account`, html);
       inviteSent = true;
+    } else {
+      console.error("Counsellor setup link generation failed:", linkResult.errorMessage);
     }
 
     void logAudit({
@@ -144,7 +137,9 @@ export async function POST(request: NextRequest) {
       201,
     );
   } catch (err) {
-    await supabaseAdmin.auth.admin.deleteUser(authUserId).catch(() => undefined);
+    if (!adopted) {
+      await supabaseAdmin.auth.admin.deleteUser(authUserId).catch(() => undefined);
+    }
     console.error("Counsellor creation error:", err);
     return internalError("Failed to create counsellor");
   }

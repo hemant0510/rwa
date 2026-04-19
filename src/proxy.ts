@@ -12,7 +12,9 @@ const PUBLIC_ROUTES = [
   "/check-email",
   "/forgot-password",
   "/reset-password",
+  "/counsellor/set-password",
 ];
+const PUBLIC_PAGE_AUTH_PREFIX = ["/auth/callback", "/auth/confirm"];
 const PUBLIC_API_PREFIX = [
   "/api/v1/auth/",
   "/api/v1/residents/register",
@@ -33,7 +35,8 @@ const ACTIVITY_COOKIE = "admin-last-activity";
 
 function isPublicPage(pathname: string): boolean {
   if (PUBLIC_ROUTES.includes(pathname)) return true;
-  return PUBLIC_PAGE_PREFIX.some((prefix) => pathname.startsWith(prefix));
+  if (PUBLIC_PAGE_PREFIX.some((prefix) => pathname.startsWith(prefix))) return true;
+  return PUBLIC_PAGE_AUTH_PREFIX.some((prefix) => pathname.startsWith(prefix));
 }
 
 function isPublicApi(pathname: string): boolean {

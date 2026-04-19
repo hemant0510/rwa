@@ -13,6 +13,7 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { getCounsellorLifecycleState } from "@/lib/counsellor/lifecycle-state";
 import type { CounsellorDetail } from "@/types/counsellor";
 
 interface CounsellorProfileCardProps {
@@ -29,6 +30,7 @@ function formatDate(iso: string | null): string {
 }
 
 export function CounsellorProfileCard({ counsellor }: CounsellorProfileCardProps) {
+  const state = getCounsellorLifecycleState(counsellor);
   const isOnboarded = counsellor.mfaEnrolledAt !== null;
 
   return (
@@ -53,16 +55,18 @@ export function CounsellorProfileCard({ counsellor }: CounsellorProfileCardProps
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="truncate text-xl font-semibold">{counsellor.name}</h2>
-              {counsellor.isActive ? (
+              {state === "SUSPENDED" && <Badge variant="secondary">Suspended</Badge>}
+              {state === "INVITE_PENDING" && <Badge variant="outline">Invite pending</Badge>}
+              {state === "AWAITING_FIRST_LOGIN" && (
+                <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">
+                  Awaiting first login
+                </Badge>
+              )}
+              {state === "ACTIVE" && (
                 <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700">
                   <CheckCircle2 className="mr-1 h-3 w-3" />
                   Active
                 </Badge>
-              ) : (
-                <Badge variant="secondary">Suspended</Badge>
-              )}
-              {counsellor.isActive && !isOnboarded && (
-                <Badge variant="outline">Invite pending</Badge>
               )}
             </div>
             {counsellor.publicBlurb && (

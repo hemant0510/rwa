@@ -59,10 +59,11 @@ const activeOnboarded = {
   name: "Asha Patel",
   email: "asha@x.com",
   isActive: true,
-  mfaEnrolledAt: new Date().toISOString(),
+  passwordSetAt: new Date().toISOString(),
+  lastLoginAt: new Date().toISOString(),
 };
 
-const activePendingInvite = { ...activeOnboarded, mfaEnrolledAt: null };
+const activePendingInvite = { ...activeOnboarded, passwordSetAt: null, lastLoginAt: null };
 const suspended = { ...activeOnboarded, isActive: false };
 
 beforeEach(() => {

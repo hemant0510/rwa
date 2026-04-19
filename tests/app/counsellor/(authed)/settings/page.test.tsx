@@ -4,6 +4,7 @@ const mockGetMe = vi.hoisted(() => vi.fn());
 const mockListFactors = vi.hoisted(() => vi.fn());
 const mockUnenroll = vi.hoisted(() => vi.fn());
 const mockSignOut = vi.hoisted(() => vi.fn());
+const mockFetch = vi.hoisted(() => vi.fn());
 const mockToastSuccess = vi.hoisted(() => vi.fn());
 const mockToastError = vi.hoisted(() => vi.fn());
 const mockPush = vi.hoisted(() => vi.fn());
@@ -66,9 +67,11 @@ const profileNotEnrolled = { ...profileEnrolled, mfaEnrolledAt: null };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubGlobal("fetch", mockFetch);
   mockListFactors.mockResolvedValue({ data: { totp: [{ id: "factor-1" }] } });
   mockUnenroll.mockResolvedValue({ error: null });
   mockSignOut.mockResolvedValue(undefined);
+  mockFetch.mockResolvedValue({ ok: true });
 });
 
 describe("CounsellorSettingsPage", () => {
@@ -131,9 +134,35 @@ describe("CounsellorSettingsPage", () => {
     await user.click(screen.getByRole("button", { name: "Yes, reset" }));
     await waitFor(() => {
       expect(mockUnenroll).toHaveBeenCalledWith({ factorId: "factor-1" });
+      expect(mockFetch).toHaveBeenCalledWith("/api/v1/counsellor/mfa-status", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enrolled: false }),
+      });
       expect(mockToastSuccess).toHaveBeenCalledWith(expect.stringContaining("re-enrol"));
       expect(mockPush).toHaveBeenCalledWith("/counsellor/set-password");
     });
+  });
+
+  it("shows error when MFA reset sync fails", async () => {
+    mockGetMe.mockResolvedValue(profileEnrolled);
+    mockFetch.mockResolvedValue({ ok: false });
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /Reset MFA/ })).toBeInTheDocument(),
+    );
+    await user.click(screen.getByRole("button", { name: /Reset MFA/ }));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Yes, reset" })).toBeInTheDocument(),
+    );
+    await user.click(screen.getByRole("button", { name: "Yes, reset" }));
+    await waitFor(() => {
+      expect(mockToastError).toHaveBeenCalledWith(
+        "MFA was reset, but account state could not be updated.",
+      );
+    });
+    expect(mockPush).not.toHaveBeenCalledWith("/counsellor/set-password");
   });
 
   it("shows error when no MFA factor exists at reset time", async () => {

@@ -37,6 +37,24 @@ describe("proxy", () => {
     vi.clearAllMocks();
   });
 
+  // ─── Static files / Next.js internals ──────────────────────────────────────
+
+  it("skips static files with extensions (e.g. .svg)", async () => {
+    const req = makeRequest("/logo.svg");
+    const res = await proxy(req);
+
+    expect(mockUpdateSession).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
+  });
+
+  it("skips /_next internal routes", async () => {
+    const req = makeRequest("/_next/static/chunk.js");
+    const res = await proxy(req);
+
+    expect(mockUpdateSession).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
+  });
+
   // ─── Public API routes ────────────────────────────────────────────────────
 
   it("passes through /api/v1/auth routes (session refreshed, public)", async () => {
@@ -79,6 +97,39 @@ describe("proxy", () => {
     mockUpdateSession.mockResolvedValue({ user: null, supabaseResponse });
 
     const req = makeRequest("/");
+    const res = await proxy(req);
+
+    expect(mockUpdateSession).toHaveBeenCalledOnce();
+    expect(res).toBe(supabaseResponse);
+  });
+
+  it("passes through /counsellor/set-password (public route)", async () => {
+    const supabaseResponse = makeSupabaseResponse();
+    mockUpdateSession.mockResolvedValue({ user: null, supabaseResponse });
+
+    const req = makeRequest("/counsellor/set-password");
+    const res = await proxy(req);
+
+    expect(mockUpdateSession).toHaveBeenCalledOnce();
+    expect(res).toBe(supabaseResponse);
+  });
+
+  it("passes through /auth/callback (public route)", async () => {
+    const supabaseResponse = makeSupabaseResponse();
+    mockUpdateSession.mockResolvedValue({ user: null, supabaseResponse });
+
+    const req = makeRequest("/auth/callback");
+    const res = await proxy(req);
+
+    expect(mockUpdateSession).toHaveBeenCalledOnce();
+    expect(res).toBe(supabaseResponse);
+  });
+
+  it("passes through /auth/confirm (public route)", async () => {
+    const supabaseResponse = makeSupabaseResponse();
+    mockUpdateSession.mockResolvedValue({ user: null, supabaseResponse });
+
+    const req = makeRequest("/auth/confirm");
     const res = await proxy(req);
 
     expect(mockUpdateSession).toHaveBeenCalledOnce();

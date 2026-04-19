@@ -52,6 +52,15 @@ export default function CounsellorSettingsPage() {
         toast.error(unenrollError.message);
         return;
       }
+      const syncRes = await fetch("/api/v1/counsellor/mfa-status", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enrolled: false }),
+      });
+      if (!syncRes.ok) {
+        toast.error("MFA was reset, but account state could not be updated.");
+        return;
+      }
       toast.success("MFA reset. Please re-enrol from the set-password page.");
       setConfirmReset(false);
       router.push("/counsellor/set-password");

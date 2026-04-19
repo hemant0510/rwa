@@ -4,6 +4,8 @@ import { describe, it, expect } from "vitest";
 import { CounsellorRow } from "@/components/features/sa-counsellors/CounsellorRow";
 import type { CounsellorListItem } from "@/types/counsellor";
 
+const activeNow = new Date().toISOString();
+
 const base: CounsellorListItem = {
   id: "c-1",
   name: "Asha Patel",
@@ -11,9 +13,10 @@ const base: CounsellorListItem = {
   mobile: "+91 9876543210",
   photoUrl: null,
   isActive: true,
-  mfaEnrolledAt: new Date().toISOString(),
-  lastLoginAt: null,
-  createdAt: new Date().toISOString(),
+  mfaEnrolledAt: null,
+  passwordSetAt: activeNow,
+  lastLoginAt: activeNow,
+  createdAt: activeNow,
   _count: { assignments: 7 },
 };
 
@@ -46,18 +49,35 @@ describe("CounsellorRow", () => {
     expect(screen.getByText("Suspended")).toBeInTheDocument();
   });
 
-  it("shows Invite pending badge when active but not onboarded", () => {
-    render(<CounsellorRow counsellor={{ ...base, mfaEnrolledAt: null, isActive: true }} />);
+  it("shows Invite pending badge when password not yet set", () => {
+    render(
+      <CounsellorRow
+        counsellor={{ ...base, passwordSetAt: null, lastLoginAt: null, isActive: true }}
+      />,
+    );
     expect(screen.getByText("Invite pending")).toBeInTheDocument();
   });
 
-  it("shows MFA enabled indicator when onboarded", () => {
-    render(<CounsellorRow counsellor={base} />);
-    expect(screen.getByLabelText("MFA enabled")).toBeInTheDocument();
+  it("shows Awaiting first login badge when password set but never logged in", () => {
+    render(
+      <CounsellorRow
+        counsellor={{ ...base, passwordSetAt: activeNow, lastLoginAt: null, isActive: true }}
+      />,
+    );
+    expect(screen.getByText("Awaiting first login")).toBeInTheDocument();
   });
 
-  it("shows Pending indicator when not onboarded", () => {
-    render(<CounsellorRow counsellor={{ ...base, mfaEnrolledAt: null }} />);
-    expect(screen.getByLabelText("MFA not enrolled")).toBeInTheDocument();
+  it("shows Active indicator when counsellor has logged in", () => {
+    render(<CounsellorRow counsellor={base} />);
+    expect(screen.getByLabelText("Active")).toBeInTheDocument();
+  });
+
+  it("hides Active indicator when state is not ACTIVE", () => {
+    render(
+      <CounsellorRow
+        counsellor={{ ...base, passwordSetAt: null, lastLoginAt: null, isActive: true }}
+      />,
+    );
+    expect(screen.queryByLabelText("Active")).not.toBeInTheDocument();
   });
 });

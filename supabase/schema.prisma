@@ -539,7 +539,6 @@ model User {
   expensesReversed       Expense[]             @relation("ExpenseReversedBy")
   notifications          Notification[]
   broadcastsSent         Broadcast[]
-  auditLogs              AuditLog[]
   migrationBatchesUploaded MigrationBatch[]
   notificationPreferences  NotificationPreference[]
   ownedUnits             Unit[]                @relation("UnitPrimaryOwner")
@@ -858,7 +857,6 @@ model AuditLog {
   createdAt  DateTime @default(now()) @map("created_at")
 
   society    Society? @relation(fields: [societyId], references: [id])
-  user       User     @relation(fields: [userId], references: [id])
 
   @@map("audit_logs")
 }
@@ -1964,6 +1962,7 @@ model Counsellor {
   isActive      Boolean   @default(true) @map("is_active")
   mfaRequired   Boolean   @default(true) @map("mfa_required")
   mfaEnrolledAt DateTime? @map("mfa_enrolled_at")
+  passwordSetAt DateTime? @map("password_set_at")
   lastLoginAt   DateTime? @map("last_login_at")
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")

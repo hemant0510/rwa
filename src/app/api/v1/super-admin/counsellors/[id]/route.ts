@@ -31,6 +31,7 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
         isActive: true,
         mfaRequired: true,
         mfaEnrolledAt: true,
+        passwordSetAt: true,
         lastLoginAt: true,
         createdAt: true,
         updatedAt: true,

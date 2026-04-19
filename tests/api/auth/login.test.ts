@@ -9,9 +9,13 @@ const mockCreateClient = vi.hoisted(() =>
     auth: { signInWithPassword: mockSignInWithPassword },
   }),
 );
+const mockCounsellorUpdateMany = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/rate-limit", () => ({ checkRateLimitAsync: mockCheckRateLimitAsync }));
 vi.mock("@/lib/supabase/server", () => ({ createClient: mockCreateClient }));
+vi.mock("@/lib/prisma", () => ({
+  prisma: { counsellor: { updateMany: mockCounsellorUpdateMany } },
+}));
 
 import { POST } from "@/app/api/v1/auth/login/route";
 
@@ -28,7 +32,11 @@ describe("POST /api/v1/auth/login", () => {
     vi.clearAllMocks();
     mockCreateClient.mockResolvedValue({ auth: { signInWithPassword: mockSignInWithPassword } });
     mockCheckRateLimitAsync.mockResolvedValue({ allowed: true, remaining: 4, resetAt: 0 });
-    mockSignInWithPassword.mockResolvedValue({ error: null });
+    mockSignInWithPassword.mockResolvedValue({
+      data: { user: { id: "auth-user-1" } },
+      error: null,
+    });
+    mockCounsellorUpdateMany.mockResolvedValue({ count: 0 });
   });
 
   it("returns 422 for missing email", async () => {
@@ -62,12 +70,38 @@ describe("POST /api/v1/auth/login", () => {
   });
 
   it("returns 401 on invalid credentials", async () => {
-    mockSignInWithPassword.mockResolvedValue({ error: { message: "Invalid login credentials" } });
+    mockSignInWithPassword.mockResolvedValue({
+      data: null,
+      error: { message: "Invalid login credentials" },
+    });
     const res = await POST(makeReq({ email: "test@example.com", password: "password123" }));
     expect(res.status).toBe(401);
     const body = await res.json();
     expect(body.error.code).toBe("INVALID_CREDENTIALS");
     expect(body.error.message).toBe("Invalid login credentials");
+  });
+
+  it("stamps lastLoginAt on counsellor record for the authenticated user", async () => {
+    await POST(makeReq({ email: "asha@eden.com", password: "password123" }));
+    expect(mockCounsellorUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { authUserId: "auth-user-1" },
+        data: expect.objectContaining({ lastLoginAt: expect.any(Date) }),
+      }),
+    );
+  });
+
+  it("swallows counsellor updateMany rejection", async () => {
+    mockCounsellorUpdateMany.mockRejectedValue(new Error("db timeout"));
+    const res = await POST(makeReq({ email: "asha@eden.com", password: "password123" }));
+    expect(res.status).toBe(200);
+  });
+
+  it("skips lastLoginAt stamp when signIn returns no user", async () => {
+    mockSignInWithPassword.mockResolvedValue({ data: { user: null }, error: null });
+    const res = await POST(makeReq({ email: "test@example.com", password: "password123" }));
+    expect(res.status).toBe(200);
+    expect(mockCounsellorUpdateMany).not.toHaveBeenCalled();
   });
 
   it("returns 200 on successful login", async () => {

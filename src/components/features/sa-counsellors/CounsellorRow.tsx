@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 
-import { Briefcase, CheckCircle2, Mail, ShieldAlert } from "lucide-react";
+import { Briefcase, CheckCircle2, Mail } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { getCounsellorLifecycleState } from "@/lib/counsellor/lifecycle-state";
 import type { CounsellorListItem } from "@/types/counsellor";
 
 interface CounsellorRowProps {
@@ -13,7 +14,7 @@ interface CounsellorRowProps {
 
 export function CounsellorRow({ counsellor }: CounsellorRowProps) {
   const societyCount = counsellor._count.assignments;
-  const isOnboarded = counsellor.mfaEnrolledAt !== null;
+  const state = getCounsellorLifecycleState(counsellor);
 
   return (
     <Link
@@ -39,14 +40,22 @@ export function CounsellorRow({ counsellor }: CounsellorRowProps) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p className="truncate font-medium">{counsellor.name}</p>
-            {!counsellor.isActive && (
+            {state === "SUSPENDED" && (
               <Badge variant="secondary" className="text-xs">
                 Suspended
               </Badge>
             )}
-            {counsellor.isActive && !isOnboarded && (
+            {state === "INVITE_PENDING" && (
               <Badge variant="outline" className="text-xs">
                 Invite pending
+              </Badge>
+            )}
+            {state === "AWAITING_FIRST_LOGIN" && (
+              <Badge
+                variant="outline"
+                className="border-amber-200 bg-amber-50 text-xs text-amber-700"
+              >
+                Awaiting first login
               </Badge>
             )}
           </div>
@@ -61,18 +70,10 @@ export function CounsellorRow({ counsellor }: CounsellorRowProps) {
             <Briefcase className="h-3.5 w-3.5" />
             <span>{societyCount}</span>
           </div>
-          {isOnboarded ? (
-            <div className="flex items-center gap-1 text-green-600" aria-label="MFA enabled">
+          {state === "ACTIVE" && (
+            <div className="flex items-center gap-1 text-green-600" aria-label="Active">
               <CheckCircle2 className="h-3.5 w-3.5" />
-              <span className="hidden md:inline">MFA</span>
-            </div>
-          ) : (
-            <div
-              className="text-muted-foreground flex items-center gap-1"
-              aria-label="MFA not enrolled"
-            >
-              <ShieldAlert className="h-3.5 w-3.5" />
-              <span className="hidden md:inline">Pending</span>
+              <span className="hidden md:inline">Active</span>
             </div>
           )}
         </div>

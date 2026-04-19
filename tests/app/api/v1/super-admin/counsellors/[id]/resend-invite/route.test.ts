@@ -40,10 +40,12 @@ describe("POST /api/v1/super-admin/counsellors/[id]/resend-invite", () => {
       email: "asha@x.com",
       name: "Asha",
       isActive: true,
-      mfaEnrolledAt: null,
+      passwordSetAt: null,
     });
     mockGenerateLink.mockResolvedValue({
-      data: { properties: { action_link: "https://setup.example.com/token" } },
+      data: {
+        properties: { hashed_token: "hash-abc", verification_type: "invite" },
+      },
       error: null,
     });
     mockSendEmail.mockResolvedValue(undefined);
@@ -68,7 +70,7 @@ describe("POST /api/v1/super-admin/counsellors/[id]/resend-invite", () => {
       email: "asha@x.com",
       name: "Asha",
       isActive: false,
-      mfaEnrolledAt: null,
+      passwordSetAt: null,
     });
     const res = await POST(makeReq(), makeParams());
     expect(res.status).toBe(400);
@@ -76,13 +78,13 @@ describe("POST /api/v1/super-admin/counsellors/[id]/resend-invite", () => {
     expect(body.error.code).toBe("COUNSELLOR_SUSPENDED");
   });
 
-  it("returns 400 when counsellor has already enrolled MFA", async () => {
+  it("returns 400 when counsellor has already set their password", async () => {
     mockPrisma.counsellor.findUnique.mockResolvedValue({
       id: "c-1",
       email: "asha@x.com",
       name: "Asha",
       isActive: true,
-      mfaEnrolledAt: new Date(),
+      passwordSetAt: new Date(),
     });
     const res = await POST(makeReq(), makeParams());
     expect(res.status).toBe(400);
@@ -94,6 +96,30 @@ describe("POST /api/v1/super-admin/counsellors/[id]/resend-invite", () => {
     mockGenerateLink.mockResolvedValue({ data: null, error: { message: "rate" } });
     const res = await POST(makeReq(), makeParams());
     expect(res.status).toBe(500);
+  });
+
+  it("falls back to recovery when Supabase rejects a repeat invite", async () => {
+    mockGenerateLink
+      .mockResolvedValueOnce({ data: null, error: { message: "User already registered" } })
+      .mockResolvedValueOnce({
+        data: {
+          properties: { hashed_token: "hash-recovery", verification_type: "recovery" },
+        },
+        error: null,
+      });
+
+    const res = await POST(makeReq(), makeParams());
+
+    expect(res.status).toBe(200);
+    expect(mockGenerateLink).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ type: "invite", email: "asha@x.com" }),
+    );
+    expect(mockGenerateLink).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ type: "recovery", email: "asha@x.com" }),
+    );
+    expect(mockSendEmail).toHaveBeenCalled();
   });
 
   it("uses fallback message when generateLink error has no message", async () => {

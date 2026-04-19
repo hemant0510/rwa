@@ -26,6 +26,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { CardSkeleton } from "@/components/ui/LoadingSkeleton";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getCounsellorLifecycleState } from "@/lib/counsellor/lifecycle-state";
 import {
   deleteCounsellor,
   getCounsellor,
@@ -135,38 +136,47 @@ export default function CounsellorDetailPage() {
             <CounsellorProfileCard counsellor={data} />
 
             <div className="flex flex-wrap items-center gap-2 border-t pt-4">
-              {data.isActive && !data.mfaEnrolledAt && (
-                <Button
-                  variant="outline"
-                  onClick={() => resendInvite.mutate()}
-                  disabled={resendInvite.isPending}
-                >
-                  <Mail className="mr-1 h-4 w-4" />
-                  {/* v8 ignore start */}
-                  {resendInvite.isPending ? "Sending..." : "Resend invite"}
-                  {/* v8 ignore stop */}
-                </Button>
-              )}
+              {(() => {
+                const state = getCounsellorLifecycleState(data);
+                return (
+                  <>
+                    {state === "INVITE_PENDING" && (
+                      <Button
+                        variant="outline"
+                        onClick={() => resendInvite.mutate()}
+                        disabled={resendInvite.isPending}
+                      >
+                        <Mail className="mr-1 h-4 w-4" />
+                        {/* v8 ignore start */}
+                        {resendInvite.isPending ? "Sending..." : "Resend invite"}
+                        {/* v8 ignore stop */}
+                      </Button>
+                    )}
 
-              {data.isActive ? (
-                <Button
-                  variant="outline"
-                  onClick={() => toggleActive.mutate(false)}
-                  disabled={toggleActive.isPending}
-                >
-                  <PauseCircle className="mr-1 h-4 w-4" />
-                  Suspend
-                </Button>
-              ) : (
-                <Button
-                  variant="outline"
-                  onClick={() => toggleActive.mutate(true)}
-                  disabled={toggleActive.isPending}
-                >
-                  <PlayCircle className="mr-1 h-4 w-4" />
-                  Reactivate
-                </Button>
-              )}
+                    {state === "SUSPENDED" && (
+                      <Button
+                        variant="outline"
+                        onClick={() => toggleActive.mutate(true)}
+                        disabled={toggleActive.isPending}
+                      >
+                        <PlayCircle className="mr-1 h-4 w-4" />
+                        Reactivate
+                      </Button>
+                    )}
+
+                    {(state === "AWAITING_FIRST_LOGIN" || state === "ACTIVE") && (
+                      <Button
+                        variant="outline"
+                        onClick={() => toggleActive.mutate(false)}
+                        disabled={toggleActive.isPending}
+                      >
+                        <PauseCircle className="mr-1 h-4 w-4" />
+                        Suspend
+                      </Button>
+                    )}
+                  </>
+                );
+              })()}
 
               <div className="flex-1" />
 

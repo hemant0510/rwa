@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { errorResponse, internalError } from "@/lib/api-helpers";
+import { prisma } from "@/lib/prisma";
 import { checkRateLimitAsync } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 import { loginSchema } from "@/lib/validations/auth";
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = await createClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data: authData, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
       return errorResponse({
@@ -44,6 +45,15 @@ export async function POST(request: NextRequest) {
         message: error.message,
         status: 401,
       });
+    }
+
+    if (authData?.user?.id) {
+      await prisma.counsellor
+        .updateMany({
+          where: { authUserId: authData.user.id },
+          data: { lastLoginAt: new Date() },
+        })
+        .catch(() => undefined);
     }
 
     return NextResponse.json({ success: true });
