@@ -1,0 +1,15 @@
+# Dependabot — watches the Dockerfile base image (node:22-alpine) and opens a
+# PR whenever a patched tag is available. Referenced by deployment/plan.md
+# Phase 1. Extend ecosystems later (npm, github-actions) as needed.
+version: 2
+updates:
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "docker"
+    commit-message:
+      prefix: "chore(docker)"

@@ -111,6 +111,7 @@ export default defineConfig({
         "src/app/counsellor/**",
         "src/services/counsellors.ts",
         "src/services/counsellor-self.ts",
+        "src/app/api/health/**",
       ],
       exclude: [
         "src/lib/prisma.ts",

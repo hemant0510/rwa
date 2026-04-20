@@ -1,0 +1,62 @@
+# Build output
+.next
+out
+dist
+build
+
+# Dependencies (reinstalled inside the deps stage)
+node_modules
+
+# Version control & local tooling
+.git
+.gitignore
+.github
+.husky
+.vscode
+.idea
+.claude
+.cursor
+
+# Tests / coverage / e2e artifacts — not needed inside the runtime image
+tests
+coverage
+cov-existing
+playwright-report
+test-results
+vitest.config.ts
+playwright.config.ts
+eslint.config.*
+.prettierrc*
+.prettierignore
+tsconfig.tsbuildinfo
+
+# Secrets & env files (except the checked-in example)
+.env
+.env.*
+!.env.example
+
+# Docs & internal plans — shouldn't ship in the image
+execution_plan
+external_docs
+docs
+deployment
+README.md
+CLAUDE.md
+GEMINI.md
+AGENTS.md
+*.md
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# Local generated artifacts
+scripts/cov-existing
