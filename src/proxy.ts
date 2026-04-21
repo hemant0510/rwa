@@ -18,7 +18,7 @@ const PUBLIC_PAGE_AUTH_PREFIX = ["/auth/callback", "/auth/confirm"];
 const PUBLIC_API_PREFIX = [
   "/api/v1/auth/",
   "/api/v1/residents/register",
-  "/api/v1/health",
+  "/api/health",
   "/api/v1/societies/",
   "/api/cron",
 ];
