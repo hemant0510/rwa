@@ -129,7 +129,7 @@ jobs:
               --resource-group "$AZURE_RG" \
               --server "$REGISTRY" \
               --username "${{ github.actor }}" \
-              --password "${{ secrets.GHCR_READ_TOKEN }}"
+              --password "${{ secrets.GHCR_TOKEN }}"
 
       - name: Deploy new image to rwa-dev (+ switch port to 3000)
         uses: azure/cli@v2
