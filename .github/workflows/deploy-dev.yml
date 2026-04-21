@@ -99,11 +99,11 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate --schema supabase/schema.prisma
 
-      - name: Apply Prisma migrations (direct connection, not pooler)
+      - name: Sync schema to dev DB (prisma db push, session pooler)
         env:
           DATABASE_URL: ${{ secrets.DIRECT_URL }}
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
-        run: npx prisma migrate deploy --schema supabase/schema.prisma
+        run: npx prisma db push --schema supabase/schema.prisma --skip-generate --accept-data-loss
 
       - name: Seed master data
         env:
