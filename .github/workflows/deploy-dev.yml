@@ -103,7 +103,7 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DIRECT_URL }}
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
-        run: npx prisma db push --schema supabase/schema.prisma --skip-generate --accept-data-loss
+        run: npx prisma db push --schema supabase/schema.prisma --accept-data-loss
 
       - name: Seed master data
         env:
