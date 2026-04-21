@@ -17,16 +17,35 @@ set -euo pipefail
 # ─────────────────────────────────────────────
 # 0. Variables — edit these before running anything
 # ─────────────────────────────────────────────
-SUBSCRIPTION_ID="<azure-subscription-id>"
+SUBSCRIPTION_ID="ba8ef83b-93b0-4b3b-b376-fa2e80491ea9"
 LOCATION="centralindia"
 RG="rwa-rg-centralindia"
 LOG_WORKSPACE="rwa-logs"
 APP_INSIGHTS="rwa-appinsights"
 CA_ENV="rwa-env"
 
-GHCR_OWNER="<github-username-or-org>"           # lowercase
-GHCR_READ_TOKEN="<fine-grained-PAT-read-packages>"
-GHCR_USER="<github-username>"
+# ── GHCR configuration — secrets MUST come from the environment, not this file ──
+#
+# GHCR_OWNER = namespace in the image path `ghcr.io/<owner>/rwa`. Derived from
+#   the repo owner (github.com/hemant0510/rwa per `git remote -v`). Lowercase.
+#
+# GHCR_USER  = GitHub username that owns the PAT used to log in to ghcr.io.
+#   For a personal repo this equals GHCR_OWNER. If you're using a PAT from a
+#   different account (e.g. `hemant1234bhagat`, the reviewer listed in the
+#   plan's Phase 5b), override with:  export GHCR_USER=hemant1234bhagat
+#   That account must have read:packages access on the hemant0510/rwa package.
+#
+# GHCR_READ_TOKEN = fine-grained PAT with ONLY `read:packages` scope.
+#   NEVER commit this. Source your gitignored .env (which holds the PAT):
+#     set -a && source .env && set +a
+#     bash deployment/scripts/azure-setup.sh
+#
+# The CI workflow uses a separate write:packages PAT stored as a GitHub
+# Actions secret; this value is only for Azure Container App image pulls.
+
+GHCR_OWNER="${GHCR_OWNER:-hemant0510}"
+GHCR_USER="${GHCR_USER:-hemant0510}"
+GHCR_READ_TOKEN="${GHCR_READ_TOKEN:?GHCR_READ_TOKEN must be exported before running this script — never inline a PAT}"
 IMAGE_BASE="ghcr.io/${GHCR_OWNER}/rwa"
 
 # ─────────────────────────────────────────────
@@ -92,25 +111,33 @@ az containerapp env create \
 # ─────────────────────────────────────────────
 
 # ---------- 5a. rwa-dev ----------
+# Secrets are NEVER inline in this script. Source your existing gitignored
+# .env file before running this block. The variable names below match the
+# names already in your root .env — no renaming needed. Ensure your .env
+# contains GHCR_READ_TOKEN too:
+#   set -a && source .env && set +a
+#   # then paste this 5a block into the shell
+# The `:?` suffix below aborts immediately if any required var is unset,
+# preventing silent creation of a broken Container App with placeholders.
 APP_NAME="rwa-dev"
 MIN_REPLICAS=0
 MAX_REPLICAS=2
 IMAGE_TAG="${IMAGE_BASE}:dev-latest"       # updated by CI on every deploy
 
-# Placeholder env values — replace with real dev Supabase project values
-DEV_NEXT_PUBLIC_SUPABASE_URL="<dev-supabase-url>"
-DEV_NEXT_PUBLIC_SUPABASE_ANON_KEY="<dev-anon-key>"
-DEV_NEXT_PUBLIC_APP_URL="https://rwa-dev.<region>.azurecontainerapps.io"
-DEV_APP_URL="$DEV_NEXT_PUBLIC_APP_URL"
-DEV_DATABASE_URL="<dev-pooler-6543-url>"
-DEV_DIRECT_URL="<dev-direct-5432-url>"
-DEV_SUPABASE_SERVICE_ROLE_KEY="<dev-service-role-key>"
-DEV_SMTP_HOST="smtp.gmail.com"
-DEV_SMTP_PORT="587"
-DEV_SMTP_USER="<dev-smtp-user>"
-DEV_SMTP_PASS="<dev-smtp-pass>"
-DEV_SMTP_FROM="RWA Connect <${DEV_SMTP_USER}>"
-DEV_NEXT_PUBLIC_SENTRY_DSN="<sentry-dsn>"
+: "${NEXT_PUBLIC_SUPABASE_URL:?set in .env}"
+: "${NEXT_PUBLIC_SUPABASE_ANON_KEY:?set in .env}"
+: "${SUPABASE_SERVICE_ROLE_KEY:?set in .env}"
+: "${DATABASE_URL:?set in .env}"
+: "${DIRECT_URL:?set in .env}"
+: "${SMTP_USER:?set in .env}"
+: "${SMTP_PASS:?set in .env}"
+: "${NEXT_PUBLIC_SENTRY_DSN:?set in .env}"
+# Container App FQDN (captured after first provisioning). Override by exporting
+# DEV_APP_URL if recreating in a different environment.
+DEV_APP_URL="${DEV_APP_URL:-https://rwa-dev.grayfield-758e8533.centralindia.azurecontainerapps.io}"
+SMTP_HOST="${SMTP_HOST:-smtp.gmail.com}"
+SMTP_PORT="${SMTP_PORT:-587}"
+SMTP_FROM="${SMTP_FROM:-RWA Connect <${SMTP_USER}>}"
 
 az containerapp create \
   --name "$APP_NAME" \
@@ -127,22 +154,22 @@ az containerapp create \
   --registry-username "$GHCR_USER" \
   --registry-password "$GHCR_READ_TOKEN" \
   --secrets \
-    "database-url=${DEV_DATABASE_URL}" \
-    "direct-url=${DEV_DIRECT_URL}" \
-    "supabase-service-role-key=${DEV_SUPABASE_SERVICE_ROLE_KEY}" \
-    "smtp-pass=${DEV_SMTP_PASS}" \
+    "database-url=${DATABASE_URL}" \
+    "direct-url=${DIRECT_URL}" \
+    "supabase-service-role-key=${SUPABASE_SERVICE_ROLE_KEY}" \
+    "smtp-pass=${SMTP_PASS}" \
     "ghcr-token=${GHCR_READ_TOKEN}" \
   --env-vars \
     "NODE_ENV=production" \
-    "NEXT_PUBLIC_SUPABASE_URL=${DEV_NEXT_PUBLIC_SUPABASE_URL}" \
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY=${DEV_NEXT_PUBLIC_SUPABASE_ANON_KEY}" \
-    "NEXT_PUBLIC_APP_URL=${DEV_NEXT_PUBLIC_APP_URL}" \
+    "NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}" \
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}" \
+    "NEXT_PUBLIC_APP_URL=${DEV_APP_URL}" \
     "APP_URL=${DEV_APP_URL}" \
-    "SMTP_HOST=${DEV_SMTP_HOST}" \
-    "SMTP_PORT=${DEV_SMTP_PORT}" \
-    "SMTP_USER=${DEV_SMTP_USER}" \
-    "SMTP_FROM=${DEV_SMTP_FROM}" \
-    "NEXT_PUBLIC_SENTRY_DSN=${DEV_NEXT_PUBLIC_SENTRY_DSN}" \
+    "SMTP_HOST=${SMTP_HOST}" \
+    "SMTP_PORT=${SMTP_PORT}" \
+    "SMTP_USER=${SMTP_USER}" \
+    "SMTP_FROM=${SMTP_FROM}" \
+    "NEXT_PUBLIC_SENTRY_DSN=${NEXT_PUBLIC_SENTRY_DSN}" \
     "TRIAL_PERIOD_DAYS=14" \
     "MAX_TRIAL_RESIDENTS=50" \
     "DATABASE_URL=secretref:database-url" \
@@ -160,14 +187,14 @@ az containerapp create \
 #   APP_NAME="rwa-stage"
 #   IMAGE_TAG="${IMAGE_BASE}:stage-latest"
 #   MAX_REPLICAS=2
-#   All STAGE_* values from the stage Supabase project.
+#   Source a stage-specific .env (same variable names, stage Supabase values).
 
 # ---------- 5c. rwa-prod ----------
 # Duplicate the rwa-dev block with:
 #   APP_NAME="rwa-prod"
 #   IMAGE_TAG="${IMAGE_BASE}:prod-latest"
 #   MAX_REPLICAS=3
-#   All PROD_* values from the prod Supabase project.
+#   Source a prod-specific .env (same variable names, prod Supabase values).
 
 # ─────────────────────────────────────────────
 # 6. OIDC federated identity (reuses existing rwaconnect360 creds)

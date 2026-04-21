@@ -1,0 +1,161 @@
+name: Deploy dev
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/rwa
+  AZURE_RG: rwa-rg-centralindia
+  AZURE_APP: rwa-dev
+  NODE_VERSION: "22"
+
+jobs:
+  ci:
+    name: Lint + typecheck + tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci
+
+      - run: npx prisma generate --schema supabase/schema.prisma
+
+      - run: npm run lint
+
+      - run: npx tsc --noEmit
+
+      - run: npm run test
+
+  build-and-deploy:
+    name: Build + push + deploy to rwa-dev
+    needs: ci
+    runs-on: ubuntu-latest
+    environment: dev
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute image tags
+        id: tags
+        run: |
+          SHA_SHORT=$(git rev-parse --short HEAD)
+          echo "sha_short=$SHA_SHORT" >> "$GITHUB_OUTPUT"
+          echo "image_sha=${REGISTRY}/${IMAGE_NAME}:dev-${SHA_SHORT}" >> "$GITHUB_OUTPUT"
+          echo "image_latest=${REGISTRY}/${IMAGE_NAME}:dev-latest" >> "$GITHUB_OUTPUT"
+          echo "image_shaonly=${REGISTRY}/${IMAGE_NAME}:sha-${SHA_SHORT}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Build + push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ steps.tags.outputs.image_sha }}
+            ${{ steps.tags.outputs.image_latest }}
+            ${{ steps.tags.outputs.image_shaonly }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+            NEXT_PUBLIC_APP_URL=${{ secrets.NEXT_PUBLIC_APP_URL }}
+            NEXT_PUBLIC_SENTRY_DSN=${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
+            SENTRY_ORG=${{ secrets.SENTRY_ORG }}
+            SENTRY_PROJECT=${{ secrets.SENTRY_PROJECT }}
+            SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install deps (for prisma CLI)
+        run: npm ci --ignore-scripts
+
+      - name: Generate Prisma client
+        run: npx prisma generate --schema supabase/schema.prisma
+
+      - name: Apply Prisma migrations (direct connection, not pooler)
+        env:
+          DATABASE_URL: ${{ secrets.DIRECT_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: npx prisma migrate deploy --schema supabase/schema.prisma
+
+      - name: Seed master data
+        env:
+          DATABASE_URL: ${{ secrets.DIRECT_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: npm run db:seed:master
+
+      - name: Log in to Azure (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Update registry creds on Container App
+        uses: azure/cli@v2
+        with:
+          azcliversion: latest
+          inlineScript: |
+            az extension add --name containerapp --upgrade --yes
+            az containerapp registry set \
+              --name "$AZURE_APP" \
+              --resource-group "$AZURE_RG" \
+              --server "$REGISTRY" \
+              --username "${{ github.actor }}" \
+              --password "${{ secrets.GHCR_READ_TOKEN }}"
+
+      - name: Deploy new image to rwa-dev (+ switch port to 3000)
+        uses: azure/cli@v2
+        with:
+          azcliversion: latest
+          inlineScript: |
+            az extension add --name containerapp --upgrade --yes
+            az containerapp update \
+              --name "$AZURE_APP" \
+              --resource-group "$AZURE_RG" \
+              --image "${{ steps.tags.outputs.image_sha }}"
+            az containerapp ingress update \
+              --name "$AZURE_APP" \
+              --resource-group "$AZURE_RG" \
+              --target-port 3000
+
+      - name: Smoke test /api/health (5 retries, 10s apart)
+        run: |
+          URL="${{ secrets.NEXT_PUBLIC_APP_URL }}/api/health"
+          for i in 1 2 3 4 5; do
+            echo "Attempt $i: GET $URL"
+            if curl -fsS --max-time 10 "$URL" | grep -q '"status":"ok"'; then
+              echo "✅ Healthy"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "❌ Health check failed after 5 attempts"
+          exit 1

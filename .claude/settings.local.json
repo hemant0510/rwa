@@ -17,7 +17,9 @@
       "Bash(NEXT_SERWIST_DISABLE_TURBOPACK_WARNING=1 npm run build)",
       "Bash(DATABASE_URL=\"postgresql://postgres:rwa@mant0510@db.mqibhmreswyvaqqneeig.supabase.co:5432/postgres\" npx prisma db push --schema supabase/schema.prisma --skip-generate)",
       "mcp__plugin_supabase_supabase__execute_sql",
-      "Bash(claude mcp:*)"
+      "Bash(claude mcp:*)",
+      "Bash(az account *)",
+      "Bash(gh secret *)"
     ]
   },
   "enabledPlugins": {
