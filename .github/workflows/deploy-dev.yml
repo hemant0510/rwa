@@ -146,16 +146,18 @@ jobs:
               --resource-group "$AZURE_RG" \
               --target-port 3000
 
-      - name: Smoke test /api/health (5 retries, 10s apart)
+      - name: Smoke test /api/health (12 retries, 15s apart, 30s warmup)
         run: |
           URL="${{ secrets.NEXT_PUBLIC_APP_URL }}/api/health"
-          for i in 1 2 3 4 5; do
+          echo "Warmup: waiting 30s for new revision to become active..."
+          sleep 30
+          for i in $(seq 1 12); do
             echo "Attempt $i: GET $URL"
             if curl -fsS --max-time 10 "$URL" | grep -q '"status":"ok"'; then
               echo "✅ Healthy"
               exit 0
             fi
-            sleep 10
+            sleep 15
           done
-          echo "❌ Health check failed after 5 attempts"
+          echo "❌ Health check failed after 12 attempts (~3min)"
           exit 1
