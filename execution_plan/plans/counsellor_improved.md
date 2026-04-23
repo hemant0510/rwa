@@ -1,7 +1,8 @@
-# Counsellor Improvements — Multi-Counsellor Support, Primary/Secondary Swap, Shared Ticket Inbox
+# Counsellor Improvements — One-Counsellor-Per-Society, Exclusive Society Picker, Counsellor Profile
 
 **Owner:** product/eng
 **Created:** 2026-04-19
+**Updated:** 2026-04-23
 **Status:** Ready to execute
 **Prerequisite:** [`counsellor-role.md`](./counsellor-role.md) groups 1–7 already shipped.
 
@@ -14,27 +15,35 @@ The current counsellor role supports many-to-many society assignment via [`Couns
 - A society can have **multiple counsellors**, distinguished by an `isPrimary` flag.
 - "Primary" is assigned **automatically, first-come-first-served**: the very first counsellor added to a society becomes primary; every later assignment becomes secondary. See [`/api/v1/super-admin/counsellors/[id]/assignments/route.ts:119-166`](../../src/app/api/v1/super-admin/counsellors/[id]/assignments/route.ts#L119-L166).
 - On revoke of a primary, the oldest active secondary auto-promotes. See [`/api/v1/super-admin/counsellors/[id]/assignments/[societyId]/route.ts:38-50`](../../src/app/api/v1/super-admin/counsellors/[id]/assignments/[societyId]/route.ts#L38-L50).
-- **There is no UI to swap primary/secondary** for already-assigned counsellors.
-- **The RWA admin sees only the primary counsellor** (not the full list) — see [`/api/v1/admin/counsellor/route.ts:11-12`](../../src/app/api/v1/admin/counsellor/route.ts#L11-L12) which filters `isPrimary: true`.
-- **Only the routed counsellor sees escalated tickets.** Auto-escalation picks a single counsellor (primary by preference) and stamps `counsellorId` on the escalation row — [`src/lib/counsellor/auto-escalate.ts:34-48`](../../src/lib/counsellor/auto-escalate.ts#L34-L48). The counsellor tickets API then filters `counsellorId = me` — [`/api/v1/counsellor/tickets/route.ts:39`](../../src/app/api/v1/counsellor/tickets/route.ts#L39). Secondary counsellors see zero tickets.
-- **SA "assign societies" picker has no filter** for already-assigned societies. With a growing platform, finding an unassigned society becomes a needle-in-haystack problem.
-- **Primary flag has no DB uniqueness guard.** A race between two SA operations could leave a society with two primaries.
+- **SA "assign societies" picker has no filter** for already-assigned societies. SA can accidentally assign a second counsellor to a society that already has one.
+- **There is no hard DB guard** that prevents a society from being assigned to more than one active counsellor.
+- **The counsellor detail has no profile picture or personal info** beyond a `publicBlurb`. RWA admins and residents cannot recognise or contact their counsellor meaningfully.
+
+### Product decision (2026-04-23)
+
+- **For now, a society has exactly ONE active counsellor.** No primary/secondary concept is surfaced in product.
+- **Future-compatible.** The existing many-to-many schema is kept. We enforce "one active counsellor per society" via a partial unique index — lifting this to multi-counsellor later is a single-index change plus UI work, with no data migration.
+- **Exclusive picker.** When SA is assigning societies to a counsellor, any society that is already assigned to some other counsellor MUST NOT appear. This is enforced server-side, not a UI toggle.
+- **Richer counsellor profile.** Each counsellor can have a profile photo and a set of personal/professional fields so residents and RWA admins can recognise and contact them.
 
 ## 2. Scope (what this plan delivers)
 
-1. **DB uniqueness** — partial unique index on `(society_id)` where `is_primary = true AND is_active = true`.
-2. **SA society-picker filter** — a "Hide societies that already have a counsellor" toggle when assigning societies to a counsellor (default ON).
-3. **SA one-click primary/secondary swap** — a button in the SA counsellor's society-assignments table to promote a secondary to primary, atomically demoting the existing primary.
-4. **Shared ticket inbox for counsellors** — every counsellor assigned to a society sees every escalated ticket for that society, not just the one routed to them.
-5. **Counsellor ticket filter tabs** — `As primary` / `As secondary` / `All`.
-6. **RWA admin sees the full counsellor list** for their society (not just primary).
-7. **Revoke semantics preserved** — revoking a counsellor's assignment keeps cutting them off from that society's tickets (existing behaviour, explicitly kept).
+1. **DB uniqueness** — partial unique index on `(society_id)` where `is_active = true`. Guarantees at most one active counsellor per society.
+2. **SA society-picker is exclusive** — the available-societies endpoint hard-filters out any society that already has an active counsellor. No UI toggle, no override.
+3. **SA assignment endpoint is guarded** — rejects with 409 if the target society already has an active counsellor, with a clear error payload naming the current counsellor.
+4. **Counsellor profile fields + photo upload** — counsellor gets a profile photo and a set of personal/professional fields (phone, specialisation, languages, years of experience, qualifications) editable by the counsellor themselves and by SA.
+5. **RWA admin "Your Counsellor" card** — shows the society's single counsellor with photo and full profile.
+6. **Residents see counsellor profile** on the counsellor contact card (same shape as admin).
+7. **Legacy `isPrimary` behaviour retained at the data layer** for future multi-counsellor rollout, but not surfaced anywhere in the product UI. Every active assignment is implicitly "the" counsellor.
 
-Out of scope:
+### Explicitly out of scope
 
-- Any change to the escalation routing logic itself (still primary-first).
-- Removing the `isPrimary` concept.
+- Primary/secondary swap UI (obsolete under single-counsellor model).
+- Shared ticket inbox across multiple counsellors (obsolete — only one counsellor sees tickets for their society, which is the existing behaviour).
+- Role-filter tabs (`As primary` / `As secondary`) on counsellor tickets (obsolete).
 - Bulk reassignment UI (covered by existing `/transfer-portfolio`).
+- Any change to escalation routing logic.
+- Removing the `isPrimary` column — kept for forward compatibility (§12).
 
 ## 3. Conventions (lifted from CLAUDE.md)
 
@@ -42,259 +51,269 @@ Out of scope:
 - 95% per-file coverage enforced by `scripts/test-staged.mjs`.
 - SUPER_ADMIN must be able to read all data; every new list endpoint accepts `?societyId=` scoping via `getAdminContext` where applicable.
 - Writes stay on `requireSuperAdmin` / `requireCounsellor` for audit attribution.
+- File uploads follow the existing pattern used by other entity photo uploads (e.g. society cover, user avatars) — Supabase Storage bucket with signed-URL reads.
 
 ---
 
 ## 4. Data Model Changes
 
-### 4.1 Partial unique index — one primary per society
+### 4.1 Partial unique index — one active counsellor per society
 
-**Why:** prevents two-primary races (see §1 last bullet).
+**Why:** enforces the single-counsellor-per-society rule at the DB layer so the app can rely on it, and closes the two-counsellor race window.
 
 **Migration SQL:**
 
 ```sql
-CREATE UNIQUE INDEX counsellor_primary_per_society_uniq
+CREATE UNIQUE INDEX counsellor_one_active_per_society_uniq
   ON public.counsellor_society_assignments (society_id)
-  WHERE is_primary = true AND is_active = true;
+  WHERE is_active = true;
 ```
 
 **Pre-flight check** (run before migration to guarantee zero violations):
 
 ```sql
-SELECT society_id, count(*) AS primaries
+SELECT society_id, count(*) AS active_counsellors
 FROM public.counsellor_society_assignments
-WHERE is_primary = true AND is_active = true
+WHERE is_active = true
 GROUP BY society_id
 HAVING count(*) > 1;
 ```
 
-If any rows return, resolve manually (pick one row to keep, flip the others to `is_primary = false`) before applying the index.
+If any rows return, resolve manually before applying the index:
+
+- Pick one assignment to keep active (prefer `is_primary = true` if any).
+- Flip the others to `is_active = false` with a short revocation reason `"Consolidation to single-counsellor model (2026-04)"`.
+- Re-run the pre-flight check until zero rows — only then apply the unique index.
 
 **Prisma schema update** — add to `model CounsellorSocietyAssignment`:
 
 ```prisma
-@@index([societyId, isPrimary, isActive], name: "counsellor_primary_per_society_uniq")
+@@index([societyId, isActive], name: "counsellor_one_active_per_society_uniq")
 ```
 
-**Note:** Prisma does not natively express partial unique indexes. Apply the index via raw SQL migration (`supabase/migrations/<timestamp>_counsellor_primary_unique.sql`), and add a plain `@@index` in the schema for awareness only. Document in the migration file that `UNIQUE...WHERE` is raw SQL.
+**Note:** Prisma does not natively express partial unique indexes. Apply the index via raw SQL migration (`supabase/migrations/<timestamp>_counsellor_single_active_per_society.sql`), and add a plain `@@index` in the schema for awareness only. Document in the migration file that `UNIQUE...WHERE` is raw SQL.
 
-### 4.2 No schema column changes
+### 4.2 Counsellor profile fields
 
-All changes below are behavioral. No new columns, no dropped columns, no data migration.
+Add the following columns to `model Counsellor` (or extend the counsellor-profile table if one already exists — confirm during implementation):
+
+| Field               | Type       | Nullable  | Notes                                                                        |
+| ------------------- | ---------- | --------- | ---------------------------------------------------------------------------- |
+| `photoUrl`          | `String?`  | yes       | Supabase Storage key (not a public URL). Signed on read.                     |
+| `phone`             | `String?`  | yes       | E.164 format recommended. Validated on write with existing util.             |
+| `specialization`    | `String?`  | yes       | e.g. "Family counselling", "Senior-citizen wellness". Free text, ≤120 chars. |
+| `languages`         | `String[]` | no (`[]`) | Array of ISO 639-1 codes or human names ("English", "Hindi"). Default `[]`.  |
+| `yearsOfExperience` | `Int?`     | yes       | Non-negative integer, ≤ 80.                                                  |
+| `qualifications`    | `String?`  | yes       | Free text, ≤500 chars (degrees, certifications).                             |
+| `publicBlurb`       | `String?`  | yes       | Already exists — keep.                                                       |
+
+**Migration:** generated by `npm run db:generate` + `/db-change` skill (direct connection, not pooler). No data migration needed — new columns default to NULL / empty array.
+
+**Storage:** create (or reuse) Supabase Storage bucket `counsellor-photos` with the same RLS pattern as other entity photo buckets. Keys: `counsellor-photos/{counsellorId}/{uuid}.{ext}`.
+
+### 4.3 `isPrimary` flag — kept, not surfaced
+
+- Column stays on `CounsellorSocietyAssignment`.
+- New assignments created via the UI set `isPrimary = true` by default (since there is only ever one).
+- No UI references "primary" or "secondary" anywhere in this plan.
+- When multi-counsellor ships in the future, the flag is ready to be used (§12).
 
 ---
 
-## 5. Phase 1 — SA society-picker filter
+## 5. Phase 1 — Exclusive SA society picker
 
-**Goal:** when SA is assigning societies to a counsellor, hide societies that already have a counsellor by default, with an opt-in toggle to show all.
+**Goal:** when SA is assigning societies to a counsellor, the picker shows ONLY societies that currently have no active counsellor. There is no toggle — this is a hard rule.
 
 ### 5.1 API — extend the available-societies endpoint
 
 File: [`/api/v1/super-admin/counsellors/[id]/available-societies/route.ts`](../../src/app/api/v1/super-admin/counsellors/[id]/available-societies/route.ts)
 
-Add query param `?hideAssigned=true|false` (default `true`).
+- Return **only societies with zero active `CounsellorSocietyAssignment` rows** (to any counsellor, including this one).
+- Remove any previous `hideAssigned` query param if present — the behaviour is unconditional.
+- Response shape unchanged: `{ societies: [...] }`. No `hasExistingCounsellors` count (not needed).
 
-- `hideAssigned=true` → return only societies with zero active `CounsellorSocietyAssignment` rows (to any counsellor).
-- `hideAssigned=false` → return all societies the counsellor is not already actively assigned to (current behaviour).
+### 5.2 SA assignment endpoint — hard guard
 
-Response shape unchanged — still `{ societies: [...] }`. Add a per-society `hasExistingCounsellors: number` count so the UI can show a "2 counsellors already assigned" hint when the toggle is off.
+File: [`/api/v1/super-admin/counsellors/[id]/assignments/route.ts`](../../src/app/api/v1/super-admin/counsellors/[id]/assignments/route.ts)
 
-### 5.2 SA UI — society picker
+Before inserting a new assignment:
 
-Component: [`src/app/sa/counsellors/[id]/assignments/`](../../src/app/sa/counsellors/[id]/assignments/) (or wherever the "assign societies" dialog lives — confirm during implementation).
+1. Check `counsellor_society_assignments` for an existing row with `societyId = ? AND isActive = true`.
+2. If found, **reject with 409** and a payload:
+   ```json
+   {
+     "error": "SOCIETY_ALREADY_ASSIGNED",
+     "message": "Society {societyName} is already assigned to {existingCounsellorName}.",
+     "existingCounsellorId": "...",
+     "societyId": "..."
+   }
+   ```
+3. Defence in depth: even if the check passes, the partial unique index from §4.1 will reject the insert on a race. Surface that DB error as the same 409 payload.
+4. Insert with `isPrimary = true, isActive = true`.
 
-- Add a toggle: **"Show only societies without a counsellor"** — default ON.
-- When OFF, each society row shows a small count badge "N counsellor(s) already assigned" if `hasExistingCounsellors > 0`.
-- Update the query key in TanStack Query to include the `hideAssigned` flag so toggling re-fetches.
+### 5.3 SA UI — society picker
 
-### 5.3 Tests
+Component: [`src/app/sa/counsellors/[id]/assignments/`](../../src/app/sa/counsellors/[id]/assignments/) (confirm path during implementation).
 
-- API: hideAssigned=true excludes societies with any active assignment; hideAssigned=false behaves as before; default = true; `hasExistingCounsellors` count is accurate across mixed active/revoked rows.
-- UI: toggle flips, list updates, badge appears on shared-society rows when toggle is OFF.
+- Picker shows only available societies (trusts the API's hard filter).
+- Empty state: "All societies are already assigned to counsellors." with a secondary line "Reassign an existing society by revoking its current counsellor first."
+- On a 409 race response, show a toast: "Society {name} was just assigned to {counsellor}. Refresh to see the latest state."
 
----
+### 5.4 Tests
 
-## 6. Phase 2 — SA one-click primary/secondary swap
-
-**Goal:** let SA promote a secondary counsellor to primary with a single click, atomically demoting the existing primary.
-
-### 6.1 New API endpoint
-
-File: `src/app/api/v1/super-admin/counsellors/[id]/assignments/[societyId]/promote/route.ts`
-
-Method: `POST`
-
-Behavior (transactional):
-
-1. Guard `requireSuperAdmin`.
-2. Load the target assignment by `(counsellorId, societyId)`. 404 if not found or revoked.
-3. If already primary → return 200 with `{ promoted: false, reason: "ALREADY_PRIMARY" }` (idempotent).
-4. In a `prisma.$transaction`:
-   a. `UPDATE counsellor_society_assignments SET is_primary = false WHERE society_id = ? AND is_primary = true AND is_active = true` (demote current primary, if any).
-   b. `UPDATE counsellor_society_assignments SET is_primary = true WHERE id = ?` (promote target).
-5. Write `counsellor_audit_logs` and a platform `audit_log` entry: `SA_COUNSELLOR_PROMOTED`, with `oldPrimaryCounsellorId` and `newPrimaryCounsellorId`.
-6. Return `{ promoted: true }`.
-
-**Concurrency guarantee:** because the partial unique index from §4.1 is in place, if two SAs race the swap, the later transaction fails on the unique constraint and returns a 409 conflict. The UI re-fetches and shows the new state.
-
-### 6.2 SA UI — "Make Primary" button
-
-On the SA counsellor detail page's assignments table (confirm file during implementation):
-
-- Each row shows `Primary` badge or `Secondary`.
-- Secondary rows get a "Make Primary" button.
-- Clicking:
-  - Confirm dialog: _"Make {counsellorName} the primary counsellor for {societyName}? {currentPrimaryName} will be demoted to secondary."_
-  - On confirm → POST to new promote endpoint → invalidate the assignments query.
-- Primary rows show no action (demote happens implicitly via promoting someone else).
-
-### 6.3 Tests
-
-- API: promote when current primary exists → both rows updated in one transaction.
-- API: promote when there's no current primary (edge case after revoke) → target becomes primary with no other updates.
-- API: promote when already primary → idempotent 200.
-- API: partial unique index violation returns 409.
-- UI: button appears only on secondary rows; confirm dialog renders both names; successful swap re-renders badges.
+- API (available-societies): returns only societies with zero active assignments; excludes ones assigned to the current counsellor AND to other counsellors.
+- API (assignments POST): rejects with 409 when the society already has an active counsellor; payload includes `existingCounsellorId` and `societyId`.
+- API (assignments POST): partial unique index violation surfaces as the same 409 (simulate via mocked Prisma error code `P2002`).
+- API (assignments POST): happy path creates row with `isPrimary = true, isActive = true`.
+- UI: empty state copy; toast on 409.
 
 ---
 
-## 7. Phase 3 — Shared ticket inbox for counsellors
+## 6. Phase 2 — Counsellor profile (photo + personal fields)
 
-**Goal:** every counsellor assigned to a society sees every escalated ticket for that society, regardless of which counsellor the escalation was originally routed to.
+**Goal:** counsellor entity has a profile photo and a set of personal/professional fields. Both SA and the counsellor themselves can edit; residents and RWA admins see a read-only view.
 
-### 7.1 Change counsellor tickets query
+### 6.1 DB + Prisma
 
-File: [`/api/v1/counsellor/tickets/route.ts`](../../src/app/api/v1/counsellor/tickets/route.ts)
+Apply §4.2 schema additions. Regenerate Prisma client. Update any existing mocks in `tests/__mocks__/prisma.ts` if they construct `Counsellor` objects.
 
-Replace the current `where` clause:
+### 6.2 Counsellor profile API
 
-```ts
-// BEFORE
-where: {
-  ...(auth.data.isSuperAdmin ? {} : { counsellorId: auth.data.counsellorId }),
-  status: { in: [...statuses] },
-  ...(societyIdParam ? { ticket: { societyId: societyIdParam } } : {}),
-}
-```
+Files to extend (or create if not present — confirm during implementation):
 
-with:
+- `GET  /api/v1/counsellor/profile` — returns own profile (counsellor caller).
+- `PATCH /api/v1/counsellor/profile` — updates own profile. Validates:
+  - `phone`: optional, E.164-ish (reuse existing util).
+  - `specialization`: ≤120 chars.
+  - `languages`: array of strings, each ≤40 chars, max 10 entries.
+  - `yearsOfExperience`: integer 0–80.
+  - `qualifications`: ≤500 chars.
+  - `publicBlurb`: ≤500 chars (existing).
+- `POST /api/v1/counsellor/profile/photo` — uploads a photo (multipart or signed-URL-on-request pattern — reuse existing society cover upload flow).
+  - Validates MIME `image/jpeg|png|webp`, size ≤ 2 MB.
+  - Stores at `counsellor-photos/{counsellorId}/{uuid}.{ext}`.
+  - Replaces previous `photoUrl` (best-effort delete old object).
+- `DELETE /api/v1/counsellor/profile/photo` — removes photoUrl and deletes object.
 
-```ts
-// AFTER
-// 1. Load every society this counsellor is ACTIVELY assigned to.
-const assignments = auth.data.isSuperAdmin
-  ? null // SA sees everything, no society filter
-  : await prisma.counsellorSocietyAssignment.findMany({
-      where: { counsellorId: auth.data.counsellorId, isActive: true },
-      select: { societyId: true, isPrimary: true },
-    });
+SA parallels (under `/api/v1/super-admin/counsellors/[id]/`):
 
-const mySocietyIds = assignments?.map((a) => a.societyId) ?? [];
-const myPrimarySocietyIds = new Set(
-  (assignments ?? []).filter((a) => a.isPrimary).map((a) => a.societyId),
-);
+- `PATCH /api/v1/super-admin/counsellors/[id]/profile` — same body shape, SA can edit any counsellor.
+- `POST /api/v1/super-admin/counsellors/[id]/profile/photo` — SA can upload a photo on behalf of a counsellor.
 
-// 2. Build the where clause — escalations for tickets in my societies.
-where: {
-  status: { in: [...statuses] },
-  ticket: {
-    societyId: societyIdParam
-      ? societyIdParam
-      : assignments
-        ? { in: mySocietyIds }
-        : undefined,
-  },
-}
-```
+All GET endpoints that return counsellor data must return a **signed URL** for `photoUrl` (not the raw storage key). Follow the signed-URL test-triple rule from CLAUDE.md:
 
-Then in the response shape, annotate each escalation with `myRole: "PRIMARY" | "SECONDARY" | "SUPER_ADMIN"` computed from `myPrimarySocietyIds.has(escalation.ticket.societyId)`.
+1. Counsellor with photoUrl → signed URL returned.
+2. Counsellor without photoUrl → null returned, `createSignedUrl` NOT called.
+3. Signed URL generation fails → falls back to null.
 
-### 7.2 New query param — role filter
+### 6.3 Counsellor self-service UI
 
-Add `?role=primary|secondary|all` (default `all`).
+File: `src/app/counsellor/(authed)/profile/page.tsx` (new or existing — confirm).
 
-- `role=primary` → restrict to tickets where the counsellor's assignment for that society is primary.
-- `role=secondary` → restrict to where it's secondary.
-- `role=all` → no extra filter.
+- Form fields: photo uploader, name (read-only — changed via auth only), phone, specialization, languages (chip input), years of experience (number), qualifications (textarea), public blurb (textarea).
+- Photo uploader: preview, drag-and-drop, or click-to-select. "Remove photo" button when one exists.
+- On save, PATCH profile; on photo change, POST/DELETE photo endpoint.
+- Inline validation errors from the server.
 
-SA bypasses this filter (they see all).
+### 6.4 SA UI — edit counsellor profile
 
-### 7.3 Counsellor UI — filter tabs
+File: [`src/app/sa/counsellors/[id]/`](../../src/app/sa/counsellors/[id]/) detail page.
 
-File: [`src/app/counsellor/(authed)/tickets/page.tsx`](<../../src/app/counsellor/(authed)/tickets/page.tsx>)
+- Profile section with the same fields, editable by SA.
+- "Edit profile" drawer or inline edit — follow existing SA-edit patterns in the codebase.
 
-Add tabs above the ticket list:
-
-- **All** (default)
-- **As primary**
-- **As secondary**
-
-Each tab swaps the `role` query param and re-fetches. Show a small badge per ticket: `Primary` / `Secondary` pill based on `myRole`.
-
-**Empty states:**
-
-- `role=primary` with no tickets → "No escalated tickets where you're the primary counsellor."
-- `role=secondary` with no tickets → "No escalated tickets where you're the secondary counsellor."
-- `role=all` with no tickets → existing "No tickets" copy.
-
-### 7.4 Actionability rule (important UX decision)
-
-**Both primary and secondary counsellors can see every ticket. Only the assigned counsellor (`escalation.counsellorId`) can acknowledge / resolve / defer.** The secondary's view is read-only. This preserves single-ownership semantics while giving full visibility.
-
-- The ticket detail page shows a banner for read-only viewers: _"Assigned to {primaryName}. You are the secondary counsellor and can view but not act on this escalation."_
-- Backend: the existing ACK / RESOLVE / DEFER endpoints already check `counsellorId = me` — no change needed.
-
-### 7.5 Tests
-
-- API: counsellor with two societies, one primary + one secondary → sees both, correct `myRole` per ticket.
-- API: counsellor with no active assignments → empty list (no 500).
-- API: `role=primary` filters out secondary-society tickets.
-- API: `role=secondary` filters out primary-society tickets.
-- API: SA ignores `role` param and sees everything.
-- API: societyId param still works and restricts within counsellor's assigned set.
-- API: revoked assignments are excluded (so revoke really does pull tickets).
-- UI: three tabs swap the list; badge renders Primary/Secondary correctly; empty state copy matches role.
-- UI: ticket detail read-only banner shows for secondary viewers; ACK button hidden/disabled.
-
----
-
-## 8. Phase 4 — RWA admin sees all counsellors
-
-**Goal:** the "Your Counsellor" card on the admin dashboard shows every counsellor assigned to the society, not just primary.
-
-### 8.1 API change
+### 6.5 RWA admin "Your Counsellor" card
 
 File: [`/api/v1/admin/counsellor/route.ts`](../../src/app/api/v1/admin/counsellor/route.ts)
 
-Replace `findFirst({ isPrimary: true })` with `findMany({ isActive: true })`. New response shape:
+- Replace `findFirst({ isPrimary: true })` with `findFirst({ isActive: true })` — the society has at most one active counsellor (enforced by §4.1), so this is equivalent and cleaner.
+- Response shape:
+  ```ts
+  {
+    counsellor: {
+      id: string;
+      name: string;
+      email: string;
+      phone: string | null;
+      photoUrl: string | null;            // signed URL
+      publicBlurb: string | null;
+      specialization: string | null;
+      languages: string[];
+      yearsOfExperience: number | null;
+      qualifications: string | null;
+      assignedAt: string;                 // ISO
+    } | null;
+  }
+  ```
+- `null` when no active counsellor — card shows existing "No counsellor assigned" empty state.
 
-```ts
-{
-  counsellors: Array<{
-    id: string;
-    name: string;
-    email: string;
-    publicBlurb: string | null;
-    photoUrl: string | null;
-    isPrimary: boolean;
-    assignedAt: string; // ISO
-  }>;
-}
-```
+Component: [`src/components/features/sa-counsellors/YourCounsellorCard.tsx`](../../src/components/features/sa-counsellors/YourCounsellorCard.tsx)
 
-Ordered by `isPrimary DESC, assignedAt ASC` so the primary is first.
+- Render photo (fallback to initials avatar if `photoUrl` is null).
+- Render name, specialization, contact (email, phone), languages, years of experience, qualifications, blurb.
+- Empty state unchanged ("No counsellor assigned").
 
-### 8.2 Service + component update
+Service file: [`src/services/counsellors.ts`](../../src/services/counsellors.ts) — update return type to match new shape. Keep the function name `getMyCounsellor` (singular) — the contract is now "one counsellor or null".
 
-- [`src/services/counsellors.ts`](../../src/services/counsellors.ts) — rename `getMyCounsellor` → `getMyCounsellors`, update return type.
-- [`src/components/features/sa-counsellors/YourCounsellorCard.tsx`](../../src/components/features/sa-counsellors/YourCounsellorCard.tsx) — rename to `YourCounsellorsCard` (plural), render one row per counsellor with a `Primary` pill on the primary. Empty state unchanged ("No counsellor assigned").
+### 6.6 Resident counsellor card (if exposed to residents)
 
-### 8.3 Tests
+If the counsellor contact card is also rendered for residents (check `src/app/(resident)/...` during implementation), update it to the same read-only shape. Skip this section if residents do not have a counsellor contact view today.
 
-- API: returns full list sorted primary-first; skips inactive/revoked.
-- API: SA impersonation via `getAdminContext(targetSocietyId)` works (as required by the SA-is-GOD rule).
-- UI: renders multiple rows with correct primary ordering; primary pill appears only on one; empty state when list is empty.
+### 6.7 Tests
+
+- API: profile GET returns full shape; signed URL triple for `photoUrl`.
+- API: profile PATCH validates each field (phone, specialization length, languages array cap, yoE range, qualifications length).
+- API: profile PATCH as counsellor updates only own row; cannot touch another counsellor.
+- API: SA profile PATCH can update any counsellor.
+- API: photo POST rejects non-image MIME, rejects >2 MB, stores under correct prefix, updates `photoUrl`.
+- API: photo DELETE clears `photoUrl` and removes the object.
+- API: admin `/counsellor` endpoint returns `null` when no active counsellor; returns full shape when one exists; SA impersonation via `getAdminContext(targetSocietyId)` works.
+- UI: counsellor profile form renders all fields, submits correctly, shows inline errors.
+- UI: photo uploader preview; remove-photo clears preview.
+- UI: "Your Counsellor" card renders photo + all fields; fallback avatar when no photo; empty state when null.
+
+---
+
+## 7. Phase 3 — Revoke / reassign flow
+
+**Goal:** make it easy for SA to move a society from one counsellor to another. Under the single-counsellor model, reassignment is "revoke current, then assign new" — not an atomic swap (atomic swap is a future multi-counsellor concern).
+
+### 7.1 Existing revoke endpoint
+
+File: [`/api/v1/super-admin/counsellors/[id]/assignments/[societyId]/route.ts`](../../src/app/api/v1/super-admin/counsellors/[id]/assignments/[societyId]/route.ts)
+
+- Keep the `DELETE` behaviour: set `isActive = false`, record revocation reason, write audit log.
+- **Remove the auto-promote-secondary logic** — there is no concept of secondary to promote under the single-counsellor model. Document the removal in the migration PR.
+- After revoke, the society becomes available in the picker (§5.1) for a fresh assignment.
+
+### 7.2 SA UI — reassignment hint
+
+On the SA society detail page (if one exists), when a society has no active counsellor, show a CTA "Assign a counsellor" that deep-links into the "Available counsellors" flow. No new endpoint — just UX glue.
+
+### 7.3 Tests
+
+- API: revoke sets `isActive = false`, writes audit log, does NOT mutate any other rows.
+- API: after revoke, the same society appears in `available-societies` for any counsellor.
+- API: re-assigning the same society to a new counsellor succeeds (409 no longer fires because the old row is `isActive = false`).
+
+---
+
+## 8. Phase 4 — Counsellor tickets (behaviour confirmation)
+
+**Goal:** confirm the existing "counsellor sees their society's tickets" behaviour still holds under the single-counsellor model. No new code expected — this phase is a test-hardening phase.
+
+### 8.1 Existing behaviour kept
+
+File: [`/api/v1/counsellor/tickets/route.ts`](../../src/app/api/v1/counsellor/tickets/route.ts)
+
+- Current filter `counsellorId = me` is **correct** under single-counsellor, because the auto-escalation ([`src/lib/counsellor/auto-escalate.ts`](../../src/lib/counsellor/auto-escalate.ts)) routes every escalation to the society's single active counsellor.
+- No role-filter tabs (no primary/secondary concept in product).
+- No shared-inbox changes.
+
+### 8.2 Tests to add / tighten
+
+- Auto-escalate picks the society's single active counsellor (no `isPrimary` preference logic needed — but if the code still branches on `isPrimary`, keep it working since all active assignments have `isPrimary = true`).
+- Revoking the counsellor while escalations are open: the open escalation rows still reference the revoked counsellor. Call out the follow-up in §13.
 
 ---
 
@@ -302,29 +321,29 @@ Ordered by `isPrimary DESC, assignedAt ASC` so the primary is first.
 
 Revoking a counsellor's assignment to a society continues to:
 
-- Cut them off from seeing that society's tickets (the new query in §7.1 filters by `isActive: true`).
-- Auto-promote the oldest active secondary if the revoked counsellor was primary (existing behaviour — not changed).
+- Cut them off from seeing that society's tickets (the tickets query filters by `counsellorId = me`, and the revoked counsellor is no longer the target of new escalations).
+- Free the society for a fresh assignment (the partial unique index only covers `isActive = true` rows).
 
 **No escalation rows are mutated on revoke.** The `counsellorId` on open escalations continues to point at the revoked counsellor. After revoke:
 
-- The revoked counsellor no longer sees the ticket (their society list no longer contains that society).
-- Remaining counsellors for the society now see it (§7.1 filters by society, not by `counsellorId`).
-- The escalation is still technically "assigned" to the revoked counsellor — acknowledgement/resolution will 403 because they fail the `requireCounsellor` society check.
-- **Follow-up concern:** if the revoked counsellor had acknowledged but not resolved a ticket, nobody else can act on it. Out of scope for this doc — tracked as a follow-up: "Reassign open escalations on revoke" (see §12).
+- The revoked counsellor still technically sees their own historical tickets (they are still `counsellorId = me` for those rows) — **this is an open follow-up** (§13).
+- A new counsellor assigned to the society does NOT automatically inherit the old open escalations.
+
+This is the same limitation as before and is unchanged by this plan. Tracked as a follow-up (§13).
 
 ---
 
 ## 10. Phased Implementation
 
-| Phase | Scope                                                         | Est. effort |
-| ----- | ------------------------------------------------------------- | ----------- |
-| 0     | Pre-flight data audit + partial unique index migration (§4.1) | 30 min      |
-| 1     | SA society-picker filter (§5)                                 | 1 day       |
-| 2     | SA primary/secondary swap endpoint + UI (§6)                  | 1 day       |
-| 3     | Shared inbox + counsellor filter tabs (§7)                    | 1.5 days    |
-| 4     | RWA admin "all counsellors" card (§8)                         | 0.5 day     |
+| Phase | Scope                                                                | Est. effort |
+| ----- | -------------------------------------------------------------------- | ----------- |
+| 0     | Pre-flight data audit + partial unique index migration (§4.1)        | 30 min      |
+| 1     | Exclusive SA society picker + 409 guard on assignment (§5)           | 1 day       |
+| 2     | Counsellor profile fields + photo upload + UI on all surfaces (§6)   | 2 days      |
+| 3     | Revoke cleanup — remove auto-promote logic, confirm reassign UX (§7) | 0.5 day     |
+| 4     | Counsellor tickets test-hardening (§8)                               | 0.5 day     |
 
-Phases 1–4 are independent except that **Phase 2 and Phase 3 both depend on Phase 0** (the unique index is load-bearing for race safety in swap and for the assumption "at most one primary per society" throughout phase-3 UI rendering).
+Phases are independent except that **Phase 1 depends on Phase 0** (the unique index is load-bearing for the 409 race guard) and **Phase 3 depends on Phase 0** (removing auto-promote relies on the single-counsellor invariant being DB-enforced).
 
 ---
 
@@ -338,30 +357,53 @@ Per CLAUDE.md:
   ```bash
   npx vitest related <source-files> --run --coverage --coverage.provider=v8 --coverage.reporter=text <--coverage.include=... per file> --coverage.thresholds.perFile=true --coverage.thresholds.lines=95 --coverage.thresholds.branches=95 --coverage.thresholds.functions=95 --coverage.thresholds.statements=95
   ```
-- New API routes must have 3 explicit auth tests (401, 403-counsellor-for-SA-endpoints, 200-happy-path).
-- Audit-log writes (§6.1) must be covered by the test that exercises the happy path — assert `logAudit` was called with the right `actionType`.
+- New API routes must have 3 explicit auth tests (401, 403-wrong-role, 200-happy-path).
+- Audit-log writes must be covered by the test that exercises the happy path — assert `logAudit` was called with the right `actionType`.
+- Every endpoint that returns a counsellor's `photoUrl` has the signed-URL test triple (see CLAUDE.md § Pre-Commit Coverage).
 
 ---
 
-## 12. Open Questions / Follow-ups (not in this plan)
+## 12. Forward compatibility — lifting the single-counsellor cap later
 
-1. **Open-escalation handoff on revoke.** When a counsellor is revoked while holding un-resolved escalations, should those auto-reassign to the next counsellor (primary first, then oldest secondary)? Currently they stall. Decide before this becomes a field issue.
-2. **Primary-change audit trail UI.** The swap endpoint writes to `counsellor_audit_logs`, but SA has no UI to view the history of primary changes. Consider adding to the counsellor detail audit tab.
-3. **Notification on primary change.** Should the demoted counsellor get an email? Out of scope; worth deciding before launch.
-4. **Escalation routing preference.** Auto-escalation still picks primary-first. If we want "least-loaded counsellor first," that's a separate design exercise.
+This section documents how to evolve to multi-counsellor support without a painful migration.
+
+When product decides to allow multiple counsellors per society:
+
+1. **Drop the partial unique index** (`counsellor_one_active_per_society_uniq`) — one SQL statement, zero data migration.
+2. **Reintroduce the `isPrimary` concept in UI.** The column is still on every row; only the UI needs to surface it.
+3. **Update the SA society picker** — replace the exclusive hard-filter (§5.1) with a toggle like the original plan had (hide-by-default, opt-in reveal, with an "N counsellors already assigned" hint).
+4. **Update the 409 guard (§5.2)** — either drop it or restrict it to the "already primary" case.
+5. **Add the "Make Primary" swap endpoint + UI** (the old §6 design from this plan's prior revision can be recovered from git history).
+6. **Shared inbox** — change the counsellor tickets query to filter by `societyId IN (my active societies)` with `myRole` annotation.
+7. **RWA admin card** — render the full list ordered primary-first.
+
+Because the `isPrimary` flag and the many-to-many join table were never removed, none of this requires data migration — it is all behavioural.
 
 ---
 
-## 13. Acceptance Criteria
+## 13. Open Questions / Follow-ups (not in this plan)
+
+1. **Open-escalation handoff on revoke.** When a counsellor is revoked while holding un-resolved escalations, those escalations remain pointed at the revoked counsellor. Should they auto-reassign to the newly-assigned counsellor? Decide before this becomes a field issue.
+2. **Notification on revoke / reassign.** Should the revoked counsellor get an email? Should the new counsellor get a "you've been assigned N society" email? Out of scope; worth deciding before launch.
+3. **Profile-edit audit trail.** Every profile edit should ideally land in the counsellor audit log. Low priority — add after launch if requested.
+4. **Photo moderation.** Counsellors can upload any image under 2 MB. No content moderation. If this becomes a concern, add a basic review step or integrate an image-classification API.
+5. **Multi-counsellor rollout.** See §12 for the playbook — triggered by product, not eng.
+
+---
+
+## 14. Acceptance Criteria
 
 This feature is "done" when all of the following are true on staging:
 
-- [ ] A society with two counsellors (one primary, one secondary) — the RWA admin sees both names in the "Your Counsellors" card, with the primary listed first.
-- [ ] Both counsellors, when logged in, see the same list of escalated tickets for that society under the **All** tab.
-- [ ] Each ticket shows a `Primary` or `Secondary` badge reflecting the viewing counsellor's role on that society.
-- [ ] The secondary counsellor sees the ticket detail page as read-only (no ACK/RESOLVE/DEFER buttons).
-- [ ] SA can click "Make Primary" on the secondary assignment — both rows update in one request, banner confirms the swap.
-- [ ] Attempting to create two primaries for one society (e.g. via direct SQL during a race) fails with the unique-index violation.
-- [ ] SA "Assign societies" dialog hides already-assigned societies by default; toggle reveals them with a "2 counsellors already assigned" hint.
-- [ ] Revoking a counsellor's assignment immediately removes that society's tickets from their inbox; the remaining counsellors still see them.
+- [ ] Attempting to assign a society that already has an active counsellor (via UI or direct API call) returns 409 with a payload naming the existing counsellor.
+- [ ] The SA "Assign societies" dialog shows only societies with zero active counsellors — assigned societies are not present at all (not hidden-behind-toggle).
+- [ ] Attempting to insert a second active assignment for the same society via direct SQL fails on the partial unique index.
+- [ ] A counsellor can upload a profile photo via their profile page; the photo appears on the RWA admin "Your Counsellor" card within seconds.
+- [ ] A counsellor can edit phone, specialization, languages, years of experience, qualifications, and public blurb; invalid input is rejected with a clear error.
+- [ ] SA can edit any counsellor's profile, including uploading a photo on their behalf.
+- [ ] The RWA admin "Your Counsellor" card shows the counsellor's photo, name, contact info, specialization, languages, years of experience, qualifications, and blurb.
+- [ ] The RWA admin card shows the "No counsellor assigned" empty state when the society has no active counsellor.
+- [ ] Revoking a counsellor's assignment frees the society to be assigned to a different counsellor immediately.
+- [ ] The counsellor tickets inbox still shows only tickets for escalations routed to the logged-in counsellor (existing behaviour, confirmed by tests).
 - [ ] All new routes + UI hit 95% per-file coverage; `npm run lint` and `npx tsc --noEmit` are clean.
+- [ ] `execution_plan/plans/counsellor_improved.md` § 12 documents the multi-counsellor rollback path and is reviewed by at least one reviewer.
