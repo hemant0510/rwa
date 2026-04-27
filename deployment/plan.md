@@ -15,24 +15,24 @@ Goal: set up a clean **Docker → Azure Container Apps** pipeline with three iso
 
 ### Decisions locked in (all confirmed)
 
-| Topic                    | Choice                                                                                                                                                   |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Runtime                  | Azure Container Apps (Consumption plan)                                                                                                                  |
-| Region                   | Central India                                                                                                                                            |
-| Image registry           | GHCR (free, private)                                                                                                                                     |
-| Branch → Env             | `develop` → dev, `staging` → stage, `main` → prod                                                                                                        |
-| Promotion model          | **Push-based, no PRs for stage/prod.** Dev auto-deploys on push. Stage and prod are promoted via manual `workflow_dispatch` with approval gates.         |
-| Image strategy           | **Build once, promote the artifact.** Dev build tags `dev-<sha>`; promotion retags as `stage-<sha>` → `prod-<sha>`. Same bytes all the way through.      |
-| Approval gates           | Stage: `staging` env, 1 reviewer (self). Prod: `production` env, 1 reviewer (self). Extensible — add reviewers later via GitHub Settings → Environments. |
-| Scale                    | 0.5 vCPU / 1 GiB, min 0 / max 2–3 replicas, scale-to-zero in all envs                                                                                    |
-| Secrets                  | Container Apps secrets + env vars (Key Vault deferred)                                                                                                   |
-| DB                       | **Two Supabase projects**: `rwa-connect` (dev + stage, shared) / `rwa-connect-prod`                                                                      |
-| App errors               | Sentry (already wired)                                                                                                                                   |
-| Platform logs            | Container Apps → Log Analytics (free, no SDK)                                                                                                            |
-| App Insights SDK         | **Skipped** — resource provisioned only, reserved for future KQL use                                                                                     |
-| RLS / raw SQL migrations | **Wrapped inside Prisma migrations** (single pipeline)                                                                                                   |
-| CVE scanning             | Docker Scout in CI + Dependabot for base image                                                                                                           |
-| Prod domain              | Default `*.azurecontainerapps.io` at launch; custom later                                                                                                |
+| Topic                    | Choice                                                                                                                                                                                                                                                                                         |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Runtime                  | Azure Container Apps (Consumption plan)                                                                                                                                                                                                                                                        |
+| Region                   | Central India                                                                                                                                                                                                                                                                                  |
+| Image registry           | GHCR (free, private)                                                                                                                                                                                                                                                                           |
+| Branch → Env             | `develop` → dev, `staging` → stage, `main` → prod                                                                                                                                                                                                                                              |
+| Promotion model          | **Push-based, no PRs for stage/prod.** Dev auto-deploys on push. Stage and prod are promoted via manual `workflow_dispatch` with approval gates.                                                                                                                                               |
+| Image strategy           | **Build once, promote the artifact.** Dev build tags `dev-<sha>`; promotion retags as `stage-<sha>` → `prod-<sha>`. Same bytes all the way through.                                                                                                                                            |
+| Approval gates           | Stage: `staging` env, 1 reviewer (self). Prod: `production` env, 1 reviewer (self). Extensible — add reviewers later via GitHub Settings → Environments.                                                                                                                                       |
+| Scale                    | 0.5 vCPU / 1 GiB, min 0 / max 2–3 replicas, scale-to-zero in all envs                                                                                                                                                                                                                          |
+| Secrets                  | Container Apps secrets + env vars (Key Vault deferred)                                                                                                                                                                                                                                         |
+| DB                       | **Two Supabase projects**: `rwa-connect` (dev + stage, shared) / `rwa-connect-prod`                                                                                                                                                                                                            |
+| App errors               | Sentry (already wired)                                                                                                                                                                                                                                                                         |
+| Platform logs            | Container Apps → Log Analytics (free, no SDK)                                                                                                                                                                                                                                                  |
+| App Insights SDK         | **Skipped** — resource provisioned only, reserved for future KQL use                                                                                                                                                                                                                           |
+| RLS / raw SQL migrations | **Wrapped inside Prisma migrations** (single pipeline)                                                                                                                                                                                                                                         |
+| CVE scanning             | Docker Scout in CI + Dependabot for base image                                                                                                                                                                                                                                                 |
+| Custom domains           | `dev.rwaconnect360.com` / `stage.rwaconnect360.com` / `rwaconnect360.com` (apex) + `www.rwaconnect360.com`. Registrar: GoDaddy. Free Azure-managed certs. Procedure: [Phase 7](#phase-7--custom-domain-mapping-rwaconnect360com) and [runbooks/custom-domains.md](runbooks/custom-domains.md). |
 
 ---
 
@@ -329,6 +329,32 @@ _Production env-scoped secrets:_ `PROD_DATABASE_URL`, `PROD_DIRECT_URL`, `PROD_N
 
 Note: `STAGE_*` secrets can technically reuse `DEV_*` values since both point at `rwa-connect` — but keep them as separate secrets so the shared-DB decision can be reversed later without a secret rename.
 
+### Phase 7 — Custom domain mapping (`rwaconnect360.com`)
+
+Bind the GoDaddy-registered domain to all three Container Apps. Default `*.azurecontainerapps.io` URLs stay bound as fallback.
+
+| Env   | Container App | Custom hostname            | Validation | DNS record at GoDaddy             |
+| ----- | ------------- | -------------------------- | ---------- | --------------------------------- |
+| dev   | `rwa-dev`     | `dev.rwaconnect360.com`    | CNAME      | CNAME `dev` + TXT `asuid.dev`     |
+| stage | `rwa-stage`   | `stage.rwaconnect360.com`  | CNAME      | CNAME `stage` + TXT `asuid.stage` |
+| prod  | `rwa-prod`    | `rwaconnect360.com` (apex) | TXT        | A `@` + TXT `asuid`               |
+| prod  | `rwa-prod`    | `www.rwaconnect360.com`    | CNAME      | CNAME `www`                       |
+
+**Per-env steps (full commands in [runbooks/custom-domains.md](runbooks/custom-domains.md)):**
+
+1. Read the env's `customDomainVerificationId` and `staticIp` (Container Apps Environment, shared across all 3 apps).
+2. Add the GoDaddy DNS records (CNAME / A + matching `asuid` TXT). Wait 5–15 min for propagation.
+3. `az containerapp hostname add` + `az containerapp hostname bind` per app/hostname. Bind step provisions a free Azure-managed cert (~3–5 min).
+4. Update GitHub secret `NEXT_PUBLIC_APP_URL` (and `STAGE_*`, `PROD_*` variants) — this is **build-time** baked into the client bundle.
+5. Update Container App runtime env vars (`NEXT_PUBLIC_APP_URL`, `APP_URL`) via `az containerapp update --set-env-vars`.
+6. Re-trigger a deploy on each env so the rebuilt client bundle has the new URL hard-coded.
+7. Update Supabase Auth URL Configuration on **both** Supabase projects (`rwa-connect`, `rwa-connect-prod`) — Site URL + Redirect URLs allow-list.
+8. Verify: `curl https://<domain>/api/health` returns 200; TLS cert issuer is Microsoft / DigiCert; sign-in flow works end-to-end.
+
+**Critical gotcha:** `NEXT_PUBLIC_APP_URL` is baked into the build via the [Dockerfile](../Dockerfile) `ARG`. Updating the Container App env var alone is insufficient — the client `_next/static/*.js` still contains the old URL until the image is rebuilt. Always run Step 6.
+
+**Apex stability:** the env's static IP only changes if the Container Apps Environment is recreated. Apex A record is stable as long as `rwa-env` is not deleted. For true apex resilience, put Azure Front Door in front of `rwa-prod` (~$35/mo) — not justified at current scale.
+
 ### Phase 6 — Cutover + verification
 
 1. Push to `develop` — verify `deploy-dev.yml` runs end-to-end, `rwa-dev` is live, `/api/health` green.
@@ -431,7 +457,7 @@ Each follows the existing repo pattern (YAML frontmatter + instructions; reads t
 - RLS / raw SQL: wrapped inside Prisma migrations (single pipeline)
 - DB Phase 3B: included in plan
 - CVE scanning: Docker Scout + Dependabot, both added
-- Prod domain: default `*.azurecontainerapps.io` at launch; custom domain later (non-blocking)
+- Custom domains: `dev.rwaconnect360.com`, `stage.rwaconnect360.com`, `rwaconnect360.com` (apex), `www.rwaconnect360.com`. GoDaddy DNS, free Azure-managed certs. Procedure in [runbooks/custom-domains.md](runbooks/custom-domains.md). Default `*.azurecontainerapps.io` URLs remain bound as fallback.
 - Execution shape: Phase 1 deliverables (code + setup script + runbooks + Dependabot) in one pass, then Phases 2–6 manual on your signal
 - Promotion: push-based (no PRs). Dev auto-deploys; stage and prod promoted via workflow_dispatch with approval gates.
 - Gates: `staging` and `production` environments, required reviewer = self (extensible).

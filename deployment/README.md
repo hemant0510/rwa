@@ -25,11 +25,13 @@ Pipeline details: build once in dev, promote the **same image bytes** through st
 
 Three Container Apps behind one Container Apps Environment, one per env:
 
-| Env   | Branch    | App name    | Supabase project                |
-| ----- | --------- | ----------- | ------------------------------- |
-| dev   | `develop` | `rwa-dev`   | `rwa-connect`                   |
-| stage | `staging` | `rwa-stage` | `rwa-connect` (shared with dev) |
-| prod  | `main`    | `rwa-prod`  | `rwa-connect-prod`              |
+| Env   | Branch    | App name    | Custom domain                                 | Supabase project                |
+| ----- | --------- | ----------- | --------------------------------------------- | ------------------------------- |
+| dev   | `develop` | `rwa-dev`   | `dev.rwaconnect360.com`                       | `rwa-connect`                   |
+| stage | `staging` | `rwa-stage` | `stage.rwaconnect360.com`                     | `rwa-connect` (shared with dev) |
+| prod  | `main`    | `rwa-prod`  | `rwaconnect360.com` + `www.rwaconnect360.com` | `rwa-connect-prod`              |
+
+Default `*.azurecontainerapps.io` URLs remain bound on every app as a fallback. Domain binding procedure: [runbooks/custom-domains.md](runbooks/custom-domains.md).
 
 **Note:** dev and stage point at the same Supabase project (`rwa-connect`) — shared DB, shared `_prisma_migrations`. Prod is fully isolated. See [runbooks/db-migrations.md](runbooks/db-migrations.md) for migration flow implications.
 
@@ -37,15 +39,16 @@ All apps: Consumption plan, `centralindia`, 0.5 vCPU / 1 GiB, min 0 / max 2–3 
 
 ## Files in this folder
 
-| Path                                                                 | Purpose                                                                 |
-| -------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| [plan.md](plan.md)                                                   | Full 7-phase plan — read this first                                     |
-| [runbooks/rollback.md](runbooks/rollback.md)                         | Two rollback paths with exact commands                                  |
-| [runbooks/observability.md](runbooks/observability.md)               | Where to look when something's wrong                                    |
-| [runbooks/troubleshooting.md](runbooks/troubleshooting.md)           | Common failure modes + fixes                                            |
-| [runbooks/db-migrations.md](runbooks/db-migrations.md)               | Pre-migration checklist, expand-contract, rollback via Supabase backups |
-| [scripts/azure-setup.sh](scripts/azure-setup.sh)                     | Inert ordered `az` CLI commands for Phase 2                             |
-| [scripts/db-sync-prod-to-stage.sh](scripts/db-sync-prod-to-stage.sh) | Sanitised prod → stage refresh (stub — Phase 6)                         |
+| Path                                                                 | Purpose                                                                                |
+| -------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| [plan.md](plan.md)                                                   | Full 7-phase plan — read this first                                                    |
+| [runbooks/rollback.md](runbooks/rollback.md)                         | Two rollback paths with exact commands                                                 |
+| [runbooks/observability.md](runbooks/observability.md)               | Where to look when something's wrong                                                   |
+| [runbooks/troubleshooting.md](runbooks/troubleshooting.md)           | Common failure modes + fixes                                                           |
+| [runbooks/db-migrations.md](runbooks/db-migrations.md)               | Pre-migration checklist, expand-contract, rollback via Supabase backups                |
+| [runbooks/custom-domains.md](runbooks/custom-domains.md)             | One-time `rwaconnect360.com` binding to all 3 envs (GoDaddy DNS + Azure managed certs) |
+| [scripts/azure-setup.sh](scripts/azure-setup.sh)                     | Inert ordered `az` CLI commands for Phase 2                                            |
+| [scripts/db-sync-prod-to-stage.sh](scripts/db-sync-prod-to-stage.sh) | Sanitised prod → stage refresh (stub — Phase 6)                                        |
 
 ## Where the runtime artifacts live (outside this folder)
 
