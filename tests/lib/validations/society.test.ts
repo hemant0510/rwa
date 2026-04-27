@@ -15,16 +15,16 @@ describe("SOCIETY_TYPES", () => {
 
 describe("createSocietySchema", () => {
   const validInput = {
-    name: "Eden Estate RWA",
+    name: "Greenwood Residency RWA",
     state: "HR",
     city: "Gurugram",
     pincode: "122001",
     type: "APARTMENT_COMPLEX" as const,
-    societyCode: "EDEN",
+    societyCode: "GRNW",
     joiningFee: 1000,
     annualFee: 1200,
-    adminName: "Hemant Bhagat",
-    adminEmail: "hemant@example.com",
+    adminName: "Arjun Kapoor",
+    adminEmail: "arjun@example.com",
     adminPassword: "password123",
     adminPasswordConfirm: "password123",
   };
@@ -95,7 +95,7 @@ describe("createSocietySchema", () => {
 
 describe("updateSocietySchema", () => {
   const validUpdate = {
-    name: "Eden Estate RWA Updated",
+    name: "Greenwood Residency RWA Updated",
     state: "HR",
     city: "Gurugram",
     pincode: "122001",

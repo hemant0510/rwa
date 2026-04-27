@@ -45,7 +45,7 @@ const MOCK_RESIDENT_WITH_PHOTO = {
   ownershipType: "OWNER",
   createdAt: "2025-01-15T10:00:00.000Z",
   societyId: "soc-1",
-  society: { name: "Eden Estate" },
+  society: { name: "Greenwood Residency" },
   photoUrl: "https://example.com/photo.jpg",
   userUnits: [{ unit: { unitNumber: "A-301" } }],
 };
@@ -233,7 +233,7 @@ describe("PlatformResidentsPage", () => {
     mockGetPlatformResidents.mockResolvedValue(MOCK_RESPONSE);
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText("Eden Estate")).toBeInTheDocument();
+      expect(screen.getByText("Greenwood Residency")).toBeInTheDocument();
     });
     expect(screen.getAllByText("Sunrise Apartments").length).toBeGreaterThanOrEqual(1);
   });

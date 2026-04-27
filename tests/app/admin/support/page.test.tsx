@@ -79,8 +79,8 @@ const MOCK_AWAITING = {
 function renderPage(overrides: Partial<ReturnType<typeof mockUseSocietyId>> = {}) {
   mockUseSocietyId.mockReturnValue({
     societyId: "soc-1",
-    societyName: "Eden Estate",
-    societyCode: "EDEN",
+    societyName: "Greenwood Residency",
+    societyCode: "GRNW",
     isSuperAdminViewing: false,
     saQueryString: "",
     ...overrides,

@@ -12,11 +12,11 @@ describe("SuspendModal", () => {
       <SuspendModal
         open={true}
         onOpenChange={vi.fn()}
-        societyName="Eden Estate"
+        societyName="Greenwood Residency"
         onConfirm={vi.fn()}
       />,
     );
-    expect(screen.getByText(/Suspend Eden Estate/)).toBeInTheDocument();
+    expect(screen.getByText(/Suspend Greenwood Residency/)).toBeInTheDocument();
   });
 
   it("does not render when closed", () => {
@@ -65,11 +65,11 @@ describe("OffboardWizard", () => {
       <OffboardWizard
         open={true}
         onOpenChange={vi.fn()}
-        societyName="Eden Estate"
+        societyName="Greenwood Residency"
         onConfirm={vi.fn()}
       />,
     );
-    expect(screen.getByText(/Offboard Eden Estate/)).toBeInTheDocument();
+    expect(screen.getByText(/Offboard Greenwood Residency/)).toBeInTheDocument();
   });
 
   it("does not render when closed", () => {

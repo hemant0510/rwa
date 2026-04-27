@@ -8,10 +8,10 @@ import {
 
 describe("registerResidentSchema", () => {
   const validInput = {
-    fullName: "Hemant Bhagat",
+    fullName: "Arjun Kapoor",
     mobile: "9729728501",
     ownershipType: "OWNER" as const,
-    email: "hemant@example.com",
+    email: "arjun@example.com",
     password: "password123",
     passwordConfirm: "password123",
     consentWhatsApp: true as const,

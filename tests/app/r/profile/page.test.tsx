@@ -66,12 +66,12 @@ function renderPage() {
   const value = {
     user: {
       id: "u1",
-      name: "Hemant Bhagat",
+      name: "Arjun Kapoor",
       role: "RESIDENT" as const,
       permission: null,
       societyId: "soc-1",
-      societyName: "Eden Estate",
-      societyCode: "EDEN",
+      societyName: "Greenwood Residency",
+      societyCode: "GRNW",
       societyStatus: "ACTIVE",
       trialEndsAt: null,
       isTrialExpired: false,
@@ -94,8 +94,8 @@ function renderPage() {
 
 const profileFixture = {
   id: "u1",
-  name: "Hemant Bhagat",
-  email: "hemant@example.com",
+  name: "Arjun Kapoor",
+  email: "arjun@example.com",
   mobile: "9876543210",
   rwaid: "EDEN-001",
   status: "ACTIVE_PAID",
@@ -105,7 +105,7 @@ const profileFixture = {
   vehicleStatus: "NOT_SET",
   showInDirectory: true,
   showPhoneInDirectory: false,
-  societyName: "Eden Estate",
+  societyName: "Greenwood Residency",
   unit: "A-101",
   units: [{ id: "u1", displayLabel: "A-101" }],
   designation: null,
@@ -240,12 +240,12 @@ describe("ResidentProfilePage", () => {
     setupFetch();
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText("Hemant Bhagat")).toBeInTheDocument();
+      expect(screen.getByText("Arjun Kapoor")).toBeInTheDocument();
     });
     expect(screen.getByText("EDEN-001")).toBeInTheDocument();
     expect(screen.getByText("+91 9876543210")).toBeInTheDocument();
-    expect(screen.getByText("hemant@example.com")).toBeInTheDocument();
-    expect(screen.getByText(/A-101 — Eden Estate/)).toBeInTheDocument();
+    expect(screen.getByText("arjun@example.com")).toBeInTheDocument();
+    expect(screen.getByText(/A-101 — Greenwood Residency/)).toBeInTheDocument();
     expect(screen.getByText("Owner")).toBeInTheDocument();
   });
 
@@ -261,7 +261,7 @@ describe("ResidentProfilePage", () => {
     setupFetch();
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText("HB")).toBeInTheDocument();
+      expect(screen.getByText("AK")).toBeInTheDocument();
     });
   });
 
@@ -269,7 +269,7 @@ describe("ResidentProfilePage", () => {
     setupFetch();
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText("Hemant Bhagat")).toBeInTheDocument();
+      expect(screen.getByText("Arjun Kapoor")).toBeInTheDocument();
     });
     const input = screen.getByTestId("photo-input") as HTMLInputElement;
     fireEvent.change(input, {
@@ -296,7 +296,7 @@ describe("ResidentProfilePage", () => {
     });
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText("Hemant Bhagat")).toBeInTheDocument();
+      expect(screen.getByText("Arjun Kapoor")).toBeInTheDocument();
     });
     fireEvent.change(screen.getByTestId("photo-input"), {
       target: { files: [new File(["x"], "p.jpg", { type: "image/jpeg" })] },
@@ -319,7 +319,7 @@ describe("ResidentProfilePage", () => {
     });
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText("Hemant Bhagat")).toBeInTheDocument();
+      expect(screen.getByText("Arjun Kapoor")).toBeInTheDocument();
     });
     fireEvent.change(screen.getByTestId("photo-input"), {
       target: { files: [new File(["x"], "p.jpg", { type: "image/jpeg" })] },
@@ -367,7 +367,7 @@ describe("ResidentProfilePage", () => {
     setupFetch({ photoUrl: "/existing-photo.jpg" });
     renderPage();
     await waitFor(() => {
-      expect(screen.getByAltText("Hemant Bhagat")).toBeInTheDocument();
+      expect(screen.getByAltText("Arjun Kapoor")).toBeInTheDocument();
     });
     expect(screen.getAllByRole("button", { name: /change photo/i }).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: /^Remove$/ })).toBeInTheDocument();

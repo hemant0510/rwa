@@ -32,7 +32,7 @@ function makeRequest(body: unknown) {
   });
 }
 
-const mockSociety = { id: SOCIETY_ID, name: "Eden Estate" };
+const mockSociety = { id: SOCIETY_ID, name: "Greenwood Residency" };
 
 const mockCreatedUser = {
   id: "user-new-1",

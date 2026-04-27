@@ -59,7 +59,7 @@ describe("GET /api/v1/societies/[id]/reports/directory", () => {
       societyId: "soc-1",
       role: "RWA_ADMIN",
     });
-    mockPrisma.society.findUnique.mockResolvedValue({ name: "Eden Estate" });
+    mockPrisma.society.findUnique.mockResolvedValue({ name: "Greenwood Residency" });
     mockPrisma.user.findMany.mockResolvedValue(mockResidents);
     mockRenderToStream.mockResolvedValue(makeStream());
   });

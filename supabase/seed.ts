@@ -17,12 +17,12 @@ async function main() {
     },
   });
 
-  // 2. Society: Eden Estate
+  // 2. Society: Greenwood Residency (demo society)
   const society = await prisma.society.create({
     data: {
       societyId: "RWA-HR-GGN-122001-0001",
-      societyCode: "EDEN",
-      name: "Eden Estate Resident Welfare Association",
+      societyCode: "GRNW",
+      name: "Greenwood Residency Resident Welfare Association",
       state: "HR",
       city: "Gurgaon",
       cityCode: "GGN",
@@ -37,8 +37,8 @@ async function main() {
   const admin = await prisma.user.create({
     data: {
       societyId: society.id,
-      name: "Hemant Kumar",
-      email: "hemant@eden.in",
+      name: "Arjun Kapoor",
+      email: "arjun@greenwood.in",
       mobile: "9876543210",
       role: "RWA_ADMIN",
       adminPermission: "FULL_ACCESS",

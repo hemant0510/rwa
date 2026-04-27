@@ -47,13 +47,13 @@ beforeEach(() => {
 
 describe("AdminSidebar", () => {
   it("renders RWA Admin heading", () => {
-    renderWithQC(<AdminSidebar societyName="Eden Estate" />);
+    renderWithQC(<AdminSidebar societyName="Greenwood Residency" />);
     expect(screen.getByText("RWA Admin")).toBeInTheDocument();
   });
 
   it("renders society name as subtitle", () => {
-    renderWithQC(<AdminSidebar societyName="Eden Estate" />);
-    expect(screen.getByText("Eden Estate")).toBeInTheDocument();
+    renderWithQC(<AdminSidebar societyName="Greenwood Residency" />);
+    expect(screen.getByText("Greenwood Residency")).toBeInTheDocument();
   });
 
   it("renders Admin Portal when no society name", () => {
@@ -166,15 +166,15 @@ describe("AdminSidebar", () => {
 describe("AdminMobileSidebar", () => {
   it("renders navigation inside a Sheet when open", () => {
     renderWithQC(
-      <AdminMobileSidebar open={true} onOpenChange={vi.fn()} societyName="Eden Estate" />,
+      <AdminMobileSidebar open={true} onOpenChange={vi.fn()} societyName="Greenwood Residency" />,
     );
     expect(screen.getByText("Dashboard")).toBeInTheDocument();
-    expect(screen.getByText("Eden Estate")).toBeInTheDocument();
+    expect(screen.getByText("Greenwood Residency")).toBeInTheDocument();
   });
 
   it("does not render Sheet content when closed", () => {
     renderWithQC(
-      <AdminMobileSidebar open={false} onOpenChange={vi.fn()} societyName="Eden Estate" />,
+      <AdminMobileSidebar open={false} onOpenChange={vi.fn()} societyName="Greenwood Residency" />,
     );
     // Navigation items should not be visible when the sheet is closed
     expect(screen.queryByText("Dashboard")).not.toBeInTheDocument();

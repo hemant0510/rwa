@@ -65,7 +65,7 @@ const mockResident = {
   societyId: "soc-1",
   authUserId: "auth-res-123",
   ownershipType: "OWNER",
-  society: { id: "soc-1", name: "Eden Estate" },
+  society: { id: "soc-1", name: "Greenwood Residency" },
   userUnits: [],
   membershipFees: [],
 };

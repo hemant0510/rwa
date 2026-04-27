@@ -27,7 +27,7 @@ const baseClaim: PaymentClaim = {
   adminNotes: null,
   createdAt: "2026-04-04T10:32:00Z",
   updatedAt: "2026-04-04T10:32:00Z",
-  user: { name: "Hemant Kumar", unitNumber: "302" },
+  user: { name: "Arjun Kapoor", unitNumber: "302" },
 };
 
 function renderCard(overrides: Partial<PaymentClaim> = {}, props: { isPending?: boolean } = {}) {
@@ -56,7 +56,7 @@ describe("PendingClaimCard", () => {
 
   it("renders resident name, flat, amount, UTR, and submitted time", () => {
     renderCard();
-    expect(screen.getByText(/Hemant Kumar — Flat 302/)).toBeInTheDocument();
+    expect(screen.getByText(/Arjun Kapoor — Flat 302/)).toBeInTheDocument();
     expect(screen.getByText(/₹2,000/)).toBeInTheDocument();
     expect(screen.getByText(/UTR: UTR123456789012/)).toBeInTheDocument();
     expect(screen.getByText(/Submitted:/)).toBeInTheDocument();

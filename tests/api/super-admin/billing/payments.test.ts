@@ -21,7 +21,7 @@ const saOk = {
 const mockPayment = {
   id: "pay-1",
   societyId: "soc-1",
-  society: { id: "soc-1", name: "Eden Estate", societyCode: "EDEN" },
+  society: { id: "soc-1", name: "Greenwood Residency", societyCode: "GRNW" },
   amount: new Prisma.Decimal(5000),
   paymentMode: "UPI",
   referenceNo: "UPI123",
@@ -62,7 +62,7 @@ describe("GET /api/v1/super-admin/billing/payments", () => {
     expect(body.total).toBe(1);
     expect(body.page).toBe(1);
     expect(body.limit).toBe(50);
-    expect(body.rows[0].societyName).toBe("Eden Estate");
+    expect(body.rows[0].societyName).toBe("Greenwood Residency");
     expect(typeof body.rows[0].amount).toBe("number");
   });
 

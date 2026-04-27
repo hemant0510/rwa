@@ -1,5 +1,5 @@
 // prisma/dbinuse.prisma
-// Eden Estate RWA Connect — Active Database Schema
+// RWA Connect — Active Database Schema
 // Tables currently in use (excludes Phase 2+ stubs with no active features)
 // Full schema backup: prisma/schema.prisma
 

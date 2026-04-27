@@ -75,7 +75,7 @@ export function ReportHeader({ societyName, title, sessionYear, generatedAt }: R
 export function ReportFooter({ page, total }: { page: number; total?: number }) {
   return (
     <View style={reportStyles.footer} fixed>
-      <Text>Eden Estate RWA — Confidential</Text>
+      <Text>RWA Connect — Confidential</Text>
       <Text>{total ? `Page ${page} of ${total}` : `Page ${page}`}</Text>
     </View>
   );

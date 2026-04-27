@@ -30,7 +30,7 @@ const mockLog = {
   newValue: { name: "New Name" },
   ipAddress: "127.0.0.1",
   createdAt: new Date("2026-03-01T10:00:00Z"),
-  society: { id: "00000000-0000-4000-8000-000000000002", name: "Eden Estate" },
+  society: { id: "00000000-0000-4000-8000-000000000002", name: "Greenwood Residency" },
 };
 
 const mockUser = {
@@ -173,7 +173,7 @@ describe("GET /api/v1/super-admin/audit-logs", () => {
   it("returns societyName from log.society", async () => {
     const res = await GET(makeReq());
     const body = await res.json();
-    expect(body.items[0].societyName).toBe("Eden Estate");
+    expect(body.items[0].societyName).toBe("Greenwood Residency");
   });
 
   it("returns null societyName for platform-level logs", async () => {

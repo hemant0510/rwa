@@ -42,7 +42,7 @@ import { BulkUploadDialog } from "@/components/residents/BulkUploadDialog";
 const defaultProps = {
   open: true,
   onOpenChange: vi.fn(),
-  societyCode: "EDEN",
+  societyCode: "GRNW",
   onSuccess: vi.fn(),
 };
 
@@ -214,7 +214,7 @@ describe("BulkUploadDialog", () => {
       mockBulkUpload.mockResolvedValue({ results: [{ rowIndex: 0, success: true, rwaid: "R-1" }] });
       await uploadAndValidate([validRow]);
       fireEvent.click(screen.getByRole("button", { name: /Proceed with 1/i }));
-      await waitFor(() => expect(mockBulkUpload).toHaveBeenCalledWith("EDEN", expect.any(Array)));
+      await waitFor(() => expect(mockBulkUpload).toHaveBeenCalledWith("GRNW", expect.any(Array)));
     });
 
     it("shows success count on done step", async () => {

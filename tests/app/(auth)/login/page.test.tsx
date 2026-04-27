@@ -151,6 +151,60 @@ describe("LoginPage", () => {
     });
   });
 
+  it("falls back to default 429 message when error.message is missing", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 429,
+      json: () => Promise.resolve({ error: { code: "RATE_LIMIT_EXCEEDED" } }),
+    });
+
+    const user = userEvent.setup();
+    render(<LoginPage />);
+    await user.type(screen.getByLabelText(/email/i), "test@example.com");
+    await user.type(screen.getByLabelText(/password/i), "password123");
+    await user.click(screen.getByRole("button", { name: /sign in/i }));
+
+    await waitFor(() => {
+      expect(mockToast.error).toHaveBeenCalledWith("Too many attempts. Please try again later.");
+    });
+  });
+
+  it("falls back to default credentials message when error.message is missing", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      json: () => Promise.resolve({}),
+    });
+
+    const user = userEvent.setup();
+    render(<LoginPage />);
+    await user.type(screen.getByLabelText(/email/i), "test@example.com");
+    await user.type(screen.getByLabelText(/password/i), "password123");
+    await user.click(screen.getByRole("button", { name: /sign in/i }));
+
+    await waitFor(() => {
+      expect(mockToast.error).toHaveBeenCalledWith("Invalid credentials.");
+    });
+  });
+
+  it("uses form email when /me does not return email on unverified flow", async () => {
+    mockFetch
+      .mockResolvedValueOnce(loginOk())
+      .mockResolvedValueOnce(meOk({ redirectTo: null, emailVerified: false }));
+
+    const user = userEvent.setup();
+    render(<LoginPage />);
+    await user.type(screen.getByLabelText(/email/i), "fallback@example.com");
+    await user.type(screen.getByLabelText(/password/i), "password123");
+    await user.click(screen.getByRole("button", { name: /sign in/i }));
+
+    await waitFor(() => {
+      expect(mockPush).toHaveBeenCalledWith(
+        expect.stringContaining("email=fallback%40example.com"),
+      );
+    });
+  });
+
   it("redirects to check-email when email not verified", async () => {
     mockFetch
       .mockResolvedValueOnce(loginOk())

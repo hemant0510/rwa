@@ -62,7 +62,7 @@ const mockClaim = {
   adminNotes: null,
   createdAt: new Date("2026-04-04T10:00:00Z"),
   updatedAt: new Date("2026-04-04T10:00:00Z"),
-  user: { name: "Hemant Kumar", userUnits: [{ unit: { displayLabel: "Flat 302" } }] },
+  user: { name: "Arjun Kapoor", userUnits: [{ unit: { displayLabel: "Flat 302" } }] },
   society: { societyCode: "EE" },
   membershipFee: { amountPaid: 0, amountDue: 2000 },
 };

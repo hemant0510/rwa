@@ -236,24 +236,24 @@ describe("whatsapp", () => {
 
     it("sendRegistrationConfirmation uses registration_confirmation template with 2 params", async () => {
       const { sendRegistrationConfirmation } = await import("@/lib/whatsapp");
-      await sendRegistrationConfirmation("9876543210", "Alice", "Eden Estate");
+      await sendRegistrationConfirmation("9876543210", "Alice", "Greenwood Residency");
       const body = JSON.parse(mockFetch.mock.calls[0][1].body);
       expect(body.template_name).toBe("registration_confirmation");
       expect(body.parameters).toEqual([
         { name: "1", value: "Alice" },
-        { name: "2", value: "Eden Estate" },
+        { name: "2", value: "Greenwood Residency" },
       ]);
     });
 
     it("sendApprovalNotification uses approval_notification template with 3 params", async () => {
       const { sendApprovalNotification } = await import("@/lib/whatsapp");
-      await sendApprovalNotification("9876543210", "Bob", "RWA001", "Eden Estate");
+      await sendApprovalNotification("9876543210", "Bob", "RWA001", "Greenwood Residency");
       const body = JSON.parse(mockFetch.mock.calls[0][1].body);
       expect(body.template_name).toBe("approval_notification");
       expect(body.parameters).toEqual([
         { name: "1", value: "Bob" },
         { name: "2", value: "RWA001" },
-        { name: "3", value: "Eden Estate" },
+        { name: "3", value: "Greenwood Residency" },
       ]);
     });
 

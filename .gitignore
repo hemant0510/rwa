@@ -58,3 +58,6 @@ next-env.d.ts
 # PWA generated service worker
 public/sw*
 public/swe-worker*
+
+# Playwright MCP — browser-automation console logs and DOM snapshots (transient, not source)
+.playwright-mcp/

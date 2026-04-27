@@ -19,8 +19,8 @@ import { GET } from "@/app/api/v1/residents/me/route";
 
 const userFixture = {
   id: "u1",
-  name: "Hemant Bhagat",
-  email: "hemant@test.com",
+  name: "Arjun Kapoor",
+  email: "arjun@test.com",
   mobile: "9876543210",
   rwaid: "EDEN-001",
   status: "ACTIVE_PAID",
@@ -35,7 +35,7 @@ const userFixture = {
   consentWhatsapp: false,
   showInDirectory: false,
   showPhoneInDirectory: false,
-  society: { name: "Eden Estate", societyCode: "EDEN" },
+  society: { name: "Greenwood Residency", societyCode: "GRNW" },
   userUnits: [{ unit: { id: "unit-1", displayLabel: "A-101" } }],
   governingBodyMembership: null,
 };
@@ -82,8 +82,8 @@ describe("GET /api/v1/residents/me", () => {
     const body = await res.json();
 
     expect(body.id).toBe("u1");
-    expect(body.name).toBe("Hemant Bhagat");
-    expect(body.email).toBe("hemant@test.com");
+    expect(body.name).toBe("Arjun Kapoor");
+    expect(body.email).toBe("arjun@test.com");
     expect(body.mobile).toBe("9876543210");
     expect(body.rwaid).toBe("EDEN-001");
     expect(body.status).toBe("ACTIVE_PAID");
@@ -92,7 +92,7 @@ describe("GET /api/v1/residents/me", () => {
     expect(body.householdStatus).toBe("NOT_SET");
     expect(body.vehicleStatus).toBe("NOT_SET");
     expect(body.showInDirectory).toBe(false);
-    expect(body.societyName).toBe("Eden Estate");
+    expect(body.societyName).toBe("Greenwood Residency");
     expect(body.unit).toBe("A-101");
     expect(body.units).toEqual([{ id: "unit-1", displayLabel: "A-101" }]);
     expect(body.showPhoneInDirectory).toBe(false);

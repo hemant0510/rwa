@@ -97,7 +97,7 @@ const mockPetition = {
   _count: { signatures: 2 },
 };
 
-const mockSociety = { name: "Eden Estate" };
+const mockSociety = { name: "Greenwood Residency" };
 
 const mockSignatures = [
   {
@@ -122,7 +122,7 @@ const mockSignatures = [
     signatureUrl: "soc-1/pet-1/user-2.png",
     signedAt: new Date("2026-04-02T10:00:00Z"),
     user: {
-      name: "Hemant Bhagat",
+      name: "Arjun Kapoor",
       userUnits: [],
     },
   },
@@ -311,7 +311,7 @@ describe("GET /api/v1/societies/[id]/petitions/[petitionId]/signed-doc", () => {
   it("draws the society name in the signature page header", async () => {
     await GET(makeGetRequest(), makeParams());
     const textCalls = mockPage.drawText.mock.calls.map((c) => c[0] as string);
-    expect(textCalls).toContain("Eden Estate");
+    expect(textCalls).toContain("Greenwood Residency");
   });
 
   it("draws the petition title in the signature page header", async () => {
@@ -360,7 +360,7 @@ describe("GET /api/v1/societies/[id]/petitions/[petitionId]/signed-doc", () => {
     await GET(makeGetRequest(), makeParams());
     const textCalls = mockPage.drawText.mock.calls.map((c) => c[0] as string);
     expect(textCalls).toContain("Gaurav Gupta");
-    expect(textCalls).toContain("Hemant Bhagat");
+    expect(textCalls).toContain("Arjun Kapoor");
   });
 
   it("draws the unit displayLabel for each signatory", async () => {
@@ -372,7 +372,7 @@ describe("GET /api/v1/societies/[id]/petitions/[petitionId]/signed-doc", () => {
   it("draws em-dash for signatories with no unit", async () => {
     await GET(makeGetRequest(), makeParams());
     const textCalls = mockPage.drawText.mock.calls.map((c) => c[0] as string);
-    // Hemant Bhagat has no userUnits → falls back to "—"
+    // Arjun Kapoor has no userUnits → falls back to "—"
     expect(textCalls).toContain("—");
   });
 

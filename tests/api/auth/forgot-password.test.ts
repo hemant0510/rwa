@@ -72,9 +72,9 @@ describe("POST /api/v1/auth/forgot-password", () => {
   });
 
   it("calls checkRateLimit with email-based key", async () => {
-    await POST(makeReq({ email: "Rajesh@Eden.com" }));
+    await POST(makeReq({ email: "Rajesh@greenwood.com" }));
     expect(mockCheckRateLimit).toHaveBeenCalledWith(
-      "forgot-password:rajesh@eden.com", // lowercase
+      "forgot-password:rajesh@greenwood.com", // lowercase
       3,
       expect.any(Number),
     );

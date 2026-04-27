@@ -117,9 +117,9 @@ describe("societies service", () => {
 
   describe("getSocietyByCode", () => {
     it("fetches society by code", async () => {
-      mockFetch.mockResolvedValue(okJson({ name: "Eden Estate" }));
+      mockFetch.mockResolvedValue(okJson({ name: "Greenwood Residency" }));
       const result = await getSocietyByCode("EDEN");
-      expect(result.name).toBe("Eden Estate");
+      expect(result.name).toBe("Greenwood Residency");
     });
 
     it("throws when not found", async () => {

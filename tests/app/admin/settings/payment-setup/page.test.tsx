@@ -34,8 +34,8 @@ const mockUser = {
   role: "RWA_ADMIN" as const,
   permission: "FULL_ACCESS" as const,
   societyId: "soc-1",
-  societyName: "Eden Estate",
-  societyCode: "EDEN",
+  societyName: "Greenwood Residency",
+  societyCode: "GRNW",
   societyStatus: "ACTIVE",
   trialEndsAt: null,
   isTrialExpired: false,
@@ -46,7 +46,7 @@ const mockUser = {
 const mockUpiSettings = {
   upiId: "edenestate@sbi",
   upiQrUrl: "https://example.com/qr.png",
-  upiAccountName: "Eden Estate RWA",
+  upiAccountName: "Greenwood Residency RWA",
 };
 
 function renderPage() {

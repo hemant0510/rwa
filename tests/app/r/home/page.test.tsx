@@ -41,8 +41,8 @@ function renderWithProviders(
       role: "RESIDENT" as const,
       permission: null,
       societyId: "soc-1",
-      societyName: "Eden Estate",
-      societyCode: "EDEN",
+      societyName: "Greenwood Residency",
+      societyCode: "GRNW",
       societyStatus: "ACTIVE",
       trialEndsAt: null,
       isTrialExpired: false,
@@ -85,7 +85,7 @@ describe("ResidentHomePage", () => {
         rwaid: null,
         status: "PENDING_APPROVAL",
         unit: null,
-        societyName: "Eden Estate",
+        societyName: "Greenwood Residency",
         designation: null,
         currentFee: null,
       },
@@ -105,7 +105,7 @@ describe("ResidentHomePage", () => {
         rwaid: null,
         status: "REJECTED",
         unit: null,
-        societyName: "Eden Estate",
+        societyName: "Greenwood Residency",
         designation: null,
         currentFee: null,
       },
@@ -121,11 +121,11 @@ describe("ResidentHomePage", () => {
       {},
       {
         id: "u1",
-        name: "Hemant",
+        name: "Arjun",
         rwaid: "EDEN-001",
         status: "ACTIVE_PAID",
         unit: "A-101",
-        societyName: "Eden Estate",
+        societyName: "Greenwood Residency",
         designation: null,
         currentFee: {
           sessionYear: "2025-26",
@@ -137,7 +137,7 @@ describe("ResidentHomePage", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("Welcome, Hemant")).toBeInTheDocument();
+      expect(screen.getByText("Welcome, Arjun")).toBeInTheDocument();
     });
     expect(screen.getByText("EDEN-001")).toBeInTheDocument();
     expect(screen.getByText("Unit: A-101")).toBeInTheDocument();
@@ -149,11 +149,11 @@ describe("ResidentHomePage", () => {
       {},
       {
         id: "u1",
-        name: "Hemant",
+        name: "Arjun",
         rwaid: "EDEN-001",
         status: "ACTIVE_PAID",
         unit: "A-101",
-        societyName: "Eden Estate",
+        societyName: "Greenwood Residency",
         designation: "President",
         currentFee: null,
       },
@@ -169,18 +169,18 @@ describe("ResidentHomePage", () => {
       {},
       {
         id: "u1",
-        name: "Hemant",
+        name: "Arjun",
         rwaid: "EDEN-001",
         status: "ACTIVE_PAID",
         unit: null,
-        societyName: "Eden Estate",
+        societyName: "Greenwood Residency",
         designation: null,
         currentFee: null,
       },
     );
 
     await waitFor(() => {
-      expect(screen.getByText("Welcome, Hemant")).toBeInTheDocument();
+      expect(screen.getByText("Welcome, Arjun")).toBeInTheDocument();
     });
     expect(screen.queryByText("President")).not.toBeInTheDocument();
   });
@@ -190,11 +190,11 @@ describe("ResidentHomePage", () => {
       {},
       {
         id: "u1",
-        name: "Hemant",
+        name: "Arjun",
         rwaid: null,
         status: "ACTIVE_PENDING",
         unit: null,
-        societyName: "Eden Estate",
+        societyName: "Greenwood Residency",
         designation: null,
         currentFee: null,
       },
@@ -210,11 +210,11 @@ describe("ResidentHomePage", () => {
       {},
       {
         id: "u1",
-        name: "Hemant",
+        name: "Arjun",
         rwaid: "EDEN-001",
         status: "ACTIVE_PAID",
         unit: null,
-        societyName: "Eden Estate",
+        societyName: "Greenwood Residency",
         designation: null,
         currentFee: null,
       },

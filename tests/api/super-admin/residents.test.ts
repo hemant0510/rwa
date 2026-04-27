@@ -101,7 +101,7 @@ describe("GET /api/v1/super-admin/residents", () => {
         ownershipType: "OWNER",
         createdAt: new Date(),
         societyId: "soc-1",
-        society: { name: "Eden Estate" },
+        society: { name: "Greenwood Residency" },
         userUnits: [{ unit: { unitNumber: "A-101" } }],
       },
     ];
@@ -269,7 +269,7 @@ describe("GET /api/v1/super-admin/residents", () => {
         createdAt: new Date(),
         societyId: "soc-1",
         photoUrl: "soc-1/u-1/photo.jpg",
-        society: { name: "Eden Estate" },
+        society: { name: "Greenwood Residency" },
         userUnits: [{ unit: { unitNumber: "A-101" } }],
       },
     ];
@@ -303,7 +303,7 @@ describe("GET /api/v1/super-admin/residents", () => {
         createdAt: new Date(),
         societyId: "soc-1",
         photoUrl: null,
-        society: { name: "Eden Estate" },
+        society: { name: "Greenwood Residency" },
         userUnits: [],
       },
     ];
@@ -337,7 +337,7 @@ describe("GET /api/v1/super-admin/residents", () => {
         createdAt: new Date(),
         societyId: "soc-1",
         photoUrl: "soc-1/u-1/photo.jpg",
-        society: { name: "Eden Estate" },
+        society: { name: "Greenwood Residency" },
         userUnits: [],
       },
     ];

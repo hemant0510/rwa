@@ -7,9 +7,9 @@ import type { ActivityItem } from "@/services/operations";
 function makeActivity(overrides: Partial<ActivityItem> = {}): ActivityItem {
   return {
     type: "resident_approved",
-    message: "Eden Estate approved 5 new residents",
+    message: "Greenwood Residency approved 5 new residents",
     societyId: "soc-1",
-    societyName: "Eden Estate",
+    societyName: "Greenwood Residency",
     timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
     severity: "info",
     ...overrides,
@@ -26,7 +26,9 @@ describe("ActivityFeed", () => {
 
     it("does not render activity items when loading", () => {
       render(<ActivityFeed activities={[]} isLoading={true} />);
-      expect(screen.queryByText("Eden Estate approved 5 new residents")).not.toBeInTheDocument();
+      expect(
+        screen.queryByText("Greenwood Residency approved 5 new residents"),
+      ).not.toBeInTheDocument();
     });
   });
 
@@ -40,14 +42,14 @@ describe("ActivityFeed", () => {
   describe("with data", () => {
     it("renders activity messages", () => {
       const activities = [
-        makeActivity({ message: "Eden Estate approved 5 new residents" }),
+        makeActivity({ message: "Greenwood Residency approved 5 new residents" }),
         makeActivity({
           message: "Green Valley created event: Holi Celebration",
           severity: "info",
         }),
       ];
       render(<ActivityFeed activities={activities} isLoading={false} />);
-      expect(screen.getByText("Eden Estate approved 5 new residents")).toBeInTheDocument();
+      expect(screen.getByText("Greenwood Residency approved 5 new residents")).toBeInTheDocument();
       expect(screen.getByText("Green Valley created event: Holi Celebration")).toBeInTheDocument();
     });
 

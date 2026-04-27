@@ -72,14 +72,14 @@ const mockClaim: {
   periodStart: "2026-04-01",
   periodEnd: "2026-05-01",
   createdAt: "2026-04-04T10:00:00Z",
-  society: { name: "Eden Estate" },
+  society: { name: "Greenwood Residency" },
   subscription: { planId: "plan-1" },
 };
 
 const mockPaymentRow = {
   id: "p-1",
-  societyName: "Eden Estate",
-  societyCode: "EDEN",
+  societyName: "Greenwood Residency",
+  societyCode: "GRNW",
   amount: 5000,
   paymentMode: "UPI",
   referenceNo: "UTR123",
@@ -153,8 +153,8 @@ describe("RecordedPaymentsTab", () => {
   it("renders table with payment data", async () => {
     mockGetAllPayments.mockResolvedValue({ rows: [mockPaymentRow], total: 1 });
     renderPage();
-    await waitFor(() => expect(screen.getByText("Eden Estate")).toBeInTheDocument());
-    expect(screen.getByText("EDEN")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("Greenwood Residency")).toBeInTheDocument());
+    expect(screen.getByText("GRNW")).toBeInTheDocument();
     expect(screen.getByText("UTR123")).toBeInTheDocument();
     expect(screen.getByText("INV-001")).toBeInTheDocument();
     expect(screen.getByText("Active")).toBeInTheDocument();
@@ -184,7 +184,7 @@ describe("RecordedPaymentsTab", () => {
       total: 1,
     });
     renderPage();
-    await waitFor(() => expect(screen.getByText("Eden Estate")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Greenwood Residency")).toBeInTheDocument());
     // referenceNo column shows "-"
     const cells = screen.getAllByRole("cell");
     const refCell = cells.find((c) => c.textContent === "-");
@@ -236,7 +236,7 @@ describe("RecordedPaymentsTab", () => {
   it("hides pagination when only 1 page", async () => {
     mockGetAllPayments.mockResolvedValue({ rows: [mockPaymentRow], total: 1 });
     renderPage();
-    await waitFor(() => expect(screen.getByText("Eden Estate")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Greenwood Residency")).toBeInTheDocument());
     expect(screen.queryByText("Page 1 of")).not.toBeInTheDocument();
   });
 });
@@ -274,7 +274,7 @@ describe("PendingClaimsTab", () => {
       pageSize: 20,
     });
     await switchToClaimsTab();
-    await waitFor(() => expect(screen.getByText("Eden Estate")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Greenwood Residency")).toBeInTheDocument());
     expect(screen.getByText(/UTR428756123456/)).toBeInTheDocument();
     expect(screen.getByText("PENDING")).toBeInTheDocument();
   });
@@ -322,13 +322,13 @@ describe("PendingSubClaimCard", () => {
     const user = userEvent.setup();
     renderPage();
     await user.click(screen.getByRole("tab", { name: /Pending Claims/i }));
-    await waitFor(() => expect(screen.getByText("Eden Estate")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Greenwood Residency")).toBeInTheDocument());
     return user;
   }
 
   it("displays society name, amount, and date", async () => {
     await renderWithClaim();
-    expect(screen.getByText("Eden Estate")).toBeInTheDocument();
+    expect(screen.getByText("Greenwood Residency")).toBeInTheDocument();
     expect(screen.getByText(/1,799/)).toBeInTheDocument();
   });
 

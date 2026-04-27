@@ -25,8 +25,8 @@ const mockSubscription = {
   societyId: "soc-1",
   society: {
     id: "soc-1",
-    name: "Eden Estate",
-    societyCode: "EDEN",
+    name: "Greenwood Residency",
+    societyCode: "GRNW",
     subscriptionExpiresAt: new Date("2026-12-31"),
   },
   plan: { id: "plan-1", name: "Community" },
@@ -63,7 +63,7 @@ describe("GET /api/v1/super-admin/billing/subscriptions", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toHaveLength(1);
-    expect(body[0].societyName).toBe("Eden Estate");
+    expect(body[0].societyName).toBe("Greenwood Residency");
     expect(body[0].planName).toBe("Community");
     expect(body[0].billingCycle).toBe("ANNUAL");
     expect(body[0].status).toBe("ACTIVE");

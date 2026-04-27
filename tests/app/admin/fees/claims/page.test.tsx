@@ -67,7 +67,7 @@ const mockClaim = {
   adminNotes: null,
   createdAt: "2026-04-04T10:00:00Z",
   updatedAt: "2026-04-04T10:00:00Z",
-  user: { name: "Hemant Kumar", flatNumber: "302" },
+  user: { name: "Arjun Kapoor", flatNumber: "302" },
 };
 
 function renderPage() {

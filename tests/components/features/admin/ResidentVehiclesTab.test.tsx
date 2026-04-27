@@ -48,7 +48,7 @@ const baseVehicle: AdminVehicle = {
   fastagId: null,
   notes: null,
   ownerId: "o1",
-  owner: { id: "o1", name: "Hemant" },
+  owner: { id: "o1", name: "Arjun" },
   dependentOwnerId: null,
   dependentOwner: null,
   vehiclePhotoUrl: null,
@@ -115,7 +115,7 @@ describe("ResidentVehiclesTab", () => {
       "https://x/ins.pdf",
     );
     expect(screen.getByText(/A-101/)).toBeInTheDocument();
-    expect(screen.getByText(/Hemant/)).toBeInTheDocument();
+    expect(screen.getByText(/Arjun/)).toBeInTheDocument();
   });
 
   it("inline-edits parking slot and saves", async () => {

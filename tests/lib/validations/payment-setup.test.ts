@@ -18,7 +18,7 @@ describe("upiSetupSchema", () => {
       upiSetupSchema.safeParse({
         ...valid,
         upiQrUrl: "https://example.com/qr.png",
-        upiAccountName: "Eden Estate RWA",
+        upiAccountName: "Greenwood Residency RWA",
       }).success,
     ).toBe(true);
   });

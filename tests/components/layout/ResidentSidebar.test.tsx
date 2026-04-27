@@ -36,13 +36,13 @@ beforeEach(() => {
 
 describe("ResidentSidebar", () => {
   it("renders RWA Connect heading", () => {
-    renderWithQC(<ResidentSidebar societyName="Eden Estate" />);
+    renderWithQC(<ResidentSidebar societyName="Greenwood Residency" />);
     expect(screen.getByText("RWA Connect")).toBeInTheDocument();
   });
 
   it("renders society name as subtitle", () => {
-    renderWithQC(<ResidentSidebar societyName="Eden Estate" />);
-    expect(screen.getByText("Eden Estate")).toBeInTheDocument();
+    renderWithQC(<ResidentSidebar societyName="Greenwood Residency" />);
+    expect(screen.getByText("Greenwood Residency")).toBeInTheDocument();
   });
 
   it("renders Resident Portal when no society name", () => {

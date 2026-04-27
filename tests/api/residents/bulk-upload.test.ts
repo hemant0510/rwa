@@ -62,7 +62,7 @@ function makeReq(body: unknown) {
 const mockSociety = {
   id: "soc-1",
   societyId: "RWA-HR-GGN-122001-0001",
-  societyCode: "EDEN",
+  societyCode: "GRNW",
   status: "ACTIVE",
 };
 
@@ -102,32 +102,32 @@ describe("POST /api/v1/residents/bulk-upload", () => {
 
   it("returns 401 when not authenticated", async () => {
     mockGetFullAccessAdmin.mockResolvedValue(null);
-    const res = await POST(makeReq({ societyCode: "EDEN", records: [validRecord] }));
+    const res = await POST(makeReq({ societyCode: "GRNW", records: [validRecord] }));
     expect(res.status).toBe(401);
   });
 
   it("returns 403 when admin belongs to a different society", async () => {
     mockGetFullAccessAdmin.mockResolvedValue({ ...mockAdmin, societyId: "different-society" });
-    const res = await POST(makeReq({ societyCode: "EDEN", records: [validRecord] }));
+    const res = await POST(makeReq({ societyCode: "GRNW", records: [validRecord] }));
     expect(res.status).toBe(403);
   });
 
   it("returns 422 when body is missing required fields", async () => {
-    const res = await POST(makeReq({ societyCode: "EDEN" })); // missing records
+    const res = await POST(makeReq({ societyCode: "GRNW" })); // missing records
     expect(res.status).toBe(422);
     const body = await res.json();
     expect(body.error.code).toBe("VALIDATION_ERROR");
   });
 
   it("returns 422 when records array is empty", async () => {
-    const res = await POST(makeReq({ societyCode: "EDEN", records: [] }));
+    const res = await POST(makeReq({ societyCode: "GRNW", records: [] }));
     expect(res.status).toBe(422);
   });
 
   it("returns 422 when a record has invalid email", async () => {
     const res = await POST(
       makeReq({
-        societyCode: "EDEN",
+        societyCode: "GRNW",
         records: [{ ...validRecord, email: "not-an-email" }],
       }),
     );
@@ -137,7 +137,7 @@ describe("POST /api/v1/residents/bulk-upload", () => {
   it("returns 422 when a record has invalid mobile", async () => {
     const res = await POST(
       makeReq({
-        societyCode: "EDEN",
+        societyCode: "GRNW",
         records: [{ ...validRecord, mobile: "12345" }],
       }),
     );
@@ -147,7 +147,7 @@ describe("POST /api/v1/residents/bulk-upload", () => {
   it("returns 422 when ownershipType is not OWNER or TENANT", async () => {
     const res = await POST(
       makeReq({
-        societyCode: "EDEN",
+        societyCode: "GRNW",
         records: [{ ...validRecord, ownershipType: "OTHER" }],
       }),
     );
@@ -156,18 +156,18 @@ describe("POST /api/v1/residents/bulk-upload", () => {
 
   it("returns 404 when society not found", async () => {
     mockPrisma.society.findUnique.mockResolvedValue(null);
-    const res = await POST(makeReq({ societyCode: "EDEN", records: [validRecord] }));
+    const res = await POST(makeReq({ societyCode: "GRNW", records: [validRecord] }));
     expect(res.status).toBe(404);
   });
 
   it("returns 404 when society is SUSPENDED", async () => {
     mockPrisma.society.findUnique.mockResolvedValue({ ...mockSociety, status: "SUSPENDED" });
-    const res = await POST(makeReq({ societyCode: "EDEN", records: [validRecord] }));
+    const res = await POST(makeReq({ societyCode: "GRNW", records: [validRecord] }));
     expect(res.status).toBe(404);
   });
 
   it("successfully processes a valid record and returns rwaid", async () => {
-    const res = await POST(makeReq({ societyCode: "EDEN", records: [validRecord] }));
+    const res = await POST(makeReq({ societyCode: "GRNW", records: [validRecord] }));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.results).toHaveLength(1);
@@ -178,7 +178,7 @@ describe("POST /api/v1/residents/bulk-upload", () => {
 
   it("uses registrationYear in RWAID when provided", async () => {
     const res = await POST(
-      makeReq({ societyCode: "EDEN", records: [{ ...validRecord, registrationYear: 2021 }] }),
+      makeReq({ societyCode: "GRNW", records: [{ ...validRecord, registrationYear: 2021 }] }),
     );
     const body = await res.json();
     expect(body.results[0].rwaid).toContain("-2021-");
@@ -186,13 +186,13 @@ describe("POST /api/v1/residents/bulk-upload", () => {
 
   it("uses current year in RWAID when registrationYear is not provided", async () => {
     const currentYear = new Date().getFullYear();
-    const res = await POST(makeReq({ societyCode: "EDEN", records: [validRecord] }));
+    const res = await POST(makeReq({ societyCode: "GRNW", records: [validRecord] }));
     const body = await res.json();
     expect(body.results[0].rwaid).toContain(`-${currentYear}-`);
   });
 
   it("sets joiningFeePaid=true for all bulk-imported residents", async () => {
-    await POST(makeReq({ societyCode: "EDEN", records: [validRecord] }));
+    await POST(makeReq({ societyCode: "GRNW", records: [validRecord] }));
     expect(mockPrisma.user.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ joiningFeePaid: true }),
@@ -201,7 +201,7 @@ describe("POST /api/v1/residents/bulk-upload", () => {
   });
 
   it("sets status=ACTIVE_PENDING for all bulk-imported residents", async () => {
-    await POST(makeReq({ societyCode: "EDEN", records: [validRecord] }));
+    await POST(makeReq({ societyCode: "GRNW", records: [validRecord] }));
     expect(mockPrisma.user.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ status: "ACTIVE_PENDING" }),
@@ -210,7 +210,7 @@ describe("POST /api/v1/residents/bulk-upload", () => {
   });
 
   it("sets isEmailVerified=true for all bulk-imported residents", async () => {
-    await POST(makeReq({ societyCode: "EDEN", records: [validRecord] }));
+    await POST(makeReq({ societyCode: "GRNW", records: [validRecord] }));
     expect(mockPrisma.user.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ isEmailVerified: true }),
@@ -219,7 +219,7 @@ describe("POST /api/v1/residents/bulk-upload", () => {
   });
 
   it("sets approvedAt and activatedAt for bulk-imported residents", async () => {
-    await POST(makeReq({ societyCode: "EDEN", records: [validRecord] }));
+    await POST(makeReq({ societyCode: "GRNW", records: [validRecord] }));
     expect(mockPrisma.user.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -236,7 +236,7 @@ describe("POST /api/v1/residents/bulk-upload", () => {
       .mockResolvedValueOnce(null) // no mobile duplicate in society
       .mockResolvedValueOnce({ authUserId: "existing-auth-id" }); // existing auth lookup
 
-    const res = await POST(makeReq({ societyCode: "EDEN", records: [validRecord] }));
+    const res = await POST(makeReq({ societyCode: "GRNW", records: [validRecord] }));
     const body = await res.json();
     expect(body.results[0].success).toBe(true);
     expect(mockSupabaseAdmin.auth.admin.createUser).not.toHaveBeenCalled();
@@ -252,7 +252,7 @@ describe("POST /api/v1/residents/bulk-upload", () => {
       data: null,
       error: { message: "Auth service unavailable" },
     });
-    const res = await POST(makeReq({ societyCode: "EDEN", records: [validRecord] }));
+    const res = await POST(makeReq({ societyCode: "GRNW", records: [validRecord] }));
     const body = await res.json();
     expect(body.results[0].success).toBe(false);
     expect(body.results[0].error).toContain("Auth account error");
@@ -263,7 +263,7 @@ describe("POST /api/v1/residents/bulk-upload", () => {
       id: "existing-r1",
       status: "ACTIVE_PAID",
     });
-    const res = await POST(makeReq({ societyCode: "EDEN", records: [validRecord] }));
+    const res = await POST(makeReq({ societyCode: "GRNW", records: [validRecord] }));
     const body = await res.json();
     expect(body.results[0].success).toBe(false);
     expect(body.results[0].error).toContain("Email is already registered");
@@ -273,7 +273,7 @@ describe("POST /api/v1/residents/bulk-upload", () => {
     mockPrisma.user.findFirst
       .mockResolvedValueOnce(null) // no email conflict
       .mockResolvedValueOnce({ id: "existing-r2", status: "ACTIVE_PENDING" }); // mobile conflict
-    const res = await POST(makeReq({ societyCode: "EDEN", records: [validRecord] }));
+    const res = await POST(makeReq({ societyCode: "GRNW", records: [validRecord] }));
     const body = await res.json();
     expect(body.results[0].success).toBe(false);
     expect(body.results[0].error).toContain("Mobile number is already registered");
@@ -294,7 +294,7 @@ describe("POST /api/v1/residents/bulk-upload", () => {
       error: null,
     });
 
-    const res = await POST(makeReq({ societyCode: "EDEN", records: [validRecord, record2] }));
+    const res = await POST(makeReq({ societyCode: "GRNW", records: [validRecord, record2] }));
     const body = await res.json();
     expect(body.results).toHaveLength(2);
     expect(body.results[0].success).toBe(false);
@@ -306,13 +306,13 @@ describe("POST /api/v1/residents/bulk-upload", () => {
       ...validRecord,
       unitAddress: { flatNo: "A-101", towerBlock: "A", floorLevel: "FIRST" },
     };
-    await POST(makeReq({ societyCode: "EDEN", records: [recordWithUnit] }));
+    await POST(makeReq({ societyCode: "GRNW", records: [recordWithUnit] }));
     expect(mockPrisma.unit.create).toHaveBeenCalled();
     expect(mockPrisma.userUnit.create).toHaveBeenCalled();
   });
 
   it("does not create unit when unitAddress is not provided", async () => {
-    await POST(makeReq({ societyCode: "EDEN", records: [validRecord] }));
+    await POST(makeReq({ societyCode: "GRNW", records: [validRecord] }));
     expect(mockPrisma.unit.create).not.toHaveBeenCalled();
     expect(mockPrisma.userUnit.create).not.toHaveBeenCalled();
   });
@@ -320,7 +320,7 @@ describe("POST /api/v1/residents/bulk-upload", () => {
   it("RWAID sequence uses year-specific count", async () => {
     mockPrisma.user.count.mockResolvedValue(5); // 5 existing RWAIDs for that year
     const res = await POST(
-      makeReq({ societyCode: "EDEN", records: [{ ...validRecord, registrationYear: 2022 }] }),
+      makeReq({ societyCode: "GRNW", records: [{ ...validRecord, registrationYear: 2022 }] }),
     );
     const body = await res.json();
     // sequence = 5 + 1 = 6, padded to 4 → 0006
@@ -328,7 +328,7 @@ describe("POST /api/v1/residents/bulk-upload", () => {
   });
 
   it("sends setup email after successfully creating a resident", async () => {
-    await POST(makeReq({ societyCode: "EDEN", records: [validRecord] }));
+    await POST(makeReq({ societyCode: "GRNW", records: [validRecord] }));
     expect(mockGeneratePasswordResetToken).toHaveBeenCalledWith("new-r1", 168);
     expect(mockSendEmail).toHaveBeenCalledWith(
       validRecord.email,
@@ -339,14 +339,14 @@ describe("POST /api/v1/residents/bulk-upload", () => {
 
   it("does not fail the row when setup email errors", async () => {
     mockSendEmail.mockRejectedValueOnce(new Error("SMTP down"));
-    const res = await POST(makeReq({ societyCode: "EDEN", records: [validRecord] }));
+    const res = await POST(makeReq({ societyCode: "GRNW", records: [validRecord] }));
     const body = await res.json();
     expect(body.results[0].success).toBe(true); // row still succeeds
   });
 
   it("returns 500 on unexpected server error", async () => {
     mockPrisma.society.findUnique.mockRejectedValue(new Error("DB down"));
-    const res = await POST(makeReq({ societyCode: "EDEN", records: [validRecord] }));
+    const res = await POST(makeReq({ societyCode: "GRNW", records: [validRecord] }));
     expect(res.status).toBe(500);
   });
 
@@ -357,7 +357,7 @@ describe("POST /api/v1/residents/bulk-upload", () => {
       .mockRejectedValueOnce(p2002Error)
       .mockImplementationOnce((cb: (tx: typeof mockPrisma) => Promise<unknown>) => cb(mockPrisma));
 
-    const res = await POST(makeReq({ societyCode: "EDEN", records: [validRecord] }));
+    const res = await POST(makeReq({ societyCode: "GRNW", records: [validRecord] }));
     const body = await res.json();
     expect(body.results[0].success).toBe(true);
     // Second attempt used count+2 → sequence 2
@@ -369,7 +369,7 @@ describe("POST /api/v1/residents/bulk-upload", () => {
     const p2002Error = Object.assign(new Error("Unique constraint failed"), { code: "P2002" });
     mockPrisma.$transaction.mockRejectedValue(p2002Error);
 
-    const res = await POST(makeReq({ societyCode: "EDEN", records: [validRecord] }));
+    const res = await POST(makeReq({ societyCode: "GRNW", records: [validRecord] }));
     const body = await res.json();
     expect(body.results[0].success).toBe(false);
     expect(mockPrisma.$transaction).toHaveBeenCalledTimes(3);
@@ -379,7 +379,7 @@ describe("POST /api/v1/residents/bulk-upload", () => {
     // New auth user created but transaction fails (non-P2002 error)
     mockPrisma.$transaction.mockRejectedValue(new Error("DB connection lost"));
 
-    const res = await POST(makeReq({ societyCode: "EDEN", records: [validRecord] }));
+    const res = await POST(makeReq({ societyCode: "GRNW", records: [validRecord] }));
     const body = await res.json();
     expect(body.results[0].success).toBe(false);
     // Should have called deleteUser to clean up the orphaned auth account
@@ -396,7 +396,7 @@ describe("POST /api/v1/residents/bulk-upload", () => {
     // Transaction fails
     mockPrisma.$transaction.mockRejectedValue(new Error("DB error"));
 
-    const res = await POST(makeReq({ societyCode: "EDEN", records: [validRecord] }));
+    const res = await POST(makeReq({ societyCode: "GRNW", records: [validRecord] }));
     const body = await res.json();
     expect(body.results[0].success).toBe(false);
     // Should NOT delete the reused auth account

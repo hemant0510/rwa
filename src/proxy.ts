@@ -13,10 +13,25 @@ const PUBLIC_ROUTES = [
   "/forgot-password",
   "/reset-password",
   "/counsellor/set-password",
+  // Marketing pages
+  "/features",
+  "/pricing",
+  "/for-admins",
+  "/for-residents",
+  "/about",
+  "/contact",
+  "/security",
+  "/privacy",
+  "/terms",
+  "/refund-policy",
+  // SEO routes
+  "/sitemap.xml",
+  "/robots.txt",
 ];
 const PUBLIC_PAGE_AUTH_PREFIX = ["/auth/callback", "/auth/confirm"];
 const PUBLIC_API_PREFIX = [
   "/api/v1/auth/",
+  "/api/v1/public/",
   "/api/v1/residents/register",
   "/api/health",
   "/api/v1/societies/",

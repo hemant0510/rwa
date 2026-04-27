@@ -48,7 +48,7 @@ describe("SocietySwitcher", () => {
   const twoSocieties: SocietySummary[] = [
     {
       societyId: "soc-1",
-      name: "Eden Estate",
+      name: "Greenwood Residency",
       code: "EDEN",
       role: "RESIDENT",
       status: "ACTIVE_PAID",
@@ -68,7 +68,7 @@ describe("SocietySwitcher", () => {
     const singleSociety: SocietySummary[] = [
       {
         societyId: "soc-1",
-        name: "Eden Estate",
+        name: "Greenwood Residency",
         code: "EDEN",
         role: "RESIDENT",
         status: "ACTIVE_PAID",
@@ -81,7 +81,7 @@ describe("SocietySwitcher", () => {
 
   it("renders current society name in trigger", () => {
     renderSwitcher(twoSocieties, "soc-1");
-    expect(screen.getByText("Eden Estate")).toBeInTheDocument();
+    expect(screen.getByText("Greenwood Residency")).toBeInTheDocument();
   });
 
   it("shows designation in trigger when user has one", () => {
@@ -98,7 +98,7 @@ describe("SocietySwitcher", () => {
     const user = userEvent.setup();
     renderSwitcher(twoSocieties, "soc-1");
 
-    await user.click(screen.getByText("Eden Estate"));
+    await user.click(screen.getByText("Greenwood Residency"));
     expect(screen.getByText("Green Valley")).toBeInTheDocument();
   });
 
@@ -106,9 +106,9 @@ describe("SocietySwitcher", () => {
     const user = userEvent.setup();
     renderSwitcher(twoSocieties, "soc-1");
 
-    await user.click(screen.getByText("Eden Estate"));
-    // "Eden Estate" should only appear once (in trigger), not in dropdown list
-    const edenElements = screen.getAllByText("Eden Estate");
+    await user.click(screen.getByText("Greenwood Residency"));
+    // "Greenwood Residency" should only appear once (in trigger), not in dropdown list
+    const edenElements = screen.getAllByText("Greenwood Residency");
     expect(edenElements).toHaveLength(1);
   });
 
@@ -116,7 +116,7 @@ describe("SocietySwitcher", () => {
     const user = userEvent.setup();
     renderSwitcher(twoSocieties, "soc-1");
 
-    await user.click(screen.getByText("Eden Estate"));
+    await user.click(screen.getByText("Greenwood Residency"));
     await user.click(screen.getByText("Green Valley"));
 
     expect(mockSwitchSociety).toHaveBeenCalledWith("soc-2");
@@ -126,7 +126,7 @@ describe("SocietySwitcher", () => {
     const societies: SocietySummary[] = [
       {
         societyId: "soc-1",
-        name: "Eden Estate",
+        name: "Greenwood Residency",
         code: "EDEN",
         role: "RESIDENT",
         status: "ACTIVE_PAID",
@@ -144,7 +144,7 @@ describe("SocietySwitcher", () => {
     const user = userEvent.setup();
     renderSwitcher(societies, "soc-1");
 
-    await user.click(screen.getByText("Eden Estate"));
+    await user.click(screen.getByText("Greenwood Residency"));
     expect(screen.getByText("Secretary")).toBeInTheDocument();
   });
 
@@ -152,7 +152,7 @@ describe("SocietySwitcher", () => {
     const societies: SocietySummary[] = [
       {
         societyId: "soc-1",
-        name: "Eden Estate",
+        name: "Greenwood Residency",
         code: "EDEN",
         role: "RESIDENT",
         status: "ACTIVE_PAID",
@@ -170,7 +170,7 @@ describe("SocietySwitcher", () => {
     const user = userEvent.setup();
     renderSwitcher(societies, "soc-1");
 
-    await user.click(screen.getByText("Eden Estate"));
+    await user.click(screen.getByText("Greenwood Residency"));
     expect(screen.getByText("Admin")).toBeInTheDocument();
   });
 
@@ -178,7 +178,7 @@ describe("SocietySwitcher", () => {
     const user = userEvent.setup();
     renderSwitcher(twoSocieties, "soc-1");
 
-    await user.click(screen.getByText("Eden Estate"));
+    await user.click(screen.getByText("Greenwood Residency"));
     expect(screen.getByText("GV")).toBeInTheDocument();
   });
 
@@ -239,7 +239,7 @@ describe("SocietySwitcher", () => {
     const societies: SocietySummary[] = [
       {
         societyId: "soc-1",
-        name: "Eden Estate",
+        name: "Greenwood Residency",
         code: "EDEN",
         role: "RESIDENT",
         status: "ACTIVE_PAID",
@@ -255,7 +255,7 @@ describe("SocietySwitcher", () => {
       },
     ];
     renderSwitcher(societies, "soc-1");
-    await user.click(screen.getByText("Eden Estate"));
+    await user.click(screen.getByText("Greenwood Residency"));
     expect(screen.getByText("Unknown")).toBeInTheDocument();
   });
 
@@ -264,7 +264,7 @@ describe("SocietySwitcher", () => {
     const societies: SocietySummary[] = [
       {
         societyId: "soc-1",
-        name: "Eden Estate",
+        name: "Greenwood Residency",
         code: "EDEN",
         role: "RESIDENT",
         status: "ACTIVE_PAID",
@@ -280,7 +280,7 @@ describe("SocietySwitcher", () => {
       },
     ];
     renderSwitcher(societies, "soc-1");
-    await user.click(screen.getByText("Eden Estate"));
+    await user.click(screen.getByText("Greenwood Residency"));
     expect(screen.getByText("SUPER_ADMIN")).toBeInTheDocument();
   });
 
@@ -288,7 +288,7 @@ describe("SocietySwitcher", () => {
     const societies: SocietySummary[] = [
       {
         societyId: "soc-1",
-        name: "Eden Estate",
+        name: "Greenwood Residency",
         code: "EDEN",
         role: "SUPER_ADMIN" as SocietySummary["role"],
         status: "ACTIVE_PAID",

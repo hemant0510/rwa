@@ -61,8 +61,8 @@ describe("GET /api/v1/super-admin/stats", () => {
     mockPrisma.society.findMany.mockResolvedValue([
       {
         id: "soc-1",
-        name: "Eden Estate",
-        societyCode: "EDEN",
+        name: "Greenwood Residency",
+        societyCode: "GRNW",
         city: "Gurgaon",
         status: "ACTIVE",
         onboardingDate: new Date("2026-01-15"),
@@ -78,7 +78,7 @@ describe("GET /api/v1/super-admin/stats", () => {
     expect(body.trial).toBe(3);
     expect(body.suspended).toBe(2);
     expect(body.recentSocieties).toHaveLength(1);
-    expect(body.recentSocieties[0].name).toBe("Eden Estate");
+    expect(body.recentSocieties[0].name).toBe("Greenwood Residency");
   });
 
   it("does not call Prisma when auth fails", async () => {
