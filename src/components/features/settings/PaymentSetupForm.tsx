@@ -153,7 +153,7 @@ export function PaymentSetupForm({ societyId, initialValues }: PaymentSetupFormP
             <Label htmlFor="upiAccountName">Bank Account Name (optional)</Label>
             <Input
               id="upiAccountName"
-              placeholder="Eden Estate RWA"
+              placeholder="Greenwood Residency RWA"
               {...register("upiAccountName")}
             />
             <p className="text-muted-foreground text-xs">

@@ -439,7 +439,7 @@ describe("GET /api/v1/super-admin/societies/[id]/petitions/[pid]/report", () => 
       ...mockPetition,
       _count: { signatures: 10 },
     });
-    mockPrisma.society.findUnique.mockResolvedValue({ name: "Eden Estate" });
+    mockPrisma.society.findUnique.mockResolvedValue({ name: "Greenwood Residency" });
     mockPrisma.petitionSignature.findMany.mockResolvedValue([mockReportSignature]);
     mockRenderToStream.mockResolvedValue(pdfStreamMock);
   });

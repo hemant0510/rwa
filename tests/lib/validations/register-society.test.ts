@@ -4,14 +4,14 @@ import { registerSocietySchema } from "@/lib/validations/register-society";
 
 describe("registerSocietySchema", () => {
   const validInput = {
-    name: "Eden Estate RWA",
+    name: "Greenwood Residency RWA",
     state: "HR",
     city: "Gurugram",
     pincode: "122001",
     type: "APARTMENT_COMPLEX" as const,
-    societyCode: "EDEN",
-    adminName: "Hemant Bhagat",
-    adminEmail: "hemant@example.com",
+    societyCode: "GRNW",
+    adminName: "Arjun Kapoor",
+    adminEmail: "arjun@example.com",
     adminPassword: "password123",
     adminPasswordConfirm: "password123",
   };

@@ -26,7 +26,7 @@ const saOk = {
 const mockSociety = {
   id: "soc-1",
   societyCode: "EDEN001",
-  name: "Eden Estate",
+  name: "Greenwood Residency",
   status: "ACTIVE",
   users: [{ id: "user-1", name: "Admin User", mobile: "9876543210" }],
   subscriptions: [{ id: "sub-1" }],

@@ -48,8 +48,8 @@ describe("SearchResults", () => {
       societies: [
         {
           id: "soc-1",
-          name: "Eden Estate",
-          societyCode: "EDEN01",
+          name: "Greenwood Residency",
+          societyCode: "GRNW01",
           status: "ACTIVE",
           city: "Gurgaon",
         },
@@ -58,8 +58,8 @@ describe("SearchResults", () => {
 
     it("renders society results with name and code", () => {
       render(<SearchResults results={results} onSelect={vi.fn()} />);
-      expect(screen.getByText("Eden Estate")).toBeInTheDocument();
-      expect(screen.getByText(/EDEN01/)).toBeInTheDocument();
+      expect(screen.getByText("Greenwood Residency")).toBeInTheDocument();
+      expect(screen.getByText(/GRNW01/)).toBeInTheDocument();
     });
 
     it("renders society status badge", () => {
@@ -69,7 +69,7 @@ describe("SearchResults", () => {
 
     it("links to society detail page", () => {
       render(<SearchResults results={results} onSelect={vi.fn()} />);
-      const link = screen.getByText("Eden Estate").closest("a");
+      const link = screen.getByText("Greenwood Residency").closest("a");
       expect(link).toHaveAttribute("href", "/sa/societies/soc-1");
     });
 
@@ -98,7 +98,7 @@ describe("SearchResults", () => {
           email: "john@test.com",
           status: "ACTIVE",
           societyId: "soc-1",
-          society: { name: "Eden Estate" },
+          society: { name: "Greenwood Residency" },
         },
       ],
     });
@@ -106,7 +106,7 @@ describe("SearchResults", () => {
     it("renders resident name and society", () => {
       render(<SearchResults results={results} onSelect={vi.fn()} />);
       expect(screen.getByText("John Doe")).toBeInTheDocument();
-      expect(screen.getByText("Eden Estate")).toBeInTheDocument();
+      expect(screen.getByText("Greenwood Residency")).toBeInTheDocument();
     });
 
     it("links to society detail page", () => {
@@ -162,7 +162,7 @@ describe("SearchResults", () => {
           paymentDate: "2026-03-15",
           societyId: "soc-1",
           user: { name: "John Doe" },
-          society: { name: "Eden Estate" },
+          society: { name: "Greenwood Residency" },
         },
       ],
     });
@@ -176,7 +176,7 @@ describe("SearchResults", () => {
     it("renders resident name and society in secondary text", () => {
       render(<SearchResults results={results} onSelect={vi.fn()} />);
       expect(screen.getByText(/John Doe/)).toBeInTheDocument();
-      expect(screen.getByText(/Eden Estate/)).toBeInTheDocument();
+      expect(screen.getByText(/Greenwood Residency/)).toBeInTheDocument();
     });
 
     it("links to society page", () => {
@@ -194,7 +194,7 @@ describe("SearchResults", () => {
           title: "Holi Celebration",
           status: "PUBLISHED",
           societyId: "soc-1",
-          society: { name: "Eden Estate" },
+          society: { name: "Greenwood Residency" },
         },
       ],
     });
@@ -202,7 +202,7 @@ describe("SearchResults", () => {
     it("renders event title and society", () => {
       render(<SearchResults results={results} onSelect={vi.fn()} />);
       expect(screen.getByText("Holi Celebration")).toBeInTheDocument();
-      expect(screen.getByText("Eden Estate")).toBeInTheDocument();
+      expect(screen.getByText("Greenwood Residency")).toBeInTheDocument();
     });
 
     it("renders event status badge", () => {
@@ -219,7 +219,7 @@ describe("SearchResults", () => {
           title: "Speed breaker needed",
           status: "PUBLISHED",
           societyId: "soc-1",
-          society: { name: "Eden Estate" },
+          society: { name: "Greenwood Residency" },
         },
       ],
     });
@@ -227,7 +227,7 @@ describe("SearchResults", () => {
     it("renders petition title and society", () => {
       render(<SearchResults results={results} onSelect={vi.fn()} />);
       expect(screen.getByText("Speed breaker needed")).toBeInTheDocument();
-      expect(screen.getByText("Eden Estate")).toBeInTheDocument();
+      expect(screen.getByText("Greenwood Residency")).toBeInTheDocument();
     });
   });
 
@@ -239,8 +239,8 @@ describe("SearchResults", () => {
         societies: [
           {
             id: "soc-1",
-            name: "Eden Estate",
-            societyCode: "EDEN01",
+            name: "Greenwood Residency",
+            societyCode: "GRNW01",
             status: "ACTIVE",
             city: "Gurgaon",
           },
@@ -248,7 +248,7 @@ describe("SearchResults", () => {
       });
 
       render(<SearchResults results={results} onSelect={onSelect} />);
-      await user.click(screen.getByText("Eden Estate"));
+      await user.click(screen.getByText("Greenwood Residency"));
       expect(onSelect).toHaveBeenCalledTimes(1);
     });
   });

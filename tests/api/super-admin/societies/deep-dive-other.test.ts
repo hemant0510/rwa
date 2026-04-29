@@ -86,7 +86,7 @@ const mockBatch = {
 
 const mockSociety = {
   id: "soc-1",
-  name: "Eden Estate",
+  name: "Greenwood Residency",
   societyCode: "EDEN001",
   type: "RESIDENTIAL",
   state: "Maharashtra",
@@ -324,7 +324,7 @@ describe("GET /api/v1/super-admin/societies/[id]/settings", () => {
 
     expect(body.society).toMatchObject({
       id: "soc-1",
-      name: "Eden Estate",
+      name: "Greenwood Residency",
       societyCode: "EDEN001",
       joiningFee: 500,
       annualFee: 2000,

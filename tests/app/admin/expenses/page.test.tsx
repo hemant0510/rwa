@@ -77,7 +77,7 @@ const MOCK_ACTIVE_EXPENSE = {
   reversedBy: null,
   correctionWindowEnds: FUTURE_WINDOW,
   loggedBy: "u1",
-  logger: { name: "Hemant Kumar" },
+  logger: { name: "Arjun Kapoor" },
   createdAt: "2026-03-01T09:00:00.000Z",
 };
 
@@ -99,12 +99,12 @@ const MOCK_EXPIRED_WINDOW_EXPENSE = {
 function makeAdminUser(overrides: Record<string, unknown> = {}) {
   return {
     id: "u1",
-    name: "Hemant Kumar",
+    name: "Arjun Kapoor",
     role: "RWA_ADMIN" as const,
     permission: "FULL_ACCESS" as const,
     societyId: "soc-1",
-    societyName: "Eden Estate",
-    societyCode: "EDEN",
+    societyName: "Greenwood Residency",
+    societyCode: "GRNW",
     societyStatus: "ACTIVE",
     trialEndsAt: null,
     isTrialExpired: false,
@@ -250,7 +250,7 @@ describe("Admin ExpensesPage", () => {
     await waitFor(() => {
       expect(screen.getByText("Security guard salary")).toBeInTheDocument();
     });
-    expect(screen.getByText("Hemant Kumar")).toBeInTheDocument();
+    expect(screen.getByText("Arjun Kapoor")).toBeInTheDocument();
   });
 
   it("shows reversed expense with Reversed badge", async () => {

@@ -112,7 +112,7 @@ describe("GET /api/v1/auth/me", () => {
     mockPrisma.user.findMany.mockResolvedValue([
       {
         id: "u1",
-        name: "Hemant",
+        name: "Arjun",
         email: "h@test.com",
         role: "RESIDENT",
         societyId: "soc-1",
@@ -121,8 +121,8 @@ describe("GET /api/v1/auth/me", () => {
         authUserId: "auth-1",
         governingBodyMembership: null,
         society: {
-          name: "Eden Estate",
-          societyCode: "EDEN",
+          name: "Greenwood Residency",
+          societyCode: "GRNW",
           status: "ACTIVE",
           trialEndsAt: null,
           emailVerificationRequired: false,
@@ -135,7 +135,7 @@ describe("GET /api/v1/auth/me", () => {
     expect(body.redirectTo).toBe("/r/home");
     expect(body.multiSociety).toBe(false);
     expect(body.societies).toBeNull();
-    expect(body.societyName).toBe("Eden Estate");
+    expect(body.societyName).toBe("Greenwood Residency");
   });
 
   it("returns multi-society user with societies array and designation", async () => {
@@ -147,7 +147,7 @@ describe("GET /api/v1/auth/me", () => {
     mockPrisma.user.findMany.mockResolvedValue([
       {
         id: "u1",
-        name: "Hemant",
+        name: "Arjun",
         email: "h@test.com",
         role: "RESIDENT",
         societyId: "soc-1",
@@ -156,8 +156,8 @@ describe("GET /api/v1/auth/me", () => {
         authUserId: "auth-1",
         governingBodyMembership: { designation: { name: "President" } },
         society: {
-          name: "Eden Estate",
-          societyCode: "EDEN",
+          name: "Greenwood Residency",
+          societyCode: "GRNW",
           status: "ACTIVE",
           trialEndsAt: null,
           emailVerificationRequired: false,
@@ -165,7 +165,7 @@ describe("GET /api/v1/auth/me", () => {
       },
       {
         id: "u2",
-        name: "Hemant",
+        name: "Arjun",
         email: "h@test.com",
         role: "RESIDENT",
         societyId: "soc-2",
@@ -202,7 +202,7 @@ describe("GET /api/v1/auth/me", () => {
     mockPrisma.user.findMany.mockResolvedValue([
       {
         id: "u1",
-        name: "Hemant",
+        name: "Arjun",
         email: "h@test.com",
         role: "RESIDENT",
         societyId: "soc-1",
@@ -211,8 +211,8 @@ describe("GET /api/v1/auth/me", () => {
         authUserId: "auth-1",
         governingBodyMembership: null,
         society: {
-          name: "Eden Estate",
-          societyCode: "EDEN",
+          name: "Greenwood Residency",
+          societyCode: "GRNW",
           status: "ACTIVE",
           trialEndsAt: null,
           emailVerificationRequired: false,
@@ -220,7 +220,7 @@ describe("GET /api/v1/auth/me", () => {
       },
       {
         id: "u2",
-        name: "Hemant",
+        name: "Arjun",
         email: "h@test.com",
         role: "RWA_ADMIN",
         societyId: "soc-2",
@@ -361,8 +361,8 @@ describe("GET /api/v1/auth/me", () => {
         authUserId: "auth-1",
         governingBodyMembership: null,
         society: {
-          name: "Eden Estate",
-          societyCode: "EDEN",
+          name: "Greenwood Residency",
+          societyCode: "GRNW",
           status: "ACTIVE",
           trialEndsAt: null,
           emailVerificationRequired: false,
@@ -373,7 +373,7 @@ describe("GET /api/v1/auth/me", () => {
     const res = await GET();
     const body = await res.json();
     // Falls back to allUsers[0] since no user matches the cookie societyId
-    expect(body.societyName).toBe("Eden Estate");
+    expect(body.societyName).toBe("Greenwood Residency");
   });
 
   it("returns isTrialExpired false when status is TRIAL but trialEndsAt is null", async () => {

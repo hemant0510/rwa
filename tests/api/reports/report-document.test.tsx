@@ -27,7 +27,7 @@ import {
 describe("ReportHeader", () => {
   it("renders without sessionYear", () => {
     const el = ReportHeader({
-      societyName: "Eden Estate",
+      societyName: "Greenwood Residency",
       title: "Paid Report",
       generatedAt: "01 Jan 2026",
     });
@@ -36,7 +36,7 @@ describe("ReportHeader", () => {
 
   it("renders with sessionYear", () => {
     const el = ReportHeader({
-      societyName: "Eden Estate",
+      societyName: "Greenwood Residency",
       title: "Paid Report",
       sessionYear: "2025-26",
       generatedAt: "01 Jan 2026",
@@ -124,7 +124,7 @@ describe("PetitionReportDocument", () => {
 
   it("renders with all fields populated", () => {
     const el = PetitionReportDocument({
-      societyName: "Eden Estate",
+      societyName: "Greenwood Residency",
       generatedAt: "28 Mar 2026",
       petition: basePetition,
       signatories,
@@ -134,7 +134,7 @@ describe("PetitionReportDocument", () => {
 
   it("renders when targetAuthority is null", () => {
     const el = PetitionReportDocument({
-      societyName: "Eden Estate",
+      societyName: "Greenwood Residency",
       generatedAt: "28 Mar 2026",
       petition: { ...basePetition, targetAuthority: null },
       signatories,
@@ -144,7 +144,7 @@ describe("PetitionReportDocument", () => {
 
   it("renders when submittedAt is null", () => {
     const el = PetitionReportDocument({
-      societyName: "Eden Estate",
+      societyName: "Greenwood Residency",
       generatedAt: "28 Mar 2026",
       petition: { ...basePetition, submittedAt: null },
       signatories,
@@ -154,7 +154,7 @@ describe("PetitionReportDocument", () => {
 
   it("renders when description is null", () => {
     const el = PetitionReportDocument({
-      societyName: "Eden Estate",
+      societyName: "Greenwood Residency",
       generatedAt: "28 Mar 2026",
       petition: { ...basePetition, description: null },
       signatories,
@@ -164,7 +164,7 @@ describe("PetitionReportDocument", () => {
 
   it("renders with empty signatories list", () => {
     const el = PetitionReportDocument({
-      societyName: "Eden Estate",
+      societyName: "Greenwood Residency",
       generatedAt: "28 Mar 2026",
       petition: basePetition,
       signatories: [],

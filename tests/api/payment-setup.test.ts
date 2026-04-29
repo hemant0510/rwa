@@ -42,7 +42,7 @@ const mockSociety = {
   id: SOCIETY_ID,
   upiId: "edenestate@sbi",
   upiQrUrl: "https://example.com/qr.png",
-  upiAccountName: "Eden Estate RWA",
+  upiAccountName: "Greenwood Residency RWA",
 };
 
 // ---------------------------------------------------------------------------
@@ -127,7 +127,7 @@ describe("GET /api/v1/societies/[id]/payment-setup", () => {
     const body = await res.json();
     expect(body.upiId).toBe("edenestate@sbi");
     expect(body.upiQrUrl).toBe("https://example.com/qr.png");
-    expect(body.upiAccountName).toBe("Eden Estate RWA");
+    expect(body.upiAccountName).toBe("Greenwood Residency RWA");
   });
 
   it("returns null fields when society has no UPI configured", async () => {

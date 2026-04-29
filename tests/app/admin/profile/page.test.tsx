@@ -25,13 +25,13 @@ import AdminProfilePage from "@/app/admin/profile/page";
 
 const mockProfile = {
   id: "user-1",
-  name: "Hemant Bhagat",
-  email: "hemant@example.com",
+  name: "Arjun Kapoor",
+  email: "arjun@example.com",
   mobile: "9876543210",
   role: "RWA_ADMIN",
   adminPermission: "FULL_ACCESS",
-  societyName: "Eden Estate RWA",
-  societyCode: "EDEN",
+  societyName: "Greenwood Residency RWA",
+  societyCode: "GRNW",
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -101,7 +101,7 @@ describe("AdminProfilePage", () => {
   it("pre-fills name input with profile name", async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByDisplayValue("Hemant Bhagat")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("Arjun Kapoor")).toBeInTheDocument();
     });
   });
 
@@ -115,21 +115,21 @@ describe("AdminProfilePage", () => {
   it("shows email in read-only section", async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText("hemant@example.com")).toBeInTheDocument();
+      expect(screen.getByText("arjun@example.com")).toBeInTheDocument();
     });
   });
 
   it("shows society name in read-only section", async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText("Eden Estate RWA")).toBeInTheDocument();
+      expect(screen.getByText("Greenwood Residency RWA")).toBeInTheDocument();
     });
   });
 
   it("shows society code in read-only section", async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText("EDEN")).toBeInTheDocument();
+      expect(screen.getByText("GRNW")).toBeInTheDocument();
     });
   });
 
@@ -168,9 +168,9 @@ describe("AdminProfilePage", () => {
   it("Save Changes button is disabled when name is cleared", async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByDisplayValue("Hemant Bhagat")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("Arjun Kapoor")).toBeInTheDocument();
     });
-    const nameInput = screen.getByDisplayValue("Hemant Bhagat");
+    const nameInput = screen.getByDisplayValue("Arjun Kapoor");
     fireEvent.change(nameInput, { target: { value: "" } });
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /save changes/i })).toBeDisabled();
@@ -201,7 +201,7 @@ describe("AdminProfilePage", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByDisplayValue("Hemant Bhagat")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("Arjun Kapoor")).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
@@ -241,7 +241,7 @@ describe("AdminProfilePage", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByDisplayValue("Hemant Bhagat")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("Arjun Kapoor")).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
@@ -266,9 +266,9 @@ describe("AdminProfilePage", () => {
   it("allows editing name field", async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByDisplayValue("Hemant Bhagat")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("Arjun Kapoor")).toBeInTheDocument();
     });
-    const nameInput = screen.getByDisplayValue("Hemant Bhagat");
+    const nameInput = screen.getByDisplayValue("Arjun Kapoor");
     fireEvent.change(nameInput, { target: { value: "Ramesh Sharma" } });
     expect(nameInput).toHaveValue("Ramesh Sharma");
   });
@@ -292,7 +292,7 @@ describe("AdminProfilePage", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByDisplayValue("Hemant Bhagat")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("Arjun Kapoor")).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
@@ -323,7 +323,7 @@ describe("AdminProfilePage", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByDisplayValue("Hemant Bhagat")).toBeInTheDocument();
+      expect(screen.getByDisplayValue("Arjun Kapoor")).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole("button", { name: /save changes/i }));

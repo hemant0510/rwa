@@ -76,7 +76,7 @@ const mockFee = {
 const mockUpiSettings = {
   upiId: "society@sbi",
   upiQrUrl: "https://example.com/qr.png",
-  upiAccountName: "Eden Estate RWA",
+  upiAccountName: "Greenwood Residency RWA",
 };
 
 function setupDefaultMocks() {

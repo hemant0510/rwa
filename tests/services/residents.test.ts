@@ -246,12 +246,12 @@ describe("residents service", () => {
       mockFetch.mockResolvedValue(
         okJson({ results: [{ rowIndex: 0, success: true, rwaid: "RWAID-001" }] }),
       );
-      const result = await bulkUploadResidents("EDEN", records);
+      const result = await bulkUploadResidents("GRNW", records);
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining("/residents/bulk-upload"),
         expect.objectContaining({
           method: "POST",
-          body: JSON.stringify({ societyCode: "EDEN", records }),
+          body: JSON.stringify({ societyCode: "GRNW", records }),
         }),
       );
       expect(result.results[0].success).toBe(true);

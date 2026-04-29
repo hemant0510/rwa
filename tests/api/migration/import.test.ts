@@ -60,7 +60,7 @@ function makeParams(id = "soc-1") {
 const mockSociety = {
   id: "soc-1",
   societyId: "RWA-DL-EDN-110001-0001",
-  name: "Eden Estate",
+  name: "Greenwood Residency",
   type: "APARTMENT_COMPLEX",
   annualFee: 2400,
   feeSessionStartMonth: 4,

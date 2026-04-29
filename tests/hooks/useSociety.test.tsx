@@ -9,8 +9,8 @@ describe("useSociety", () => {
   it("returns context value when inside provider", () => {
     const mockSociety = {
       id: "soc-1",
-      name: "Eden Estate",
-      societyCode: "EDEN",
+      name: "Greenwood Residency",
+      societyCode: "GRNW",
     };
 
     const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -20,7 +20,7 @@ describe("useSociety", () => {
     );
 
     const { result } = renderHook(() => useSociety(), { wrapper });
-    expect(result.current.society?.name).toBe("Eden Estate");
+    expect(result.current.society?.name).toBe("Greenwood Residency");
     expect(result.current.isLoading).toBe(false);
   });
 

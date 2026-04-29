@@ -64,7 +64,7 @@ describe("GET /api/v1/societies/[id]/reports/expense-summary", () => {
       role: "RWA_ADMIN",
     });
     mockPrisma.society.findUnique.mockResolvedValue({
-      name: "Eden Estate",
+      name: "Greenwood Residency",
       feeSessionStartMonth: 4,
     });
     mockPrisma.expense.findMany.mockResolvedValue(mockExpenses);

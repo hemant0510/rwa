@@ -36,7 +36,7 @@ function makeParams(id = "soc-1", feeId = "fee-1") {
   return { params: Promise.resolve({ id, feeId }) };
 }
 
-const mockSociety = { id: "soc-1", societyCode: "EDEN" };
+const mockSociety = { id: "soc-1", societyCode: "GRNW" };
 const mockFee = {
   id: "fee-1",
   userId: "res-1",

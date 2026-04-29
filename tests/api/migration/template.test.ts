@@ -55,7 +55,7 @@ describe("GET /api/v1/societies/[id]/migration/template", () => {
 
   it("returns xlsx file for APARTMENT_COMPLEX", async () => {
     mockPrisma.society.findUnique.mockResolvedValue({
-      name: "Eden Estate",
+      name: "Greenwood Residency",
       type: "APARTMENT_COMPLEX",
     });
     const res = await GET(makeReq(), makeParams());
@@ -109,10 +109,10 @@ describe("GET /api/v1/societies/[id]/migration/template", () => {
 
   it("includes society name in filename", async () => {
     mockPrisma.society.findUnique.mockResolvedValue({
-      name: "Eden Estate",
+      name: "Greenwood Residency",
       type: "APARTMENT_COMPLEX",
     });
     const res = await GET(makeReq(), makeParams());
-    expect(res.headers.get("Content-Disposition")).toContain("eden-estate");
+    expect(res.headers.get("Content-Disposition")).toContain("greenwood-residency");
   });
 });

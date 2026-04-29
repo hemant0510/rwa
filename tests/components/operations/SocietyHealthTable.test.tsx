@@ -22,7 +22,7 @@ vi.mock("next/link", () => ({
 function makeSociety(overrides: Partial<SocietyHealthItem> = {}): SocietyHealthItem {
   return {
     id: "soc-1",
-    name: "Eden Estate",
+    name: "Greenwood Residency",
     status: "ACTIVE",
     residents: 120,
     collectionRate: 85.5,
@@ -58,7 +58,7 @@ describe("SocietyHealthTable", () => {
 
   describe("with data", () => {
     const societies = [
-      makeSociety({ id: "soc-1", name: "Eden Estate", healthScore: 82 }),
+      makeSociety({ id: "soc-1", name: "Greenwood Residency", healthScore: 82 }),
       makeSociety({
         id: "soc-2",
         name: "Green Valley",
@@ -73,13 +73,13 @@ describe("SocietyHealthTable", () => {
     it("renders a table with society rows", () => {
       render(<SocietyHealthTable societies={societies} isLoading={false} />);
       expect(screen.getByRole("table")).toBeInTheDocument();
-      expect(screen.getByText("Eden Estate")).toBeInTheDocument();
+      expect(screen.getByText("Greenwood Residency")).toBeInTheDocument();
       expect(screen.getByText("Green Valley")).toBeInTheDocument();
     });
 
     it("renders society name as a link to society detail page", () => {
       render(<SocietyHealthTable societies={societies} isLoading={false} />);
-      const link = screen.getByText("Eden Estate").closest("a");
+      const link = screen.getByText("Greenwood Residency").closest("a");
       expect(link).toHaveAttribute("href", "/sa/societies/soc-1");
     });
 

@@ -135,8 +135,8 @@ function renderPage(userOverrides: Record<string, unknown> = {}) {
     role: "RWA_ADMIN" as const,
     permission: "FULL_ACCESS" as const,
     societyId: "soc-1",
-    societyName: "Eden Estate",
-    societyCode: "EDEN",
+    societyName: "Greenwood Residency",
+    societyCode: "GRNW",
     societyStatus: "ACTIVE",
     trialEndsAt: null,
     isTrialExpired: false,
@@ -254,7 +254,7 @@ describe("AdminResidentsPage", () => {
     mockSearchParams.delete("year");
     mockSearchParams.delete("doc");
     mockGetSocietyByCode.mockResolvedValue({
-      name: "Eden Estate",
+      name: "Greenwood Residency",
       type: "APARTMENT_COMPLEX",
       city: "Delhi",
       state: "Delhi",
@@ -1138,7 +1138,7 @@ describe("AdminResidentsPage", () => {
   it("renders address fields when society type is available", async () => {
     mockGetResidents.mockResolvedValue(MOCK_LIST_RESPONSE);
     mockGetSocietyByCode.mockResolvedValue({
-      name: "Eden Estate",
+      name: "Greenwood Residency",
       type: "APARTMENT_COMPLEX",
       city: "Delhi",
       state: "Delhi",
@@ -1562,7 +1562,7 @@ describe("AdminResidentsPage", () => {
   it("allows typing in address required fields (non-floorLevel)", async () => {
     mockGetResidents.mockResolvedValue(MOCK_LIST_RESPONSE);
     mockGetSocietyByCode.mockResolvedValue({
-      name: "Eden Estate",
+      name: "Greenwood Residency",
       type: "APARTMENT_COMPLEX",
       city: "Delhi",
       state: "Delhi",
@@ -1642,7 +1642,7 @@ describe("AdminResidentsPage", () => {
   it("sends unitAddress when address fields are filled", async () => {
     mockGetResidents.mockResolvedValue(MOCK_LIST_RESPONSE);
     mockGetSocietyByCode.mockResolvedValue({
-      name: "Eden Estate",
+      name: "Greenwood Residency",
       type: "APARTMENT_COMPLEX",
       city: "Delhi",
       state: "Delhi",
@@ -2506,7 +2506,7 @@ describe("AdminResidentsPage", () => {
           model: "Swift",
           colour: "White",
           unit: { displayLabel: "A-101" },
-          owner: { name: "Hemant", mobile: null, email: null },
+          owner: { name: "Arjun", mobile: null, email: null },
           dependentOwner: null,
         },
       ],
@@ -2545,7 +2545,7 @@ describe("AdminResidentsPage", () => {
           model: "Swift",
           colour: "White",
           unit: { displayLabel: "A-101" },
-          owner: { name: "Hemant", mobile: null, email: null },
+          owner: { name: "Arjun", mobile: null, email: null },
           dependentOwner: null,
         },
       ],
@@ -2558,7 +2558,7 @@ describe("AdminResidentsPage", () => {
       await waitFor(() => {
         expect(screen.getByText("DL3CAB1234")).toBeInTheDocument();
       });
-      expect(screen.getByText(/Owner: Hemant/i)).toBeInTheDocument();
+      expect(screen.getByText(/Owner: Arjun/i)).toBeInTheDocument();
       expect(screen.getByText(/Unit A-101/i)).toBeInTheDocument();
     } finally {
       mockSearchParams.delete("mode");

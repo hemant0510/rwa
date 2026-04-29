@@ -25,7 +25,7 @@ const saOk = {
 const mockSociety = {
   id: "soc-1",
   societyCode: "EDEN001",
-  name: "Eden Estate",
+  name: "Greenwood Residency",
   status: "ACTIVE",
   users: [{ id: "user-1", name: "Admin User", mobile: "9876543210" }],
 };
@@ -107,7 +107,7 @@ describe("POST /api/v1/super-admin/societies/[id]/suspend", () => {
     expect(mockSendSocietySuspended).toHaveBeenCalledWith(
       "9876543210",
       "Admin User",
-      "Eden Estate",
+      "Greenwood Residency",
       "Non-payment for 3 consecutive months",
       null,
     );

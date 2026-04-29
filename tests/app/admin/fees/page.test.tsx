@@ -45,7 +45,7 @@ const baseDashboard = {
       amountPaid: 0,
       balance: 2000,
       status: "PENDING",
-      user: { name: "Hemant Kumar", mobile: "9876543210", rwaid: "EE-001" },
+      user: { name: "Arjun Kapoor", mobile: "9876543210", rwaid: "EE-001" },
     },
   ],
 };
@@ -71,7 +71,7 @@ const baseClaim = {
   adminNotes: null,
   createdAt: "2026-04-01T10:00:00Z",
   updatedAt: "2026-04-01T10:00:00Z",
-  user: { name: "Hemant Kumar", unitNumber: "302" },
+  user: { name: "Arjun Kapoor", unitNumber: "302" },
 };
 
 function renderPage() {
@@ -99,7 +99,7 @@ describe("FeesPage", () => {
   it("does not show a UPI Payment Claims link card", async () => {
     mockGetFeeDashboard.mockResolvedValue(baseDashboard);
     renderPage();
-    await waitFor(() => expect(screen.getByText("Hemant Kumar")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Arjun Kapoor")).toBeInTheDocument());
     expect(screen.queryByRole("link", { name: /UPI Payment Claims/i })).not.toBeInTheDocument();
   });
 
@@ -113,7 +113,7 @@ describe("FeesPage", () => {
   it("renders fee rows in the table", async () => {
     mockGetFeeDashboard.mockResolvedValue(baseDashboard);
     renderPage();
-    await waitFor(() => expect(screen.getByText("Hemant Kumar")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Arjun Kapoor")).toBeInTheDocument());
     expect(screen.getByText("EE-001")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Record Payment/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Exempt/i })).toBeInTheDocument();
@@ -125,7 +125,7 @@ describe("FeesPage", () => {
       fees: [{ ...baseDashboard.fees[0], status: "PAID" }],
     });
     renderPage();
-    await waitFor(() => expect(screen.getByText("Hemant Kumar")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Arjun Kapoor")).toBeInTheDocument());
     expect(screen.queryByRole("button", { name: /Record Payment/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Exempt/i })).not.toBeInTheDocument();
   });
@@ -294,7 +294,7 @@ describe("FeesPage", () => {
     renderPage();
     await waitFor(() => screen.getByRole("button", { name: /Record Payment/i }));
     await user.click(screen.getByRole("button", { name: /Record Payment/i }));
-    expect(screen.getByText(/Record Payment — Hemant Kumar/i)).toBeInTheDocument();
+    expect(screen.getByText(/Record Payment — Arjun Kapoor/i)).toBeInTheDocument();
   });
 
   it("submits payment form and shows success toast", async () => {
@@ -343,7 +343,7 @@ describe("FeesPage", () => {
     renderPage();
     await waitFor(() => screen.getByRole("button", { name: /Exempt/i }));
     await user.click(screen.getByRole("button", { name: /Exempt/i }));
-    expect(screen.getByText(/Grant Exemption to Hemant Kumar/i)).toBeInTheDocument();
+    expect(screen.getByText(/Grant Exemption to Arjun Kapoor/i)).toBeInTheDocument();
   });
 
   it("enables Grant Exemption button only when reason >= 10 chars", async () => {
@@ -411,7 +411,7 @@ describe("FeesPage", () => {
     const user = userEvent.setup();
     mockGetFeeDashboard.mockResolvedValue(baseDashboard);
     renderPage();
-    await waitFor(() => expect(screen.getByText("Hemant Kumar")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Arjun Kapoor")).toBeInTheDocument());
 
     const [sessionCombobox] = screen.getAllByRole("combobox");
     await user.click(sessionCombobox);
@@ -457,7 +457,7 @@ describe("FeesPage", () => {
     const user = userEvent.setup();
     mockGetFeeDashboard.mockResolvedValue(baseDashboard);
     renderPage();
-    await waitFor(() => expect(screen.getByText("Hemant Kumar")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Arjun Kapoor")).toBeInTheDocument());
 
     const [, statusCombobox] = screen.getAllByRole("combobox");
     await user.click(statusCombobox);
@@ -477,7 +477,7 @@ describe("FeesPage", () => {
       fees: [{ ...baseDashboard.fees[0], user: { ...baseDashboard.fees[0].user, rwaid: null } }],
     });
     renderPage();
-    await waitFor(() => expect(screen.getByText("Hemant Kumar")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Arjun Kapoor")).toBeInTheDocument());
     expect(screen.getByText("—")).toBeInTheDocument();
   });
 
@@ -592,10 +592,10 @@ describe("FeesPage", () => {
     renderPage();
     await waitFor(() => screen.getByRole("button", { name: /Exempt/i }));
     await user.click(screen.getByRole("button", { name: /Exempt/i }));
-    expect(screen.getByText(/Grant Exemption to Hemant Kumar/i)).toBeInTheDocument();
+    expect(screen.getByText(/Grant Exemption to Arjun Kapoor/i)).toBeInTheDocument();
     await user.keyboard("{Escape}");
     await waitFor(() =>
-      expect(screen.queryByText(/Grant Exemption to Hemant Kumar/i)).not.toBeInTheDocument(),
+      expect(screen.queryByText(/Grant Exemption to Arjun Kapoor/i)).not.toBeInTheDocument(),
     );
   });
 
@@ -608,7 +608,7 @@ describe("FeesPage", () => {
       pageSize: 20,
     });
     renderPage();
-    await waitFor(() => expect(screen.getByText("Hemant Kumar")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Arjun Kapoor")).toBeInTheDocument());
     // No UPI Claim badge — the null feeId claim was not added to the map
     expect(screen.queryByText("UPI Claim")).not.toBeInTheDocument();
   });
@@ -666,7 +666,7 @@ describe("FeesPage", () => {
     const user = userEvent.setup();
     mockGetFeeDashboard.mockResolvedValue(baseDashboard);
     renderPage();
-    await waitFor(() => expect(screen.getByText("Hemant Kumar")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Arjun Kapoor")).toBeInTheDocument());
 
     // First select a specific year
     const [sessionCombobox] = screen.getAllByRole("combobox");

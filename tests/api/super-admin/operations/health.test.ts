@@ -62,7 +62,7 @@ describe("GET /api/v1/super-admin/operations/health", () => {
 
   it("returns health data for societies", async () => {
     mockPrisma.society.findMany.mockResolvedValue([
-      { id: "soc-1", name: "Eden Estate", status: "ACTIVE" },
+      { id: "soc-1", name: "Greenwood Residency", status: "ACTIVE" },
     ]);
 
     // Per-society queries (9 parallel calls per society)
@@ -89,7 +89,7 @@ describe("GET /api/v1/super-admin/operations/health", () => {
 
     const body = await res.json();
     expect(body.societies).toHaveLength(1);
-    expect(body.societies[0].name).toBe("Eden Estate");
+    expect(body.societies[0].name).toBe("Greenwood Residency");
     expect(body.societies[0].residents).toBe(50);
     expect(body.societies[0].collectionRate).toBe(80);
     expect(body.societies[0].events30d).toBe(3);

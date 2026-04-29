@@ -21,7 +21,7 @@ const saOk = {
 const mockInvoice = {
   id: "inv-1",
   societyId: "soc-1",
-  society: { id: "soc-1", name: "Eden Estate", societyCode: "EDEN" },
+  society: { id: "soc-1", name: "Greenwood Residency", societyCode: "GRNW" },
   invoiceNo: "INV-2026-001",
   planName: "Community",
   billingCycle: "ANNUAL",
@@ -66,7 +66,7 @@ describe("GET /api/v1/super-admin/billing/invoices", () => {
     expect(body.total).toBe(1);
     expect(body.page).toBe(1);
     expect(body.limit).toBe(50);
-    expect(body.rows[0].societyName).toBe("Eden Estate");
+    expect(body.rows[0].societyName).toBe("Greenwood Residency");
     expect(body.rows[0].paidAmount).toBe(6000);
     expect(typeof body.rows[0].baseAmount).toBe("number");
   });

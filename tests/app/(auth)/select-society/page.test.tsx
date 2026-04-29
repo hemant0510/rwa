@@ -32,8 +32,8 @@ function renderWithAuth(societies: SocietySummary[], isLoading = false) {
           role: "RESIDENT" as const,
           permission: null,
           societyId: "soc-1",
-          societyName: "Eden Estate",
-          societyCode: "EDEN",
+          societyName: "Greenwood Residency",
+          societyCode: "GRNW",
           societyStatus: "ACTIVE",
           trialEndsAt: null,
           isTrialExpired: false,
@@ -61,7 +61,7 @@ describe("SelectSocietyPage", () => {
   const societies: SocietySummary[] = [
     {
       societyId: "soc-1",
-      name: "Eden Estate",
+      name: "Greenwood Residency",
       code: "EDEN",
       role: "RWA_ADMIN",
       status: "ACTIVE_PAID",
@@ -91,7 +91,7 @@ describe("SelectSocietyPage", () => {
 
   it("renders all society cards", () => {
     renderWithAuth(societies);
-    expect(screen.getByText("Eden Estate")).toBeInTheDocument();
+    expect(screen.getByText("Greenwood Residency")).toBeInTheDocument();
     expect(screen.getByText("Green Valley")).toBeInTheDocument();
   });
 
@@ -115,7 +115,7 @@ describe("SelectSocietyPage", () => {
     const user = userEvent.setup();
     renderWithAuth(societies);
 
-    await user.click(screen.getByText("Eden Estate"));
+    await user.click(screen.getByText("Greenwood Residency"));
 
     expect(mockSetActiveSocietyId).toHaveBeenCalledWith("soc-1");
     expect(mockPush).toHaveBeenCalledWith("/admin/dashboard");

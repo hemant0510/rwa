@@ -64,17 +64,17 @@ describe("GET /api/v1/super-admin/operations/activity", () => {
         {
           societyId: "soc-1",
           approvedAt: new Date("2026-03-31T10:00:00Z"),
-          society: { id: "soc-1", name: "Eden Estate" },
+          society: { id: "soc-1", name: "Greenwood Residency" },
         },
         {
           societyId: "soc-1",
           approvedAt: new Date("2026-03-31T09:00:00Z"),
-          society: { id: "soc-1", name: "Eden Estate" },
+          society: { id: "soc-1", name: "Greenwood Residency" },
         },
         {
           societyId: "soc-1",
           approvedAt: new Date("2026-03-30T08:00:00Z"),
-          society: { id: "soc-1", name: "Eden Estate" },
+          society: { id: "soc-1", name: "Greenwood Residency" },
         },
       ])
       .mockResolvedValueOnce([]); // inactive admins
@@ -99,7 +99,7 @@ describe("GET /api/v1/super-admin/operations/activity", () => {
       {
         title: "Holi Celebration",
         createdAt: new Date("2026-03-30T10:00:00Z"),
-        society: { id: "soc-1", name: "Eden Estate" },
+        society: { id: "soc-1", name: "Greenwood Residency" },
       },
     ]);
 
@@ -109,7 +109,7 @@ describe("GET /api/v1/super-admin/operations/activity", () => {
     const eventItems = body.activities.filter((a: { type: string }) => a.type === "event_created");
     expect(eventItems).toHaveLength(1);
     expect(eventItems[0].message).toContain("Holi Celebration");
-    expect(eventItems[0].societyName).toBe("Eden Estate");
+    expect(eventItems[0].societyName).toBe("Greenwood Residency");
   });
 
   it("creates activity items for recent petitions", async () => {
@@ -229,7 +229,7 @@ describe("GET /api/v1/super-admin/operations/activity", () => {
         {
           societyId: "soc-1",
           approvedAt: null,
-          society: { id: "soc-1", name: "Eden Estate" },
+          society: { id: "soc-1", name: "Greenwood Residency" },
         },
       ])
       .mockResolvedValueOnce([]);
@@ -250,7 +250,7 @@ describe("GET /api/v1/super-admin/operations/activity", () => {
         {
           societyId: "soc-1",
           approvedAt: new Date("2026-03-28T10:00:00Z"),
-          society: { id: "soc-1", name: "Eden" },
+          society: { id: "soc-1", name: "Greenwood" },
         },
       ])
       .mockResolvedValueOnce([]); // inactive

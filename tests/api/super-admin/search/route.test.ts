@@ -76,12 +76,12 @@ describe("GET /api/v1/super-admin/search", () => {
     expect(mockPrisma.society.findMany).not.toHaveBeenCalled();
   });
 
-  it('search "Eden" returns matching society and residents', async () => {
+  it('search "Greenwood" returns matching society and residents', async () => {
     mockPrisma.society.findMany.mockResolvedValue([
       {
         id: "soc-1",
-        name: "Eden Estate",
-        societyCode: "EDEN01",
+        name: "Greenwood Residency",
+        societyCode: "GRNW01",
         status: "ACTIVE",
         city: "Gurgaon",
       },
@@ -89,22 +89,22 @@ describe("GET /api/v1/super-admin/search", () => {
     mockPrisma.user.findMany.mockResolvedValue([
       {
         id: "u-1",
-        name: "Eden Resident",
+        name: "Greenwood Resident",
         email: "eden@test.com",
         status: "ACTIVE",
         societyId: "soc-1",
-        society: { name: "Eden Estate" },
+        society: { name: "Greenwood Residency" },
       },
     ]);
 
-    const res = await GET(makeRequest("Eden") as never);
+    const res = await GET(makeRequest("Greenwood") as never);
     expect(res.status).toBe(200);
 
     const body = await res.json();
     expect(body.societies).toHaveLength(1);
-    expect(body.societies[0].name).toBe("Eden Estate");
+    expect(body.societies[0].name).toBe("Greenwood Residency");
     expect(body.residents).toHaveLength(1);
-    expect(body.residents[0].name).toBe("Eden Resident");
+    expect(body.residents[0].name).toBe("Greenwood Resident");
   });
 
   it("search by phone number returns matching residents", async () => {
@@ -115,7 +115,7 @@ describe("GET /api/v1/super-admin/search", () => {
         email: "john@test.com",
         status: "ACTIVE",
         societyId: "soc-1",
-        society: { name: "Eden Estate" },
+        society: { name: "Greenwood Residency" },
       },
     ]);
 
@@ -137,7 +137,7 @@ describe("GET /api/v1/super-admin/search", () => {
         paymentDate: "2026-03-15",
         societyId: "soc-1",
         user: { name: "John Doe" },
-        society: { name: "Eden Estate" },
+        society: { name: "Greenwood Residency" },
       },
     ]);
 
@@ -183,7 +183,7 @@ describe("GET /api/v1/super-admin/search", () => {
         title: "Holi Celebration",
         status: "PUBLISHED",
         societyId: "soc-1",
-        society: { name: "Eden Estate" },
+        society: { name: "Greenwood Residency" },
       },
     ]);
 
@@ -200,7 +200,7 @@ describe("GET /api/v1/super-admin/search", () => {
         title: "Speed breaker needed",
         status: "PUBLISHED",
         societyId: "soc-1",
-        society: { name: "Eden Estate" },
+        society: { name: "Greenwood Residency" },
       },
     ]);
 
@@ -253,8 +253,8 @@ describe("GET /api/v1/super-admin/search", () => {
     mockPrisma.society.findMany.mockResolvedValue([
       {
         id: "soc-1",
-        name: "Eden Estate",
-        societyCode: "EDEN01",
+        name: "Greenwood Residency",
+        societyCode: "GRNW01",
         status: "ACTIVE",
         city: "Gurgaon",
       },

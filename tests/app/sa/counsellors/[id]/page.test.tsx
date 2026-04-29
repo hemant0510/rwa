@@ -253,8 +253,8 @@ describe("CounsellorDetailPage", () => {
           isPrimary: true,
           society: {
             id: "s-1",
-            name: "Eden Park",
-            societyCode: "EDEN",
+            name: "Greenwood Park",
+            societyCode: "GRNW",
             city: "Delhi",
             state: "DL",
             totalUnits: 200,
@@ -279,8 +279,8 @@ describe("CounsellorDetailPage", () => {
           isPrimary: true,
           society: {
             id: "s-1",
-            name: "Eden Park",
-            societyCode: "EDEN",
+            name: "Greenwood Park",
+            societyCode: "GRNW",
             city: "Delhi",
             state: "DL",
             totalUnits: 200,
@@ -293,8 +293,8 @@ describe("CounsellorDetailPage", () => {
     await waitFor(() => expect(screen.getByRole("tab", { name: /Societies/ })).toBeInTheDocument());
     await user.click(screen.getByRole("tab", { name: /Societies/ }));
     await waitFor(() => {
-      expect(screen.getByText("Eden Park")).toBeInTheDocument();
-      expect(screen.getByText(/EDEN.*Delhi.*DL.*200 units/)).toBeInTheDocument();
+      expect(screen.getByText("Greenwood Park")).toBeInTheDocument();
+      expect(screen.getByText(/GRNW.*Delhi.*DL.*200 units/)).toBeInTheDocument();
       expect(screen.getByText("PRIMARY")).toBeInTheDocument();
     });
   });
@@ -322,8 +322,8 @@ describe("CounsellorDetailPage", () => {
           isPrimary: false,
           society: {
             id: "s-1",
-            name: "Eden Park",
-            societyCode: "EDEN",
+            name: "Greenwood Park",
+            societyCode: "GRNW",
             city: "Delhi",
             state: "DL",
             totalUnits: 200,
@@ -335,10 +335,10 @@ describe("CounsellorDetailPage", () => {
     renderPage();
     await waitFor(() => expect(screen.getByRole("tab", { name: /Societies/ })).toBeInTheDocument());
     await user.click(screen.getByRole("tab", { name: /Societies/ }));
-    await waitFor(() => expect(screen.getByText("Eden Park")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Greenwood Park")).toBeInTheDocument());
     await user.click(screen.getByRole("button", { name: /Revoke/ }));
     await waitFor(() => {
-      expect(screen.getByText(/Revoke Eden Park\?/)).toBeInTheDocument();
+      expect(screen.getByText(/Revoke Greenwood Park\?/)).toBeInTheDocument();
     });
   });
 
@@ -353,8 +353,8 @@ describe("CounsellorDetailPage", () => {
           isPrimary: false,
           society: {
             id: "s-1",
-            name: "Eden Park",
-            societyCode: "EDEN",
+            name: "Greenwood Park",
+            societyCode: "GRNW",
             city: "Delhi",
             state: "DL",
             totalUnits: 200,
@@ -367,7 +367,7 @@ describe("CounsellorDetailPage", () => {
     renderPage();
     await waitFor(() => expect(screen.getByRole("tab", { name: /Societies/ })).toBeInTheDocument());
     await user.click(screen.getByRole("tab", { name: /Societies/ }));
-    await waitFor(() => expect(screen.getByText("Eden Park")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Greenwood Park")).toBeInTheDocument());
     await user.click(screen.getByRole("button", { name: /Revoke/ }));
     await waitFor(() => expect(screen.getByText("Yes, revoke")).toBeInTheDocument());
     await user.click(screen.getByText("Yes, revoke"));
@@ -388,8 +388,8 @@ describe("CounsellorDetailPage", () => {
           isPrimary: false,
           society: {
             id: "s-1",
-            name: "Eden Park",
-            societyCode: "EDEN",
+            name: "Greenwood Park",
+            societyCode: "GRNW",
             city: "Delhi",
             state: "DL",
             totalUnits: 200,
@@ -402,7 +402,7 @@ describe("CounsellorDetailPage", () => {
     renderPage();
     await waitFor(() => expect(screen.getByRole("tab", { name: /Societies/ })).toBeInTheDocument());
     await user.click(screen.getByRole("tab", { name: /Societies/ }));
-    await waitFor(() => expect(screen.getByText("Eden Park")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Greenwood Park")).toBeInTheDocument());
     await user.click(screen.getByRole("button", { name: /Revoke/ }));
     await waitFor(() => expect(screen.getByText("Yes, revoke")).toBeInTheDocument());
     await user.click(screen.getByText("Yes, revoke"));

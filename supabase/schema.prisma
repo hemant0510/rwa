@@ -1,5 +1,5 @@
 // prisma/schema.prisma
-// Eden Estate RWA Connect — Complete Database Schema
+// RWA Connect — Complete Database Schema
 // 22 tables: 14 core MVP + 8 Phase 2+ stubs
 
 generator client {

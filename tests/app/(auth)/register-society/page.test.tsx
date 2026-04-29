@@ -106,8 +106,8 @@ function renderPage() {
 
 /** Fill all required fields in step 0 (Society Info) */
 async function fillStep0(user: ReturnType<typeof userEvent.setup>) {
-  // Typing the name auto-fills Short Code via deriveSocietyCode ("Eden Estate RWA" → "EDEST")
-  await user.type(screen.getByLabelText(/society name/i), "Eden Estate RWA");
+  // Typing the name auto-fills Short Code via deriveSocietyCode ("Greenwood Residency RWA" → "EDEST")
+  await user.type(screen.getByLabelText(/society name/i), "Greenwood Residency RWA");
   // Wait for the auto-derived code to be at least 4 chars (useEffect fires after name change)
   await waitFor(() => {
     const codeInput = screen.getByLabelText(/short code/i) as HTMLInputElement;
@@ -231,6 +231,18 @@ describe("RegisterSocietyPage", () => {
     await waitFor(() => expect(screen.getByText(/✗ already taken/i)).toBeInTheDocument());
   });
 
+  it("Reset button clears manual code edit and re-derives from name", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.type(screen.getByLabelText(/society name/i), "Greenwood Residency");
+    const codeInput = screen.getByLabelText(/short code/i) as HTMLInputElement;
+    await user.clear(codeInput);
+    await user.type(codeInput, "MANUAL");
+    const resetBtn = await screen.findByRole("button", { name: /reset/i });
+    await user.click(resetBtn);
+    await waitFor(() => expect(codeInput.value).not.toBe("MANUAL"));
+  });
+
   // ── Step 0 — Next button gating ───────────────────────────────────────────
 
   it("Next button is disabled when form is empty", () => {
@@ -241,7 +253,7 @@ describe("RegisterSocietyPage", () => {
   it("Next button is disabled when consent checkbox is not ticked", async () => {
     const user = userEvent.setup();
     renderPage();
-    await user.type(screen.getByLabelText(/society name/i), "Eden Estate RWA");
+    await user.type(screen.getByLabelText(/society name/i), "Greenwood Residency RWA");
     await user.type(screen.getByLabelText(/short code/i), "EDEN");
     await user.type(screen.getByLabelText(/city/i), "Gurugram");
     await user.type(screen.getByLabelText(/pincode/i), "122001");
@@ -504,8 +516,8 @@ describe("RegisterSocietyPage", () => {
     const user = userEvent.setup();
     renderPage();
     await goToStep3(user);
-    await user.type(screen.getByLabelText(/your name/i), "Hemant Bhagat");
-    await user.type(screen.getByLabelText(/^email/i), "hemant@example.com");
+    await user.type(screen.getByLabelText(/your name/i), "Arjun Kapoor");
+    await user.type(screen.getByLabelText(/^email/i), "arjun@example.com");
     await user.type(screen.getByLabelText(/^password/i), "password123");
     await user.type(screen.getByLabelText(/confirm password/i), "password123");
     await waitFor(() =>
@@ -517,8 +529,8 @@ describe("RegisterSocietyPage", () => {
 
   async function fillAndSubmit(user: ReturnType<typeof userEvent.setup>) {
     await goToStep3(user);
-    await user.type(screen.getByLabelText(/your name/i), "Hemant Bhagat");
-    await user.type(screen.getByLabelText(/^email/i), "hemant@example.com");
+    await user.type(screen.getByLabelText(/your name/i), "Arjun Kapoor");
+    await user.type(screen.getByLabelText(/^email/i), "arjun@example.com");
     await user.type(screen.getByLabelText(/^password/i), "password123");
     await user.type(screen.getByLabelText(/confirm password/i), "password123");
     await waitFor(() =>
@@ -545,7 +557,7 @@ describe("RegisterSocietyPage", () => {
 
     await waitFor(() =>
       expect(mockSignIn).toHaveBeenCalledWith({
-        email: "hemant@example.com",
+        email: "arjun@example.com",
         password: "password123",
       }),
     );
@@ -629,7 +641,7 @@ describe("RegisterSocietyPage", () => {
 
     // Type admin name and email but use mismatched passwords
     await user.type(screen.getByLabelText(/your name/i), "H");
-    await user.type(screen.getByLabelText(/^email/i), "hemant@example.com");
+    await user.type(screen.getByLabelText(/^email/i), "arjun@example.com");
     await user.type(screen.getByLabelText(/^password/i), "password123");
     await user.type(screen.getByLabelText(/confirm password/i), "different123");
 

@@ -41,8 +41,8 @@ function renderPage() {
 const sampleSocieties = [
   {
     id: "s-1",
-    name: "Eden Park",
-    societyCode: "EDEN",
+    name: "Greenwood Park",
+    societyCode: "GRNW",
     city: "Delhi",
     state: "DL",
     totalUnits: 200,
@@ -106,16 +106,16 @@ describe("AssignSocietiesPage", () => {
   it("renders society rows with code/city/state/units/plan", async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText("Eden Park")).toBeInTheDocument();
+      expect(screen.getByText("Greenwood Park")).toBeInTheDocument();
       expect(screen.getByText("Green Valley")).toBeInTheDocument();
-      expect(screen.getByText(/EDEN.*Delhi.*DL.*200.*STANDARD/)).toBeInTheDocument();
+      expect(screen.getByText(/GRNW.*Delhi.*DL.*200.*STANDARD/)).toBeInTheDocument();
     });
   });
 
   it("toggles selection of a single row and updates count", async () => {
     const user = userEvent.setup();
     renderPage();
-    await waitFor(() => expect(screen.getByText("Eden Park")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Greenwood Park")).toBeInTheDocument());
     const checkboxes = screen.getAllByRole("checkbox");
     // First checkbox is "select all", next two are rows
     await user.click(checkboxes[1]);
@@ -125,7 +125,7 @@ describe("AssignSocietiesPage", () => {
   it("toggles a row OFF when clicked again", async () => {
     const user = userEvent.setup();
     renderPage();
-    await waitFor(() => expect(screen.getByText("Eden Park")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Greenwood Park")).toBeInTheDocument());
     const checkboxes = screen.getAllByRole("checkbox");
     await user.click(checkboxes[1]);
     expect(screen.getByText(/1 of 2 selected/)).toBeInTheDocument();
@@ -137,7 +137,7 @@ describe("AssignSocietiesPage", () => {
     mockAssignSocieties.mockResolvedValue({ assigned: 2, reactivated: 0, alreadyActive: 0 });
     const user = userEvent.setup();
     renderPage();
-    await waitFor(() => expect(screen.getByText("Eden Park")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Greenwood Park")).toBeInTheDocument());
     await user.click(screen.getByLabelText("Select all"));
     await user.click(screen.getByRole("button", { name: /Assign 2 societies/ }));
     await waitFor(() => {
@@ -149,11 +149,11 @@ describe("AssignSocietiesPage", () => {
 
   it("handles CSV row with empty first cell (uses ?? fallback)", async () => {
     mockPapaParse.mockImplementation((_file, opts) => {
-      opts.complete({ data: [[undefined], ["EDEN"]] });
+      opts.complete({ data: [[undefined], ["GRNW"]] });
     });
     const user = userEvent.setup();
     renderPage();
-    await waitFor(() => expect(screen.getByText("Eden Park")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Greenwood Park")).toBeInTheDocument());
     await user.upload(screen.getByTestId("csv-input") as HTMLInputElement, new File([], "x.csv"));
     await waitFor(() => expect(screen.getByText(/1 code loaded/)).toBeInTheDocument());
   });
@@ -161,7 +161,7 @@ describe("AssignSocietiesPage", () => {
   it("toggles all rows via select-all checkbox", async () => {
     const user = userEvent.setup();
     renderPage();
-    await waitFor(() => expect(screen.getByText("Eden Park")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Greenwood Park")).toBeInTheDocument());
     const selectAll = screen.getByLabelText("Select all");
     await user.click(selectAll);
     expect(screen.getByText(/2 of 2 selected/)).toBeInTheDocument();
@@ -180,7 +180,7 @@ describe("AssignSocietiesPage", () => {
 
   it("disables Assign button when nothing selected", async () => {
     renderPage();
-    await waitFor(() => expect(screen.getByText("Eden Park")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Greenwood Park")).toBeInTheDocument());
     expect(screen.getByRole("button", { name: /Assign 0 societies/ })).toBeDisabled();
   });
 
@@ -188,7 +188,7 @@ describe("AssignSocietiesPage", () => {
     mockAssignSocieties.mockResolvedValue({ assigned: 1, reactivated: 0, alreadyActive: 0 });
     const user = userEvent.setup();
     renderPage();
-    await waitFor(() => expect(screen.getByText("Eden Park")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Greenwood Park")).toBeInTheDocument());
     const checkboxes = screen.getAllByRole("checkbox");
     await user.click(checkboxes[1]);
     await user.click(screen.getByRole("button", { name: /Assign 1 society/ }));
@@ -203,7 +203,7 @@ describe("AssignSocietiesPage", () => {
     mockAssignSocieties.mockResolvedValue({ assigned: 0, reactivated: 0, alreadyActive: 1 });
     const user = userEvent.setup();
     renderPage();
-    await waitFor(() => expect(screen.getByText("Eden Park")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Greenwood Park")).toBeInTheDocument());
     const checkboxes = screen.getAllByRole("checkbox");
     await user.click(checkboxes[1]);
     await user.click(screen.getByRole("button", { name: /Assign/ }));
@@ -216,7 +216,7 @@ describe("AssignSocietiesPage", () => {
     mockAssignSocieties.mockRejectedValue(new Error("forbidden"));
     const user = userEvent.setup();
     renderPage();
-    await waitFor(() => expect(screen.getByText("Eden Park")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Greenwood Park")).toBeInTheDocument());
     const checkboxes = screen.getAllByRole("checkbox");
     await user.click(checkboxes[1]);
     await user.click(screen.getByRole("button", { name: /Assign 1 society/ }));
@@ -228,20 +228,20 @@ describe("AssignSocietiesPage", () => {
   it("navigates back to detail page on Cancel", async () => {
     const user = userEvent.setup();
     renderPage();
-    await waitFor(() => expect(screen.getByText("Eden Park")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Greenwood Park")).toBeInTheDocument());
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(mockPush).toHaveBeenCalledWith("/sa/counsellors/c-1");
   });
 
   it("parses CSV file and reports matched/unmatched counts", async () => {
     mockPapaParse.mockImplementation((_file, opts) => {
-      opts.complete({ data: [["EDEN"], ["UNKNOWN"]] });
+      opts.complete({ data: [["GRNW"], ["UNKNOWN"]] });
     });
     const user = userEvent.setup();
     renderPage();
-    await waitFor(() => expect(screen.getByText("Eden Park")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Greenwood Park")).toBeInTheDocument());
 
-    const file = new File(["EDEN\nUNKNOWN"], "codes.csv", { type: "text/csv" });
+    const file = new File(["GRNW\nUNKNOWN"], "codes.csv", { type: "text/csv" });
     const input = screen.getByTestId("csv-input") as HTMLInputElement;
     await user.upload(input, file);
 
@@ -253,12 +253,12 @@ describe("AssignSocietiesPage", () => {
 
   it("skips header row 'society_code' when parsing CSV", async () => {
     mockPapaParse.mockImplementation((_file, opts) => {
-      opts.complete({ data: [["society_code"], ["EDEN"]] });
+      opts.complete({ data: [["society_code"], ["GRNW"]] });
     });
     const user = userEvent.setup();
     renderPage();
-    await waitFor(() => expect(screen.getByText("Eden Park")).toBeInTheDocument());
-    const file = new File(["society_code\nEDEN"], "codes.csv", { type: "text/csv" });
+    await waitFor(() => expect(screen.getByText("Greenwood Park")).toBeInTheDocument());
+    const file = new File(["society_code\nGRNW"], "codes.csv", { type: "text/csv" });
     await user.upload(screen.getByTestId("csv-input") as HTMLInputElement, file);
     await waitFor(() => {
       expect(screen.getByText(/1 code loaded/)).toBeInTheDocument();
@@ -271,7 +271,7 @@ describe("AssignSocietiesPage", () => {
     });
     const user = userEvent.setup();
     renderPage();
-    await waitFor(() => expect(screen.getByText("Eden Park")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Greenwood Park")).toBeInTheDocument());
     const file = new File(["bad"], "codes.csv", { type: "text/csv" });
     await user.upload(screen.getByTestId("csv-input") as HTMLInputElement, file);
     await waitFor(() => {
@@ -281,14 +281,14 @@ describe("AssignSocietiesPage", () => {
 
   it("applies CSV selection when matched codes exist", async () => {
     mockPapaParse.mockImplementation((_file, opts) => {
-      opts.complete({ data: [["EDEN"]] });
+      opts.complete({ data: [["GRNW"]] });
     });
     const user = userEvent.setup();
     renderPage();
-    await waitFor(() => expect(screen.getByText("Eden Park")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Greenwood Park")).toBeInTheDocument());
     await user.upload(
       screen.getByTestId("csv-input") as HTMLInputElement,
-      new File(["EDEN"], "x.csv"),
+      new File(["GRNW"], "x.csv"),
     );
     await waitFor(() => expect(screen.getByText(/1 code loaded/)).toBeInTheDocument());
     await user.click(screen.getByRole("button", { name: /Apply CSV selection/ }));
@@ -302,7 +302,7 @@ describe("AssignSocietiesPage", () => {
     });
     const user = userEvent.setup();
     renderPage();
-    await waitFor(() => expect(screen.getByText("Eden Park")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Greenwood Park")).toBeInTheDocument());
     await user.upload(
       screen.getByTestId("csv-input") as HTMLInputElement,
       new File(["UNKNOWN"], "x.csv"),
@@ -314,11 +314,11 @@ describe("AssignSocietiesPage", () => {
 
   it("indicates unmatched codes in success message when some don't match", async () => {
     mockPapaParse.mockImplementation((_file, opts) => {
-      opts.complete({ data: [["EDEN"], ["UNKNOWN"]] });
+      opts.complete({ data: [["GRNW"], ["UNKNOWN"]] });
     });
     const user = userEvent.setup();
     renderPage();
-    await waitFor(() => expect(screen.getByText("Eden Park")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Greenwood Park")).toBeInTheDocument());
     await user.upload(screen.getByTestId("csv-input") as HTMLInputElement, new File([], "x.csv"));
     await waitFor(() => expect(screen.getByText(/2 codes loaded/)).toBeInTheDocument());
     await user.click(screen.getByRole("button", { name: /Apply CSV selection/ }));

@@ -39,9 +39,9 @@ describe("SocietyTabs", () => {
 
 describe("OverviewTab", () => {
   const society = {
-    name: "Eden Estate",
+    name: "Greenwood Residency",
     status: "ACTIVE",
-    societyCode: "EDEN01",
+    societyCode: "GRNW01",
     city: "Gurgaon",
     state: "Haryana",
     type: "APARTMENT_COMPLEX",
@@ -52,8 +52,8 @@ describe("OverviewTab", () => {
 
   it("renders society info", () => {
     render(<OverviewTab society={society} />);
-    expect(screen.getByText("Eden Estate")).toBeInTheDocument();
-    expect(screen.getByText("EDEN01")).toBeInTheDocument();
+    expect(screen.getByText("Greenwood Residency")).toBeInTheDocument();
+    expect(screen.getByText("GRNW01")).toBeInTheDocument();
     expect(screen.getByText("ACTIVE")).toBeInTheDocument();
     expect(screen.getByText(/Gurgaon/)).toBeInTheDocument();
   });

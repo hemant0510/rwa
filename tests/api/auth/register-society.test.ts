@@ -39,14 +39,14 @@ vi.mock("@/lib/fee-calculator", () => ({ generateSocietyId: mockGenerateSocietyI
 import { POST } from "@/app/api/v1/auth/register-society/route";
 
 const VALID_BODY = {
-  name: "Eden Estate RWA",
+  name: "Greenwood Residency RWA",
   state: "HR",
   city: "Gurugram",
   pincode: "122001",
   type: "APARTMENT_COMPLEX",
-  societyCode: "EDEN",
-  adminName: "Hemant Bhagat",
-  adminEmail: "hemant@example.com",
+  societyCode: "GRNW",
+  adminName: "Arjun Kapoor",
+  adminEmail: "arjun@example.com",
   adminPassword: "password123",
   adminPasswordConfirm: "password123",
 };
@@ -62,11 +62,11 @@ function makeReq(body: unknown) {
 const MOCK_SOCIETY = {
   id: "society-uuid",
   societyId: "HR-GRG-122001-001",
-  societyCode: "EDEN",
-  name: "Eden Estate RWA",
+  societyCode: "GRNW",
+  name: "Greenwood Residency RWA",
 };
-const MOCK_ADMIN = { id: "admin-uuid", name: "Hemant Bhagat" };
-const MOCK_AUTH_USER = { id: "auth-uuid", email: "hemant@example.com" };
+const MOCK_ADMIN = { id: "admin-uuid", name: "Arjun Kapoor" };
+const MOCK_AUTH_USER = { id: "auth-uuid", email: "arjun@example.com" };
 
 describe("POST /api/v1/auth/register-society", () => {
   beforeEach(() => {

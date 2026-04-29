@@ -199,7 +199,7 @@ export default function NewSocietyPage() {
                   </Label>
                   <Input
                     id="name"
-                    placeholder="Eden Estate RWA"
+                    placeholder="Greenwood Residency RWA"
                     aria-invalid={!!errors.name}
                     {...register("name")}
                   />
@@ -211,7 +211,7 @@ export default function NewSocietyPage() {
                   </Label>
                   <Input
                     id="societyCode"
-                    placeholder="EDEN01"
+                    placeholder="GRNW01"
                     aria-invalid={!!errors.societyCode}
                     {...register("societyCode", {
                       onChange: (e) => {
@@ -450,7 +450,7 @@ export default function NewSocietyPage() {
                   </Label>
                   <Input
                     id="adminName"
-                    placeholder="Hemant Kumar"
+                    placeholder="Arjun Kapoor"
                     aria-invalid={!!errors.adminName}
                     {...register("adminName")}
                   />

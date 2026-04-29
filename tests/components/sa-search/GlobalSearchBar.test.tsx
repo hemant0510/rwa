@@ -32,7 +32,13 @@ const EMPTY_RESPONSE = {
 
 const SAMPLE_RESPONSE = {
   societies: [
-    { id: "soc-1", name: "Eden Estate", societyCode: "EDEN01", status: "ACTIVE", city: "Gurgaon" },
+    {
+      id: "soc-1",
+      name: "Greenwood Residency",
+      societyCode: "GRNW01",
+      status: "ACTIVE",
+      city: "Gurgaon",
+    },
   ],
   residents: [],
   payments: [],
@@ -102,21 +108,21 @@ describe("GlobalSearchBar", () => {
       render(<GlobalSearchBar />);
 
       const input = screen.getByPlaceholderText("Search residents, societies, transactions...");
-      await user.type(input, "Eden");
+      await user.type(input, "Greenwood");
 
       await act(async () => {
         vi.advanceTimersByTime(300);
       });
 
       await waitFor(() => {
-        expect(screen.getByText("Eden Estate")).toBeInTheDocument();
+        expect(screen.getByText("Greenwood Residency")).toBeInTheDocument();
       });
 
       await act(async () => {
         document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
       });
 
-      expect(screen.queryByText("Eden Estate")).not.toBeInTheDocument();
+      expect(screen.queryByText("Greenwood Residency")).not.toBeInTheDocument();
     });
 
     it("shows search results in dropdown when results come back", async () => {
@@ -129,14 +135,14 @@ describe("GlobalSearchBar", () => {
       render(<GlobalSearchBar />);
 
       const input = screen.getByPlaceholderText("Search residents, societies, transactions...");
-      await user.type(input, "Eden");
+      await user.type(input, "Greenwood");
 
       await act(async () => {
         vi.advanceTimersByTime(300);
       });
 
       await waitFor(() => {
-        expect(screen.getByText("Eden Estate")).toBeInTheDocument();
+        expect(screen.getByText("Greenwood Residency")).toBeInTheDocument();
       });
     });
 
@@ -173,21 +179,21 @@ describe("GlobalSearchBar", () => {
       );
 
       const input = screen.getByPlaceholderText("Search residents, societies, transactions...");
-      await user.type(input, "Eden");
+      await user.type(input, "Greenwood");
 
       await act(async () => {
         vi.advanceTimersByTime(300);
       });
 
       await waitFor(() => {
-        expect(screen.getByText("Eden Estate")).toBeInTheDocument();
+        expect(screen.getByText("Greenwood Residency")).toBeInTheDocument();
       });
 
       await act(async () => {
         document.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
       });
 
-      expect(screen.queryByText("Eden Estate")).not.toBeInTheDocument();
+      expect(screen.queryByText("Greenwood Residency")).not.toBeInTheDocument();
     });
 
     it("handles fetch errors gracefully without crashing", async () => {
@@ -240,14 +246,14 @@ describe("GlobalSearchBar", () => {
       render(<GlobalSearchBar />);
 
       const input = screen.getByPlaceholderText("Search residents, societies, transactions...");
-      await user.type(input, "Eden");
+      await user.type(input, "Greenwood");
 
       await act(async () => {
         vi.advanceTimersByTime(300);
       });
 
       await waitFor(() => {
-        expect(screen.getByText("Eden Estate")).toBeInTheDocument();
+        expect(screen.getByText("Greenwood Residency")).toBeInTheDocument();
       });
 
       // Close via Escape — clears query + results
@@ -255,7 +261,7 @@ describe("GlobalSearchBar", () => {
         document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
       });
 
-      expect(screen.queryByText("Eden Estate")).not.toBeInTheDocument();
+      expect(screen.queryByText("Greenwood Residency")).not.toBeInTheDocument();
       expect(input).toHaveValue("");
     });
 

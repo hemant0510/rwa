@@ -27,7 +27,7 @@ vi.mock("next/image", () => ({
 const defaultProps = {
   upiQrUrl: "https://example.com/qr.png",
   upiId: "society@sbi",
-  accountName: "Eden Estate RWA",
+  accountName: "Greenwood Residency RWA",
   amount: 2000,
 };
 
@@ -67,7 +67,7 @@ describe("UpiQrDisplay", () => {
 
   it("renders the account name", () => {
     render(<UpiQrDisplay {...defaultProps} />);
-    expect(screen.getByText("Eden Estate RWA")).toBeInTheDocument();
+    expect(screen.getByText("Greenwood Residency RWA")).toBeInTheDocument();
   });
 
   it("does not render UPI ID or copy button when upiId is null", () => {
@@ -78,7 +78,7 @@ describe("UpiQrDisplay", () => {
 
   it("does not render account name when accountName is null", () => {
     render(<UpiQrDisplay {...defaultProps} accountName={null} />);
-    expect(screen.queryByText("Eden Estate RWA")).not.toBeInTheDocument();
+    expect(screen.queryByText("Greenwood Residency RWA")).not.toBeInTheDocument();
   });
 
   // ── Copy behaviour ─────────────────────────────────────────────────────────

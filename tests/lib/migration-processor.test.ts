@@ -46,7 +46,7 @@ const mockSupabaseAdmin = {
 const mockSocietyRaw = {
   id: "soc-id-1",
   societyId: "RWA-DL-EDN-110001-0001",
-  name: "Eden Estate",
+  name: "Greenwood Residency",
   type: "APARTMENT_COMPLEX",
   annualFee: 2400,
   feeSessionStartMonth: 4,
@@ -80,7 +80,7 @@ describe("buildSocietyContext", () => {
     const ctx = buildSocietyContext(mockSocietyRaw);
     expect(ctx.id).toBe("soc-id-1");
     expect(ctx.societyId).toBe("RWA-DL-EDN-110001-0001");
-    expect(ctx.name).toBe("Eden Estate");
+    expect(ctx.name).toBe("Greenwood Residency");
     expect(ctx.type).toBe("APARTMENT_COMPLEX");
     expect(ctx.annualFee).toBe(2400);
     expect(ctx.sessionYear).toBe("2025-26");

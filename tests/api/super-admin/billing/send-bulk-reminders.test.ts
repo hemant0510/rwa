@@ -43,7 +43,7 @@ describe("POST /api/v1/super-admin/billing/send-bulk-reminders", () => {
     mockRequireSuperAdmin.mockResolvedValue(saOk);
     mockLogAudit.mockResolvedValue(undefined);
     mockPrisma.society.findMany.mockResolvedValue([
-      { id: SOC_ID_1, name: "Eden Estate" },
+      { id: SOC_ID_1, name: "Greenwood Residency" },
       { id: SOC_ID_2, name: "Green Park" },
     ]);
     mockPrisma.user.findMany.mockResolvedValue([

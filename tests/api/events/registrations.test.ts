@@ -87,7 +87,7 @@ const mockCreatedPayment = {
   societyId: "soc-1",
   amount: 500,
   paymentMode: "CASH",
-  receiptNo: "EVT-EDEN-2026-00001",
+  receiptNo: "EVT-GRNW-2026-00001",
   paymentDate: new Date("2026-04-15"),
   notes: null,
   recordedBy: "admin-1",
@@ -172,7 +172,7 @@ describe("POST /api/v1/societies/[id]/events/[eventId]/registrations/[regId]/pay
       feeAmount: 500,
     });
     mockPrisma.eventRegistration.findUnique.mockResolvedValue(mockRegistration);
-    mockPrisma.society.findUnique.mockResolvedValue({ societyCode: "EDEN" });
+    mockPrisma.society.findUnique.mockResolvedValue({ societyCode: "GRNW" });
     mockPrisma.eventPayment.findFirst.mockResolvedValue(null);
     mockPrisma.eventPayment.create.mockResolvedValue(mockCreatedPayment);
     mockPrisma.eventRegistration.update.mockResolvedValue({
@@ -338,7 +338,7 @@ describe("POST /api/v1/societies/[id]/events/[eventId]/registrations/[regId]/pay
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.id).toBe("pay-1");
-    expect(body.receiptNo).toBe("EVT-EDEN-2026-00001");
+    expect(body.receiptNo).toBe("EVT-GRNW-2026-00001");
   });
 
   it("transitions PENDING registration to CONFIRMED after payment", async () => {
@@ -366,11 +366,11 @@ describe("POST /api/v1/societies/[id]/events/[eventId]/registrations/[regId]/pay
   });
 
   it("increments receipt sequence when a prior payment exists", async () => {
-    mockPrisma.eventPayment.findFirst.mockResolvedValue({ receiptNo: "EVT-EDEN-2026-00003" });
+    mockPrisma.eventPayment.findFirst.mockResolvedValue({ receiptNo: "EVT-GRNW-2026-00003" });
     await POST(makePostRequest(mockPaymentBody), makePaymentParams());
     expect(mockPrisma.eventPayment.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ receiptNo: "EVT-EDEN-2026-00004" }),
+        data: expect.objectContaining({ receiptNo: "EVT-GRNW-2026-00004" }),
       }),
     );
   });

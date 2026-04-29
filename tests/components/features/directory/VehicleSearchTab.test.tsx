@@ -31,7 +31,7 @@ const sample: VehicleSearchResult = {
   model: "Swift",
   colour: "White",
   unit: { displayLabel: "A-101" },
-  owner: { name: "Hemant" },
+  owner: { name: "Arjun" },
   dependentOwner: { name: "Asha" },
 };
 
@@ -80,7 +80,7 @@ describe("VehicleSearchTab", () => {
     });
     expect(screen.getByText(/Maruti Swift/)).toBeInTheDocument();
     expect(screen.getByText(/A-101/)).toBeInTheDocument();
-    expect(screen.getByText(/Owner: Hemant/)).toBeInTheDocument();
+    expect(screen.getByText(/Owner: Arjun/)).toBeInTheDocument();
     expect(screen.getByText(/Driver: Asha/)).toBeInTheDocument();
     // No phone number anywhere in the rendered result
     expect(screen.queryByText(/\+91/)).not.toBeInTheDocument();

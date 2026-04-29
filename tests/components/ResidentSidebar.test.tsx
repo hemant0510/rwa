@@ -34,13 +34,13 @@ beforeEach(() => {
 
 describe("ResidentSidebar", () => {
   it("renders RWA Connect heading", () => {
-    render(<ResidentSidebar societyName="Eden Estate" />, { wrapper });
+    render(<ResidentSidebar societyName="Greenwood Residency" />, { wrapper });
     expect(screen.getByText("RWA Connect")).toBeInTheDocument();
   });
 
   it("renders society name as subtitle", () => {
-    render(<ResidentSidebar societyName="Eden Estate" />, { wrapper });
-    expect(screen.getByText("Eden Estate")).toBeInTheDocument();
+    render(<ResidentSidebar societyName="Greenwood Residency" />, { wrapper });
+    expect(screen.getByText("Greenwood Residency")).toBeInTheDocument();
   });
 
   it("renders Resident Portal when no society name", () => {
@@ -79,11 +79,18 @@ describe("ResidentSidebar", () => {
 
 describe("ResidentMobileSidebar", () => {
   it("renders nav items when open", () => {
-    render(<ResidentMobileSidebar open={true} onOpenChange={vi.fn()} societyName="Eden Estate" />, {
-      wrapper,
-    });
+    render(
+      <ResidentMobileSidebar
+        open={true}
+        onOpenChange={vi.fn()}
+        societyName="Greenwood Residency"
+      />,
+      {
+        wrapper,
+      },
+    );
     expect(screen.getByText("Home")).toBeInTheDocument();
-    expect(screen.getByText("Eden Estate")).toBeInTheDocument();
+    expect(screen.getByText("Greenwood Residency")).toBeInTheDocument();
   });
 
   it("includes accessible SheetTitle", () => {

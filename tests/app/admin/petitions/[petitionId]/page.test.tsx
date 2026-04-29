@@ -65,8 +65,8 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/hooks/useSocietyId", () => ({
   useSocietyId: () => ({
     societyId: "soc-1",
-    societyName: "Eden Estate",
-    societyCode: "EDEN",
+    societyName: "Greenwood Residency",
+    societyCode: "GRNW",
     isSuperAdminViewing: false,
     saQueryString: "",
   }),
@@ -172,7 +172,7 @@ const SIGNATURES = [
     method: "UPLOADED",
     signatureUrl: "",
     signedAt: "2026-03-22T10:00:00.000Z",
-    user: { name: "Hemant Bhagat", email: "h@example.com", mobile: null },
+    user: { name: "Arjun Kapoor", email: "h@example.com", mobile: null },
   },
 ];
 
@@ -853,7 +853,7 @@ describe("PetitionDetailPage", () => {
     await user.click(screen.getByRole("tab", { name: /signatures/i }));
     await waitFor(() => {
       expect(screen.getByText("Gaurav Gupta")).toBeInTheDocument();
-      expect(screen.getByText("Hemant Bhagat")).toBeInTheDocument();
+      expect(screen.getByText("Arjun Kapoor")).toBeInTheDocument();
     });
   });
 

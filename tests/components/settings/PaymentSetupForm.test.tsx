@@ -36,7 +36,7 @@ const defaultInitialValues: {
 const populatedInitialValues = {
   upiId: "edenestate@sbi",
   upiQrUrl: "https://example.com/qr.png",
-  upiAccountName: "Eden Estate RWA",
+  upiAccountName: "Greenwood Residency RWA",
 };
 
 function renderForm(initialValues = defaultInitialValues) {
@@ -74,7 +74,7 @@ describe("PaymentSetupForm", () => {
   it("renders account name field", () => {
     renderForm();
     expect(screen.getByText(/Bank Account Name/)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("Eden Estate RWA")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Greenwood Residency RWA")).toBeInTheDocument();
   });
 
   it("renders the save button", () => {
@@ -118,8 +118,8 @@ describe("PaymentSetupForm", () => {
 
   it("pre-fills upiAccountName from initialValues", () => {
     renderForm(populatedInitialValues);
-    const accountInput = screen.getByPlaceholderText("Eden Estate RWA");
-    expect(accountInput).toHaveValue("Eden Estate RWA");
+    const accountInput = screen.getByPlaceholderText("Greenwood Residency RWA");
+    expect(accountInput).toHaveValue("Greenwood Residency RWA");
   });
 
   // ── Validation ─────────────────────────────────────────────────────────────
@@ -240,7 +240,7 @@ describe("PaymentSetupForm", () => {
     renderForm();
 
     await user.type(screen.getByPlaceholderText("edenestate@sbi"), "society@hdfc");
-    await user.type(screen.getByPlaceholderText("Eden Estate RWA"), "Test RWA");
+    await user.type(screen.getByPlaceholderText("Greenwood Residency RWA"), "Test RWA");
     await user.click(screen.getByRole("button", { name: /Save UPI Settings/i }));
 
     await waitFor(() => {

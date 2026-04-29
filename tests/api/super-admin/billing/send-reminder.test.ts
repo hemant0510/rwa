@@ -26,7 +26,7 @@ const saOk = {
   error: null,
 };
 
-const mockSociety = { id: "soc-1", name: "Eden Estate" };
+const mockSociety = { id: "soc-1", name: "Greenwood Residency" };
 const mockAdmin = { email: "admin@eden.com" };
 
 function makeReq(body: unknown) {

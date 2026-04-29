@@ -19,7 +19,7 @@ const saOk = {
 
 const mockSubscription = {
   societyId: "soc-1",
-  society: { id: "soc-1", name: "Eden Estate", societyCode: "EDEN" },
+  society: { id: "soc-1", name: "Greenwood Residency", societyCode: "GRNW" },
   plan: { name: "Community" },
   currentPeriodEnd: new Date("2026-04-15"),
 };
@@ -53,8 +53,8 @@ describe("GET /api/v1/super-admin/billing/expiring", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toHaveLength(1);
-    expect(body[0].societyName).toBe("Eden Estate");
-    expect(body[0].societyCode).toBe("EDEN");
+    expect(body[0].societyName).toBe("Greenwood Residency");
+    expect(body[0].societyCode).toBe("GRNW");
     expect(body[0].planName).toBe("Community");
   });
 

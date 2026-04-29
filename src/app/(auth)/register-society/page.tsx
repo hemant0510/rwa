@@ -127,7 +127,11 @@ function BrandingPanel() {
 
       {/* Logo */}
       <div className="relative z-10">
-        <div className="mb-2 flex items-center gap-3">
+        <Link
+          href="/"
+          aria-label="RWA Connect — home"
+          className="inline-flex items-center gap-3 rounded-md transition-opacity hover:opacity-90"
+        >
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
             <Building2 className="h-5 w-5 text-white" />
           </div>
@@ -135,7 +139,7 @@ function BrandingPanel() {
             <p className="text-lg leading-none font-bold">RWA Connect</p>
             <p className="text-xs text-emerald-100">Society Management Platform</p>
           </div>
-        </div>
+        </Link>
       </div>
 
       {/* Headline */}
@@ -451,14 +455,23 @@ export default function RegisterSocietyPage() {
       {/* Right: form */}
       <div className="flex w-full flex-col lg:w-7/12">
         {/* Mobile header */}
-        <div className="flex items-center gap-3 border-b px-6 py-4 lg:hidden">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600">
-            <Building2 className="h-4 w-4 text-white" />
-          </div>
-          <div>
-            <p className="text-sm leading-none font-bold text-gray-900">RWA Connect</p>
-            <p className="text-xs text-gray-500">14-day free trial</p>
-          </div>
+        <div className="flex items-center justify-between border-b px-6 py-4 lg:hidden">
+          <Link href="/" className="flex items-center gap-3" aria-label="RWA Connect — home">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600">
+              <Building2 className="h-4 w-4 text-white" />
+            </div>
+            <div>
+              <p className="text-sm leading-none font-bold text-gray-900">RWA Connect</p>
+              <p className="text-xs text-gray-500">14-day free trial</p>
+            </div>
+          </Link>
+          <Link
+            href="/"
+            className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Home
+          </Link>
         </div>
 
         <div className="flex flex-1 flex-col overflow-y-auto px-6 py-8 sm:px-10">

@@ -64,12 +64,12 @@ beforeEach(() => {
 function makeUser(overrides: Record<string, unknown> = {}) {
   return {
     id: "u1",
-    name: "Hemant",
+    name: "Arjun",
     role: "RESIDENT" as const,
     permission: null,
     societyId: "soc-1",
-    societyName: "Eden Estate",
-    societyCode: "EDEN",
+    societyName: "Greenwood Residency",
+    societyCode: "GRNW",
     societyStatus: "ACTIVE",
     trialEndsAt: null,
     isTrialExpired: false,
@@ -103,8 +103,8 @@ function renderLayout(userOverrides: Record<string, unknown> = {}) {
 describe("ResidentLayout", () => {
   it("renders with user's society name", () => {
     renderLayout();
-    expect(screen.getByTestId("subtitle").textContent).toBe("Eden Estate");
-    expect(screen.getByTestId("resident-sidebar").textContent).toContain("Eden Estate");
+    expect(screen.getByTestId("subtitle").textContent).toBe("Greenwood Residency");
+    expect(screen.getByTestId("resident-sidebar").textContent).toContain("Greenwood Residency");
   });
 
   it("falls back to RWA Connect when societyName is null", () => {
@@ -113,8 +113,8 @@ describe("ResidentLayout", () => {
   });
 
   it("shows user name in header", () => {
-    renderLayout({ name: "Hemant Bhagat" });
-    expect(screen.getByTestId("username").textContent).toBe("Hemant Bhagat");
+    renderLayout({ name: "Arjun Kapoor" });
+    expect(screen.getByTestId("username").textContent).toBe("Arjun Kapoor");
   });
 
   it("falls back to Resident when user name is null", () => {

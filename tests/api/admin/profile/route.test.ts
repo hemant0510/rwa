@@ -34,17 +34,17 @@ const mockAdmin = {
   societyId: "soc-1",
   role: "RWA_ADMIN",
   adminPermission: "FULL_ACCESS",
-  name: "Hemant Bhagat",
+  name: "Arjun Kapoor",
 };
 
 const mockDbUser = {
   id: "user-1",
-  name: "Hemant Bhagat",
-  email: "hemant@example.com",
+  name: "Arjun Kapoor",
+  email: "arjun@example.com",
   mobile: "9876543210",
   role: "RWA_ADMIN",
   adminPermission: "FULL_ACCESS",
-  society: { name: "Eden Estate RWA", societyCode: "EDEN" },
+  society: { name: "Greenwood Residency RWA", societyCode: "GRNW" },
 };
 
 function makePatchReq(body: unknown) {
@@ -116,13 +116,13 @@ describe("GET /api/v1/admin/profile", () => {
     const body = await res.json();
     expect(body).toMatchObject({
       id: "user-1",
-      name: "Hemant Bhagat",
-      email: "hemant@example.com",
+      name: "Arjun Kapoor",
+      email: "arjun@example.com",
       mobile: "9876543210",
       role: "RWA_ADMIN",
       adminPermission: "FULL_ACCESS",
-      societyName: "Eden Estate RWA",
-      societyCode: "EDEN",
+      societyName: "Greenwood Residency RWA",
+      societyCode: "GRNW",
     });
   });
 
@@ -164,7 +164,7 @@ describe("PATCH /api/v1/admin/profile", () => {
     mockPrisma.user.update.mockResolvedValue({
       id: "user-1",
       name: "Updated Name",
-      email: "hemant@example.com",
+      email: "arjun@example.com",
       mobile: "9123456789",
     });
   });
@@ -201,8 +201,8 @@ describe("PATCH /api/v1/admin/profile", () => {
   it("sets mobile to null when empty string is provided", async () => {
     mockPrisma.user.update.mockResolvedValue({
       id: "user-1",
-      name: "Hemant Bhagat",
-      email: "hemant@example.com",
+      name: "Arjun Kapoor",
+      email: "arjun@example.com",
       mobile: null,
     });
     const res = await PATCH(makePatchReq({ mobile: "" }));

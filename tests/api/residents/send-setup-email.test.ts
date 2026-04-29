@@ -27,7 +27,7 @@ const mockResident = {
   id: "r1",
   name: "Rajesh Kumar",
   email: "rajesh@eden.com",
-  society: { name: "Eden Estate" },
+  society: { name: "Greenwood Residency" },
 };
 
 describe("POST /api/v1/residents/[id]/send-setup-email", () => {
@@ -61,7 +61,7 @@ describe("POST /api/v1/residents/[id]/send-setup-email", () => {
     await POST(makeReq("r1"), { params: Promise.resolve({ id: "r1" }) });
     expect(mockSendEmail).toHaveBeenCalledWith(
       "rajesh@eden.com",
-      expect.stringContaining("Eden Estate"),
+      expect.stringContaining("Greenwood Residency"),
       expect.any(String),
     );
   });
@@ -69,7 +69,7 @@ describe("POST /api/v1/residents/[id]/send-setup-email", () => {
   it("email subject mentions society name", async () => {
     await POST(makeReq("r1"), { params: Promise.resolve({ id: "r1" }) });
     const [, subject] = mockSendEmail.mock.calls[0];
-    expect(subject).toContain("Eden Estate");
+    expect(subject).toContain("Greenwood Residency");
     expect(subject).toContain("Create your password");
   });
 

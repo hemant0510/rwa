@@ -87,7 +87,7 @@ const mockClaim = {
   status: "PENDING",
   periodStart: new Date("2026-04-01"),
   periodEnd: new Date("2026-05-01"),
-  society: { name: "Eden Estate", societyCode: "EE" },
+  society: { name: "Greenwood Residency", societyCode: "EE" },
   subscription: { planId: "plan-1" },
 };
 
@@ -321,7 +321,7 @@ describe("POST /societies/[id]/subscription-payment-claims", () => {
   it("sends SA email notification when SUPER_ADMIN_NOTIFICATION_EMAIL is set", async () => {
     const originalEmail = process.env.SUPER_ADMIN_NOTIFICATION_EMAIL;
     process.env.SUPER_ADMIN_NOTIFICATION_EMAIL = "sa@example.com";
-    mockPrisma.society.findUnique.mockResolvedValue({ name: "Eden Estate" });
+    mockPrisma.society.findUnique.mockResolvedValue({ name: "Greenwood Residency" });
     const req = makeJsonRequest(
       `http://localhost/api/v1/societies/${SOCIETY_ID}/subscription-payment-claims`,
       "POST",
@@ -332,7 +332,7 @@ describe("POST /societies/[id]/subscription-payment-claims", () => {
     expect(mockSendEmail).toHaveBeenCalledWith(
       "sa@example.com",
       expect.any(String),
-      expect.stringContaining("Eden Estate"),
+      expect.stringContaining("Greenwood Residency"),
     );
     process.env.SUPER_ADMIN_NOTIFICATION_EMAIL = originalEmail;
   });

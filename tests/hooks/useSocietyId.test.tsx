@@ -21,8 +21,8 @@ function makeAdminUser(overrides: Record<string, unknown> = {}) {
     role: "RWA_ADMIN" as const,
     permission: "FULL_ACCESS" as const,
     societyId: "soc-1",
-    societyName: "Eden Estate",
-    societyCode: "EDEN",
+    societyName: "Greenwood Residency",
+    societyCode: "GRNW",
     societyStatus: "ACTIVE",
     trialEndsAt: null,
     isTrialExpired: false,
@@ -58,8 +58,8 @@ describe("useSocietyId — regular admin", () => {
   it("returns user society for regular admin", () => {
     const { result } = renderHook(() => useSocietyId(), { wrapper: makeWrapper(makeAdminUser()) });
     expect(result.current.societyId).toBe("soc-1");
-    expect(result.current.societyName).toBe("Eden Estate");
-    expect(result.current.societyCode).toBe("EDEN");
+    expect(result.current.societyName).toBe("Greenwood Residency");
+    expect(result.current.societyCode).toBe("GRNW");
     expect(result.current.isSuperAdminViewing).toBe(false);
     expect(result.current.saQueryString).toBe("");
   });

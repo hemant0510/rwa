@@ -30,7 +30,7 @@ const mockLog = {
   newValue: { name: "New" },
   ipAddress: "127.0.0.1",
   createdAt: new Date("2026-03-01T10:00:00Z"),
-  society: { name: "Eden Estate" },
+  society: { name: "Greenwood Residency" },
 };
 
 const mockUser = {
@@ -94,7 +94,7 @@ describe("GET /api/v1/super-admin/audit-logs/export", () => {
     expect(lines).toHaveLength(2); // header + 1 row
     expect(lines[1]).toContain("Admin User");
     expect(lines[1]).toContain("SOCIETY_UPDATED");
-    expect(lines[1]).toContain("Eden Estate");
+    expect(lines[1]).toContain("Greenwood Residency");
   });
 
   it("shows Platform for logs with no society", async () => {

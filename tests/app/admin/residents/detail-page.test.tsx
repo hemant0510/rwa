@@ -70,8 +70,8 @@ async function renderPage(id = "r1", userOverrides: Record<string, unknown> = {}
     role: "RWA_ADMIN" as const,
     permission: "FULL_ACCESS" as const,
     societyId: "soc-1",
-    societyName: "Eden Estate",
-    societyCode: "EDEN",
+    societyName: "Greenwood Residency",
+    societyCode: "GRNW",
     societyStatus: "ACTIVE",
     trialEndsAt: null,
     isTrialExpired: false,
@@ -135,7 +135,7 @@ const MOCK_ACTIVE_RESIDENT = {
       status: "PAID",
     },
   ],
-  society: { name: "Eden Estate" },
+  society: { name: "Greenwood Residency" },
 };
 
 const MOCK_PENDING_RESIDENT = {
