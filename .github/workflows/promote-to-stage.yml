@@ -1,0 +1,144 @@
+name: Promote to stage
+
+# Manually triggered. Pulls the dev image for the chosen develop SHA, retags it as
+# stage-<sha>, pushes it back to GHCR, then deploys it to rwa-stage. The image bytes
+# are identical to what was tested on dev — no rebuild. Stage shares the rwa-connect
+# Supabase project with dev, so Prisma migrations are a no-op the second time around.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dev_sha:
+        description: "Develop short SHA to promote (blank = HEAD of develop)"
+        required: false
+        default: ""
+
+concurrency:
+  group: deploy-stage
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/rwa
+  AZURE_RG: rwa-rg-centralindia
+  AZURE_APP: rwa-stage
+  NODE_VERSION: "22"
+
+jobs:
+  promote:
+    name: Retag dev image, deploy to rwa-stage
+    runs-on: ubuntu-latest
+    environment: staging # required reviewer gate is configured here
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+          fetch-depth: 0
+
+      - name: Resolve develop SHA to promote
+        id: sha
+        run: |
+          if [ -n "${{ inputs.dev_sha }}" ]; then
+            git checkout "${{ inputs.dev_sha }}"
+          fi
+          SHA_SHORT=$(git rev-parse --short HEAD)
+          echo "sha_short=$SHA_SHORT" >> "$GITHUB_OUTPUT"
+          echo "image_dev=${REGISTRY}/${IMAGE_NAME}:dev-${SHA_SHORT}" >> "$GITHUB_OUTPUT"
+          echo "image_stage=${REGISTRY}/${IMAGE_NAME}:stage-${SHA_SHORT}" >> "$GITHUB_OUTPUT"
+          echo "image_stage_latest=${REGISTRY}/${IMAGE_NAME}:stage-latest" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Pull dev image, retag as stage, push back to GHCR
+        run: |
+          docker pull "${{ steps.sha.outputs.image_dev }}"
+          docker tag "${{ steps.sha.outputs.image_dev }}" "${{ steps.sha.outputs.image_stage }}"
+          docker tag "${{ steps.sha.outputs.image_dev }}" "${{ steps.sha.outputs.image_stage_latest }}"
+          docker push "${{ steps.sha.outputs.image_stage }}"
+          docker push "${{ steps.sha.outputs.image_stage_latest }}"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install deps (for prisma CLI)
+        run: npm ci --ignore-scripts
+
+      - name: Generate Prisma client
+        run: npx prisma generate --schema supabase/schema.prisma
+
+      # Stage shares the rwa-connect Supabase project with dev, so this is a no-op
+      # if the dev pipeline has already pushed the same schema. Kept here so stage
+      # can be promoted independently if dev's last migration failed mid-way.
+      - name: Sync schema to stage DB (session pooler / direct URL)
+        env:
+          DATABASE_URL: ${{ secrets.STAGE_DIRECT_URL }}
+          DIRECT_URL: ${{ secrets.STAGE_DIRECT_URL }}
+        run: npx prisma db push --schema supabase/schema.prisma --accept-data-loss
+
+      - name: Seed master data
+        env:
+          DATABASE_URL: ${{ secrets.STAGE_DIRECT_URL }}
+          DIRECT_URL: ${{ secrets.STAGE_DIRECT_URL }}
+        run: npm run db:seed:master
+
+      - name: Log in to Azure (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Update registry creds on rwa-stage
+        uses: azure/cli@v2
+        with:
+          azcliversion: latest
+          inlineScript: |
+            az extension add --name containerapp --upgrade --yes
+            az containerapp registry set \
+              --name "$AZURE_APP" \
+              --resource-group "$AZURE_RG" \
+              --server "$REGISTRY" \
+              --username "${{ github.actor }}" \
+              --password "${{ secrets.GHCR_TOKEN }}"
+
+      - name: Deploy new image to rwa-stage (+ ensure port 3000)
+        uses: azure/cli@v2
+        with:
+          azcliversion: latest
+          inlineScript: |
+            az extension add --name containerapp --upgrade --yes
+            az containerapp update \
+              --name "$AZURE_APP" \
+              --resource-group "$AZURE_RG" \
+              --image "${{ steps.sha.outputs.image_stage }}"
+            az containerapp ingress update \
+              --name "$AZURE_APP" \
+              --resource-group "$AZURE_RG" \
+              --target-port 3000
+
+      - name: Smoke test /api/health (12 retries, 15s apart, 30s warmup)
+        run: |
+          URL="${{ secrets.STAGE_NEXT_PUBLIC_APP_URL }}/api/health"
+          echo "Warmup: waiting 30s for new revision to become active..."
+          sleep 30
+          for i in $(seq 1 12); do
+            echo "Attempt $i: GET $URL"
+            if curl -fsS --max-time 10 "$URL" | grep -q '"status":"ok"'; then
+              echo "✅ Healthy"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "❌ Health check failed after 12 attempts (~3min)"
+          exit 1
